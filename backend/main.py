@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from agents.graph import build_graph
 from supabase import create_client
 from dotenv import load_dotenv
 import os
@@ -10,6 +11,8 @@ load_dotenv()
 app = FastAPI(title="DSStar Backend API", version="1.0")
 
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+
+graph = build_graph()
 
 class TaskSubmission(BaseModel):
     query: str
@@ -34,16 +37,45 @@ async def submit_task(task: TaskSubmission):
         "task_id": task_id,
         "query": task.query,
         "formatting_guidelines": task.formatting_guidelines,
-        "status": "queued"
+        "status": "running"
     }).execute()
 
+        # Build initial state
+    initial_state = {
+        "task_id":               task_id,
+        "query":                 task.query,
+        "formatting_guidelines": task.formatting_guidelines,
+        "data_descriptions":     {},
+        "cumulative_plan":       [],
+        "current_script":        "",
+        "execution_result":      "",
+        "exit_code":             0,
+        "current_round":         0,
+        "max_rounds":            10,
+        "verifier_verdict":      "",
+        "router_decision":       "",
+        "status":                "running",
+        "final_result":          None,
+    }
+
+    config = {"configurable": {"thread_id": task_id}}
+
+    result = graph.invoke(initial_state, config=config)
+
+    supabase.table("tasks").update({
+        "status": result["status"],
+        "final_result": result.get("final_result")
+    }).eq("task_id", task_id).execute()
+
     return {"task_id": task_id, 
-            "status":"queued",
-            "query": task.query}
+            "status": result["status"],
+            "query": task.query,
+            "rounds_taken": result["current_round"],
+            "final_result": result["final_result"]}
 
 
 @app.get("/api/v1/get_tasks", 
-         summary="Get Tasks", 
+         summary="Get Tasks",   
          description="Retrieve a list of all tasks", 
          tags=["Tasks"])
 async def get_tasks():
