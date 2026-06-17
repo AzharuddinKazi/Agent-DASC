@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+.env
+
+# Data files — never commit real LFI data
+data/*.csv
+data/*.json
+data/*.xlsx
+data/*.parquet
+data/*.pdf
+
+# Keep test.csv for development
+!data/test.csv
+
+# Sandbox
+sandbox/seccomp_profile.json
+
+# Test logs
+backend/tests/logs/*.log
+backend/tests/logs/*.json
+.pytest_cache/
+
+# macOS
+.DS_Store
+tmp.txt
