@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from agents.graph import build_graph
 from supabase import create_client, Client
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from dotenv import load_dotenv
 import os, uuid, asyncio
 
@@ -15,7 +16,9 @@ graph = None
 async def lifespan(app: FastAPI):
     global supabase, graph
     supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
-    graph = build_graph()
+    async with AsyncPostgresSaver.from_conn_string(os.getenv("SUPABASE_DB_URL")) as checkpointer:
+        await checkpointer.setup()
+        graph = build_graph()
     yield
 
 app = FastAPI(title="DSStar Backend API", version="1.0", lifespan=lifespan)

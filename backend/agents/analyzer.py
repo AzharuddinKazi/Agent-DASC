@@ -2,6 +2,8 @@ import os
 import subprocess
 import tempfile
 from agents.state import TaskState
+from supabase import create_client
+import json
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -80,18 +82,39 @@ def analyze_file(filename: str, filepath: str) -> str:
 
 
 def analyzer(state: TaskState) -> dict:
-    data_path = f"{os.getenv('DSSTAR')}/data"
+    data_path    = f"{os.getenv('DSSTAR')}/data"
+    supabase     = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     descriptions = {}
 
     for fname in os.listdir(data_path):
         if fname.startswith("."):
             continue
-
         filepath = os.path.join(data_path, fname)
         if not os.path.isfile(filepath):
             continue
 
+        file_size = os.path.getsize(filepath)
+
+        # check cache
+        cached = supabase.table("file_descriptions") \
+            .select("description, file_size_bytes") \
+            .eq("filename", fname) \
+            .execute()
+
+        if cached.data and cached.data[0]["file_size_bytes"] == file_size:
+            print(f"[Analyzer] {fname}: using cached description")
+            descriptions[fname] = cached.data[0]["description"]
+            continue
+
+        # analyze and cache
         print(f"[Analyzer] Analyzing {fname}...")
-        descriptions[fname] = analyze_file(fname, filepath)
+        description = analyze_file(fname, filepath)
+        descriptions[fname] = description
+
+        supabase.table("file_descriptions").upsert({
+            "filename":        fname,
+            "description":     description,
+            "file_size_bytes": file_size,
+        }).execute()
 
     return {"data_descriptions": descriptions}

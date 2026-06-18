@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from agents.state import TaskState
 from agents.analyzer import analyzer
 from agents.planner import planner
@@ -9,6 +9,7 @@ from agents.verifier import verifier
 from agents.router_agent import router_agent
 from agents.debugger import debugger
 from agents.finalizer import finalizer
+import os
 
 
 # ── Routing functions ─────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ def route_after_router(state: TaskState) -> str:
 
 # ── Graph builder ─────────────────────────────────────────────────────────────
 
-def build_graph():
+def build_graph(checkpointer=None):
     builder = StateGraph(TaskState)
 
     builder.add_node("analyzer",     analyzer)
@@ -87,5 +88,4 @@ def build_graph():
 
     builder.add_edge("finalizer", END)
 
-    checkpointer = MemorySaver()
     return builder.compile(checkpointer=checkpointer)
