@@ -1,4 +1,5 @@
 from agents.state import TaskState
+from agents.executor import execute_script
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -59,9 +60,11 @@ def finalizer(state: TaskState) -> dict:
         lines        = final_script.split("\n")
         final_script = "\n".join(lines[1:-1])
 
-    print(f"[Finalizer] Final script generated")
-
+    stdout, stderr, exit_code = execute_script(final_script)
+    final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
+    print(f"[Finalizer] Final script executed (exit {exit_code})")
+    
     return {
-        "final_result": final_script,
+        "final_result": final_output,
         "status":       "completed"
     }

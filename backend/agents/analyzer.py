@@ -13,10 +13,12 @@ Generate a Python script that loads and describes the content of {filename}.
 # File location
 The file is located at: /workspace/data/{filename}
 Always use the full path /workspace/data/{filename} when opening the file.
+If nrows is not 'all', use pd.read_csv('/workspace/data/{filename}', nrows={nrows}) to limit rows.
 
 # Requirements
 - Print all column names and their data types for structured data
 - Print the shape (rows, columns) of the data
+- Use nrows=5000 when loading any CSV to avoid memory issues
 - Print the first 5 rows
 - Print basic statistics (null counts, unique values for key columns)
 - For CSV files, try comma as separator first, then semicolon, then tab
@@ -34,7 +36,9 @@ Always use the full path /workspace/data/{filename} when opening the file.
 
 
 def analyze_file(filename: str, filepath: str) -> str:
-    prompt = ANALYZER_PROMPT.format(filename=filename)
+    file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
+    nrows = 10000 if file_size_mb > 50 else None
+    prompt = ANALYZER_PROMPT.format(filename=filename, nrows=nrows or "all")
 
     result = router.complete(agent="analyzer", prompt=prompt)
     script = result["text"].strip()
@@ -52,6 +56,7 @@ def analyze_file(filename: str, filepath: str) -> str:
             [
                 "docker", "run", "--rm",
                 "--network=none",
+                "--memory=2g",
                 "-v", f"{os.getenv('DSSTAR')}/data:/workspace/data:ro",
                 "-v", f"{script_path}:/workspace/scripts/analyze.py:ro",
                 "dsstar-sandbox:latest",

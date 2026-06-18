@@ -16,7 +16,7 @@ CODER_INIT = """# Given data:
 - For CSV files: default separator is comma. Only try others if comma fails
 - Never use shell commands (!head, !cat, etc.) — pure Python only
 - Always print results to stdout so they can be captured
-- Available libraries: pandas, numpy, matplotlib, openpyxl, scipy, sklearn
+- ALWAYS use nrows=10000 when loading any CSV file — no exceptions
 
 # Your task
 Implement the plan with the given data.
@@ -46,7 +46,8 @@ Your task is to implement the next plan with the given data.
 - Never use relative paths like 'filename.csv' or './filename.csv'
 - For CSV files: default separator is comma. Only try others if comma fails
 - Never use shell commands — pure Python only
-- Always print results to stdout
+- Always print results to stdout so they can be captured
+- ALWAYS use nrows=10000 when loading any CSV file — no exceptions
 
 # Your task
 Implement the current plan based on the base code.

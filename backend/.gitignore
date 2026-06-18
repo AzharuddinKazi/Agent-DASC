@@ -12,3 +12,10 @@ wheels/
 tests/logs/*.log
 tests/logs/*.json
 .pytest_cache/
+
+data/
+*.csv
+*.xlsx
+*.parquet
+*.log
+*.json

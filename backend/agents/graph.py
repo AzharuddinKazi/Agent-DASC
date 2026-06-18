@@ -14,7 +14,7 @@ from agents.finalizer import finalizer
 # ── Routing functions ─────────────────────────────────────────────────────────
 
 def route_after_executor(state: TaskState) -> str:
-    if state["exit_code"] != 0:
+    if state["exit_code"] != 0 and state.get("debug_attempts", 0) < 3:
         return "debugger"
     return "verifier"
 
