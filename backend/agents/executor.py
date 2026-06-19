@@ -1,6 +1,8 @@
 import subprocess
 import tempfile
 import os
+
+from supabase import create_client
 from agents.state import TaskState
 
 def execute_script(script: str) -> tuple:
@@ -27,6 +29,11 @@ def execute_script(script: str) -> tuple:
         os.unlink(script_path)
 
 def executor(state: TaskState) -> dict:
+
+    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    supabase.table("tasks").update({"current_agent": "executor"}).eq("task_id", state["task_id"]).execute()
+
+
     stdout, stderr, exit_code = execute_script(state["current_script"])
     print(f"[Executor] Exit code: {exit_code}")
     if stdout:

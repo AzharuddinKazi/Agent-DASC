@@ -1,6 +1,8 @@
 from agents.state import TaskState
 from agents.executor import execute_script
 from llm_router import LLMRouter
+from supabase import create_client
+import os
 
 router = LLMRouter()
 
@@ -34,6 +36,9 @@ Your response should only contain a single code block."""
 
 
 def finalizer(state: TaskState) -> dict:
+    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    supabase.table("tasks").update({"current_agent": "finalizer"}).eq("task_id", state["task_id"]).execute()
+
     question         = state["query"]
     summaries        = state["data_descriptions"]
     current_script   = state["current_script"]

@@ -1,6 +1,8 @@
+import os
+
 from agents.state import TaskState
 from llm_router import LLMRouter
-
+from supabase import create_client
 router = LLMRouter()
 
 PLANNER_INIT = """You are an expert data analyst.
@@ -46,6 +48,10 @@ PLANNER_NEXT = """You are an expert data analyst.
 
 
 def planner(state: TaskState) -> dict:
+    
+    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    supabase.table("tasks").update({"current_agent": f"planner_round_{state['current_round']}"}).eq("task_id", state["task_id"]).execute()
+
     question = state["query"]
     summaries = state["data_descriptions"]
     cumulative_plan = state["cumulative_plan"]

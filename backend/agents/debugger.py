@@ -1,6 +1,7 @@
 from agents.state import TaskState
 from llm_router import LLMRouter
-
+from supabase import create_client
+import os
 router = LLMRouter()
 
 DEBUGGER_PROMPT = """# Given data files (available at /workspace/data/):
@@ -28,6 +29,11 @@ There should be no additional headings or text in your response."""
 
 
 def debugger(state: TaskState) -> dict:
+
+    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    supabase.table("tasks").update({"current_agent": "debugger"}).eq("task_id", state["task_id"]).execute()
+
+
     summaries      = state["data_descriptions"]
     current_script = state["current_script"]
     error          = state["execution_result"]

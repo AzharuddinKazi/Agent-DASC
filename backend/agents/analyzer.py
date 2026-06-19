@@ -86,6 +86,8 @@ def analyzer(state: TaskState) -> dict:
     supabase     = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     descriptions = {}
 
+    supabase.table("tasks").update({"current_agent": "analyzer"}).eq("task_id", state["task_id"]).execute()
+
     for fname in os.listdir(data_path):
         if fname.startswith("."):
             continue

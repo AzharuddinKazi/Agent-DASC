@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agents.graph import build_graph
 from supabase import create_client, Client
@@ -23,6 +24,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="DSStar Backend API", version="1.0", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5174"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class TaskSubmission(BaseModel):
     query: str
@@ -39,6 +46,7 @@ async def run_graph(task_id: str, initial_state: dict):
             "status":       result["status"],
             "final_result": result.get("final_result"),
             "rounds_taken": result["current_round"],
+            "current_script": result.get("current_script"),
         }).eq("task_id", task_id).execute()
     except Exception as e:
         supabase.table("tasks").update({
