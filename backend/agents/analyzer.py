@@ -2,7 +2,8 @@ import os
 import subprocess
 import tempfile
 from agents.state import TaskState
-from supabase import create_client
+from db import supabase
+# from supabase import create_client
 import json
 from llm_router import LLMRouter
 
@@ -83,7 +84,7 @@ def analyze_file(filename: str, filepath: str) -> str:
 
 def analyzer(state: TaskState) -> dict:
     data_path    = f"{os.getenv('DSSTAR')}/data"
-    supabase     = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    # supabase     = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     descriptions = {}
 
     supabase.table("tasks").update({"current_agent": "analyzer"}).eq("task_id", state["task_id"]).execute()

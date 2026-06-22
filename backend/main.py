@@ -3,20 +3,21 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agents.graph import build_graph
-from supabase import create_client, Client
+# from supabase import create_client, Client
+from db import supabase
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from dotenv import load_dotenv
 import os, uuid, asyncio
 
 load_dotenv()
 
-supabase: Client = None
+# supabase: Client = None
 graph = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global supabase, graph
-    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     async with AsyncPostgresSaver.from_conn_string(os.getenv("SUPABASE_DB_URL")) as checkpointer:
         await checkpointer.setup()
         graph = build_graph()
@@ -26,7 +27,7 @@ app = FastAPI(title="DSStar Backend API", version="1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5174"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -49,6 +50,8 @@ async def run_graph(task_id: str, initial_state: dict):
             "current_script": result.get("current_script"),
         }).eq("task_id", task_id).execute()
     except Exception as e:
+        import traceback
+        print(f"[Error] Task {task_id} failed: {traceback.format_exc()}")
         supabase.table("tasks").update({
             "status": "failed", "final_result": str(e)
         }).eq("task_id", task_id).execute()

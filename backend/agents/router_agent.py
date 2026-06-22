@@ -1,5 +1,6 @@
 import os
-from supabase import create_client
+# from supabase import create_client
+from db import supabase
 from agents.state import TaskState
 from llm_router import LLMRouter
 
@@ -31,7 +32,7 @@ Your response should only be Step 1 ... Step K or Add Step."""
 
 def router_agent(state: TaskState) -> dict:
 
-    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": "router"}).eq("task_id", state["task_id"]).execute()
 
     question        = state["query"]

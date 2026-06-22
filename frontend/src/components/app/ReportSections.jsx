@@ -53,16 +53,16 @@ export default function ReportSections({ result, query, script }) {
           <div className="flex items-center gap-2">
             {rows && (
               <div className="flex bg-zinc-800 rounded-md p-0.5">
-                {["table", "raw"].map(v => (
-                  <button
+                {["table", "raw", "code"].map(v => (
+                <button
                     key={v}
                     onClick={() => setView(v)}
                     className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                      view === v ? "bg-zinc-700 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"
+                    view === v ? "bg-zinc-700 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"
                     }`}
-                  >
-                    {v === "table" ? "Table" : "Raw"}
-                  </button>
+                >
+                    {v === "table" ? "Table" : v === "raw" ? "Raw" : "Code"}
+                </button>
                 ))}
               </div>
             )}
@@ -102,6 +102,10 @@ export default function ReportSections({ result, query, script }) {
                 </tbody>
               </table>
             </div>
+          ) : view === "code" ? (
+            <pre className="text-xs text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap overflow-auto max-h-80">
+              {script ?? "No code available."}
+            </pre>
           ) : (
             <pre className="text-xs text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap overflow-auto max-h-80">
               {result}
@@ -109,28 +113,6 @@ export default function ReportSections({ result, query, script }) {
           )}
         </div>
       </div>
-
-    {script && (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <div className="text-xs font-medium text-zinc-600 uppercase tracking-widest">
-          Generated code
-        </div>
-        <button
-          onClick={() => navigator.clipboard.writeText(script)}
-          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-        >
-          <i className="ti ti-copy text-xs" />
-          Copy code
-        </button>
-      </div>
-      <div className="p-4 overflow-auto max-h-64">
-        <pre className="text-xs text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap">
-          {script}
-        </pre>
-      </div>
-    </div>
-  )}
 </div>
   )
 }

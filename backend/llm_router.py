@@ -116,7 +116,7 @@ class LLMRouter:
                 contents=prompt
             )
         except genai.errors.APIError as e:
-            raise genai.errors.APIError(
+            raise RuntimeError(
                 f"LLMRouter API call failed for agent '{agent}' with model '{model}': {str(e)}") from e
         
         duration_ms = int((time.time() - start) * 1000)

@@ -1,4 +1,5 @@
-from supabase import create_client
+# from supabase import create_client
+from db import supabase
 import os
 from agents.state import TaskState
 from llm_router import LLMRouter
@@ -60,7 +61,7 @@ There should be no additional headings or text in your response."""
 
 def coder(state: TaskState) -> dict:
 
-    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": "coder"}).eq("task_id", state["task_id"]).execute()
 
     summaries = state["data_descriptions"]

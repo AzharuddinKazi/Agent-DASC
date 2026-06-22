@@ -15,8 +15,15 @@ import os
 # ── Routing functions ─────────────────────────────────────────────────────────
 
 def route_after_executor(state: TaskState) -> str:
-    if state["exit_code"] != 0 and state.get("debug_attempts", 0) < 3:
-        return "debugger"
+    if state["exit_code"] != 0:
+        if state.get("debug_attempts", 0) < 3:
+            return "debugger"
+        else:
+            # The code is fundamentally broken or the environment is down.
+            # Do not pass to the verifier. Go straight to finalizer to report the crash.
+            return "finalizer" 
+    
+    # Only evaluate the data if the script actually ran successfully
     return "verifier"
 
 

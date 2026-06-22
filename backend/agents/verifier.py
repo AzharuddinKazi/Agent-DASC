@@ -1,6 +1,7 @@
 from agents.state import TaskState
 from llm_router import LLMRouter
-from supabase import create_client
+# from supabase import create_client
+from db import supabase
 import os
 
 router = LLMRouter()
@@ -38,7 +39,7 @@ Your answer (Yes/No):"""
 
 def verifier(state: TaskState) -> dict:
 
-    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": "verifier"}).eq("task_id", state["task_id"]).execute()
 
     question         = state["query"]

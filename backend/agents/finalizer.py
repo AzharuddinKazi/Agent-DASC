@@ -1,7 +1,8 @@
 from agents.state import TaskState
 from agents.executor import execute_script
 from llm_router import LLMRouter
-from supabase import create_client
+# from supabase import create_client
+from db import supabase
 import os
 
 router = LLMRouter()
@@ -28,6 +29,16 @@ Your task is to make solution code to print out the answer following the given g
 # Guidelines
 {guidelines}
 
+# Output format
+Return your answer as a JSON object with this exact structure:
+{{
+  "summary": "one sentence answer",
+  "columns": ["col1", "col2", "col3"],
+  "rows": [["val1", "val2", "val3"], ...],
+  "raw": "the full plain text answer"
+}}
+Return only the JSON object, no markdown, no extra text.
+
 # Your task
 Modify the solution code to print out the answer following the given guidelines.
 If the answer can be obtained from the execution result of the reference code, just generate a Python code that prints out the desired answer.
@@ -36,7 +47,7 @@ Your response should only contain a single code block."""
 
 
 def finalizer(state: TaskState) -> dict:
-    supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": "finalizer"}).eq("task_id", state["task_id"]).execute()
 
     question         = state["query"]
