@@ -1,95 +1,96 @@
 import ReportSections from "./ReportSections.jsx"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { AlertTriangle, Zap } from "lucide-react"
 
 function getAgentDescription(agent) {
   if (!agent) return "Initializing autonomous pipeline..."
   if (agent.startsWith("planner")) {
-    const match = agent.match(/\d+/)
-    const round = match ? match[0] : ""
-    return round ? `Formulating logical plan for iteration ${round}...` : "Formulating analytical plan..."
+    const m = agent.match(/\d+/)
+    return m ? `Formulating plan for iteration ${m[0]}...` : "Formulating analytical plan..."
   }
-
-  const descriptions = {
+  return {
     analyzer: "Analyzing dataset schemas and preparing context...",
-    coder: "Translating plan into secure Pandas execution script...",
+    coder:    "Translating plan into secure Pandas execution script...",
     executor: "Spinning up isolated Docker sandbox and executing code...",
     verifier: "Evaluating execution results against your original query...",
-    router: "Determining if further analysis is required...",
+    router:   "Determining if further analysis is required...",
     debugger: "Execution failed. Analyzing traceback and writing code patch...",
-    finalizer: "Formatting final report and data tables..."
-  }
-
-  return descriptions[agent] || `Agent active: ${agent}`
-}
-
-function AgentLabel({ agent }) {
-  return (
-    <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 uppercase tracking-wider font-bold border border-slate-200">
-      {agent || "init"}
-    </span>
-  )
+    finalizer:"Formatting final report and data tables..."
+  }[agent] || `Agent active: ${agent}`
 }
 
 export default function ReportPanel({ task, query, onFollowUp }) {
-  const rawAgent = task?.current_agent
+  const rawAgent  = task?.current_agent
   const baseAgent = rawAgent?.startsWith("planner") ? "planner" : rawAgent
 
-  return (
-    <div className="w-full">
-      {task?.status === "completed" && task?.final_result ? (
-        <ReportSections
-          result={task.final_result}
-          query={query}
-          script={task.current_script}
-          plan={task.cumulative_plan}
-          taskId={task.task_id}
-          onFollowUp={onFollowUp}
-        />
-      ) : task?.status === "failed" ? (
-        <div className="rounded-xl bg-red-100 border border-red-200 p-6 max-w-2xl mx-auto mt-8 shadow-card">
-          <div className="flex items-center gap-2 text-red-700 text-[14px] font-bold mb-3">
-            <AlertTriangle className="w-4.5 h-4.5 text-red-600 shrink-0" />
+  if (task?.status === "completed" && task?.final_result) {
+    return (
+      <ReportSections
+        result={task.final_result}
+        query={query}
+        script={task.current_script}
+        plan={task.cumulative_plan}
+        taskId={task.task_id}
+        onFollowUp={onFollowUp}
+      />
+    )
+  }
+
+  if (task?.status === "failed") {
+    return (
+      <Card className="border-red-200 bg-red-100 max-w-2xl mx-auto mt-8">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 text-red-700 font-bold mb-3">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
             Analysis Pipeline Failed
           </div>
-          <p className="text-[12px] text-red-800 leading-relaxed font-mono whitespace-pre-wrap bg-white/60 p-4 rounded-lg border border-red-200/60">
+          <pre className="text-xs text-red-800 leading-relaxed whitespace-pre-wrap bg-white/60 p-4 rounded-lg border border-red-200/60 font-mono overflow-x-auto">
             {task?.final_result ?? "An unexpected infrastructure error occurred."}
-          </p>
+          </pre>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  /* Loading state */
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[420px] gap-8 w-full">
+
+      {/* Animated orb */}
+      <div className="relative flex items-center justify-center">
+        <div className="absolute w-20 h-20 rounded-full bg-primary/10 animate-ping opacity-40" style={{ animationDuration: '2s' }} />
+        <div className="absolute w-14 h-14 rounded-full bg-primary/15 animate-ping opacity-60" style={{ animationDuration: '1.5s', animationDelay: '0.2s' }} />
+        <div className="relative z-10 w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+          <Zap className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
         </div>
-      ) : (
-        /* Loading / running state */
-        <div className="flex flex-col items-center justify-center min-h-[380px] gap-8 w-full font-sans">
+      </div>
 
-          {/* Animated orb */}
-          <div className="relative flex items-center justify-center">
-            <div className="absolute w-20 h-20 rounded-full bg-blue-100 animate-ping opacity-40 duration-[2000ms]" />
-            <div className="absolute w-14 h-14 rounded-full bg-blue-100 animate-ping opacity-60 duration-[1500ms] delay-200" />
-            <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.4),0_0_40px_rgba(37,99,235,0.2)]">
-              <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
-            </div>
-          </div>
+      <div className="flex flex-col items-center text-center gap-3">
+        {baseAgent && (
+          <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider">
+            {baseAgent}
+          </Badge>
+        )}
+        <p className="text-[15px] font-semibold text-foreground max-w-sm leading-snug">
+          {getAgentDescription(rawAgent)}
+        </p>
+        <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+          The autonomous pipeline is working through your query. This typically takes 30–90 seconds.
+        </p>
+      </div>
 
-          <div className="flex flex-col items-center text-center gap-3">
-            <AgentLabel agent={baseAgent} />
-            <p className="text-[15px] text-slate-700 font-semibold leading-snug max-w-sm">
-              {getAgentDescription(rawAgent)}
-            </p>
-            <p className="text-[12px] text-slate-400 max-w-xs leading-relaxed">
-              The autonomous pipeline is working through your query. This typically takes 30–90 seconds.
-            </p>
-          </div>
-
-          {/* Subtle progress dots */}
-          <div className="flex items-center gap-1.5">
-            {[0, 1, 2].map(i => (
-              <span
-                key={i}
-                className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s` }}
-              />
-            ))}
-          </div>
+      {/* Skeleton placeholders */}
+      <div className="w-full max-w-xl flex flex-col gap-3">
+        <Skeleton className="h-24 w-full rounded-lg" />
+        <div className="grid grid-cols-3 gap-3">
+          <Skeleton className="h-16 rounded-lg" />
+          <Skeleton className="h-16 rounded-lg" />
+          <Skeleton className="h-16 rounded-lg" />
         </div>
-      )}
+        <Skeleton className="h-40 w-full rounded-lg" />
+      </div>
     </div>
   )
 }

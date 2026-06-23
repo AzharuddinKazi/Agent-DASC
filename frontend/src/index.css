@@ -13,13 +13,50 @@
   --font-sans: 'Manrope', sans-serif;
   --font-mono: 'Source Code Pro', monospace;
 
-  /* Surfaces */
-  --color-surface-base: #FFFFFF;
-  --color-surface-subtle: #F5F6FA;
-  --color-surface-muted: #ECEEF4;
-  --color-surface-overlay: #E0E3EC;
+  /* ── Shadcn semantic tokens → our palette ── */
+  --color-background:        #F5F6FA;
+  --color-foreground:        #1A1F2E;
 
-  /* Slate (structural) */
+  --color-card:              #FFFFFF;
+  --color-card-foreground:   #1A1F2E;
+
+  --color-popover:           #FFFFFF;
+  --color-popover-foreground:#1A1F2E;
+
+  /* Primary = Crimson */
+  --color-primary:           #C81D25;
+  --color-primary-foreground:#FFFFFF;
+
+  /* Secondary = light slate */
+  --color-secondary:         #ECEEF4;
+  --color-secondary-foreground: #252B3B;
+
+  /* Muted = very light gray */
+  --color-muted:             #F0F2F7;
+  --color-muted-foreground:  #646B80;
+
+  /* Accent = slate-050 */
+  --color-accent:            #F0F2F7;
+  --color-accent-foreground: #1A1F2E;
+
+  /* Destructive = red */
+  --color-destructive:       #DC2626;
+
+  --color-border:            #D0D4DF;
+  --color-input:             #D0D4DF;
+  --color-ring:              #C81D25;
+
+  /* Sidebar tokens */
+  --color-sidebar:           #1A1F2E;
+  --color-sidebar-foreground:#E4E7EF;
+  --color-sidebar-primary:   #C81D25;
+  --color-sidebar-primary-foreground: #FFFFFF;
+  --color-sidebar-accent:    #252B3B;
+  --color-sidebar-accent-foreground: #E4E7EF;
+  --color-sidebar-border:    #343C52;
+  --color-sidebar-ring:      #C81D25;
+
+  /* ── Raw palette for direct use ── */
   --color-slate-950: #0D1117;
   --color-slate-900: #1A1F2E;
   --color-slate-800: #252B3B;
@@ -32,85 +69,45 @@
   --color-slate-100: #E4E7EF;
   --color-slate-050: #F0F2F7;
 
-  /* Crimson (primary accent) */
-  --color-crimson-800: #7A1212;
   --color-crimson-700: #9B1C1C;
   --color-crimson-600: #C81D25;
   --color-crimson-500: #E02020;
   --color-crimson-400: #F05050;
-  --color-crimson-200: #F8B4B4;
   --color-crimson-100: #FCE8E8;
   --color-crimson-050: #FFF5F5;
 
-  /* Semantic */
-  --color-green-700: #15803D;
-  --color-green-600: #16A34A;
-  --color-green-100: #DCFCE7;
-  --color-green-050: #F0FDF4;
-  --color-amber-700: #B45309;
-  --color-amber-600: #D97706;
-  --color-amber-100: #FEF3C7;
-  --color-blue-700: #1D4ED8;
-  --color-blue-600: #2563EB;
-  --color-blue-100: #DBEAFE;
-  --color-blue-050: #EFF6FF;
-  --color-red-600: #DC2626;
-  --color-red-100: #FEE2E2;
+  --color-green-700:  #15803D;
+  --color-green-600:  #16A34A;
+  --color-green-100:  #DCFCE7;
+  --color-green-050:  #F0FDF4;
+  --color-amber-600:  #D97706;
+  --color-amber-100:  #FEF3C7;
+  --color-blue-600:   #2563EB;
+  --color-blue-100:   #DBEAFE;
+  --color-blue-050:   #EFF6FF;
+  --color-red-600:    #DC2626;
+  --color-red-100:    #FEE2E2;
 
-  /* Border Radii */
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
-  --radius-2xl: 20px;
+  /* Border radii — shadcn uses --radius */
+  --radius: 0.5rem;
+
+  /* Chart colours (shadcn expects these) */
+  --color-chart-1: #C81D25;
+  --color-chart-2: #2563EB;
+  --color-chart-3: #16A34A;
+  --color-chart-4: #D97706;
+  --color-chart-5: #8890A4;
 }
 
 @layer base {
   body {
-    @apply bg-surface-subtle text-slate-900 font-sans antialiased;
-  }
-
-  * {
-    @apply scroll-smooth;
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }
 
 @layer utilities {
-  /* Dot grid background for landing page */
   .dot-grid {
     background-image: radial-gradient(circle, #C8CBD6 1px, transparent 1px);
     background-size: 28px 28px;
-  }
-
-  /* Subtle noise texture overlay */
-  .noise-overlay::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-  }
-
-  /* Glow ring for focus/active states */
-  .glow-ring {
-    box-shadow: 0 0 0 3px rgba(200, 29, 37, 0.15), 0 0 20px rgba(200, 29, 37, 0.08);
-  }
-
-  .glow-blue {
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 0 16px rgba(37, 99, 235, 0.15);
-  }
-
-  /* Card elevation levels */
-  .shadow-card {
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  }
-
-  .shadow-card-md {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  }
-
-  .shadow-card-lg {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
   }
 }

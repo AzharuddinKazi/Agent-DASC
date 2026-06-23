@@ -1,5 +1,10 @@
 import { useState } from "react"
 import { submitTask } from "../../api"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { ArrowRight, CornerDownLeft, TrendingUp, Flag, BarChart3, Shield } from "lucide-react"
 
 const SAMPLE_QUERIES = [
@@ -10,9 +15,9 @@ const SAMPLE_QUERIES = [
 
 const CAPABILITIES = [
   { icon: TrendingUp, label: "SAR Analysis" },
-  { icon: Flag, label: "Risk Scoring" },
-  { icon: BarChart3, label: "Entity Ranking" },
-  { icon: Shield, label: "AML Detection" },
+  { icon: Flag,       label: "Risk Scoring" },
+  { icon: BarChart3,  label: "Entity Ranking" },
+  { icon: Shield,     label: "AML Detection" },
 ]
 
 export default function EmptyState({ onSubmit }) {
@@ -22,146 +27,140 @@ export default function EmptyState({ onSubmit }) {
   const handleRun = async (text) => {
     const q = text || query
     if (!q.trim() || isSubmitting) return
-
     setIsSubmitting(true)
     try {
       const res = await submitTask(q)
       onSubmit(q, res.data.task_id)
-    } catch (error) {
-      console.error(error)
+    } catch (err) {
+      console.error(err)
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-surface-subtle font-sans">
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-background font-sans">
+      {/* Dot-grid */}
+      <div className="absolute inset-0 dot-grid opacity-50 pointer-events-none" />
+      {/* Gradient blobs */}
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-crimson-050 blur-3xl pointer-events-none opacity-60" />
+      <div className="absolute -bottom-40 -right-40 w-[400px] h-[400px] rounded-full bg-blue-050 blur-3xl pointer-events-none opacity-50" />
 
-      {/* Dot-grid background */}
-      <div className="absolute inset-0 dot-grid opacity-60 pointer-events-none" />
-
-      {/* Top-left gradient blob */}
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-crimson-050 via-crimson-100/30 to-transparent blur-3xl pointer-events-none opacity-70" />
-      {/* Bottom-right gradient blob */}
-      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-gradient-to-tl from-blue-050 via-blue-100/20 to-transparent blur-3xl pointer-events-none opacity-60" />
-
-      <div className="relative z-10 w-full max-w-[640px] px-6 flex flex-col gap-10">
+      <div className="relative z-10 w-full max-w-[600px] px-6 flex flex-col gap-8">
 
         {/* Brand */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2">
-            {/* Logo mark */}
-            <div className="w-9 h-9 rounded-lg bg-crimson-600 flex items-center justify-center shadow-card-md">
-              <Shield className="w-5 h-5 text-white" strokeWidth={2.5} />
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
+              <Shield className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
             </div>
             <div>
-              <div className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none">
-                DS<span className="text-crimson-600">—</span>STAR
+              <div className="text-2xl font-extrabold text-foreground tracking-tight leading-none">
+                DS<span className="text-primary">—</span>STAR
               </div>
-              <div className="text-[9px] uppercase tracking-[0.18em] font-bold text-slate-400 leading-tight mt-0.5">
+              <div className="text-[9px] uppercase tracking-[0.18em] font-bold text-muted-foreground mt-0.5">
                 Supervisory Intelligence
               </div>
             </div>
           </div>
 
-          {/* Capability pills */}
-          <div className="flex items-center gap-2 flex-wrap justify-center mt-1">
+          {/* Capability pills using shadcn Badge */}
+          <div className="flex flex-wrap justify-center gap-2">
             {CAPABILITIES.map(({ icon: Icon, label }) => (
-              <div
-                key={label}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-base border border-slate-100 text-[11px] font-medium text-slate-500 shadow-card"
-              >
-                <Icon className="w-3 h-3 text-crimson-500" />
+              <Badge key={label} variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-[11px]">
+                <Icon className="w-3 h-3 text-primary" />
                 {label}
-              </div>
+              </Badge>
             ))}
           </div>
         </div>
 
-        {/* Main Content */}
+        {/* Main content */}
         <div className="flex flex-col gap-5">
           <div className="text-center">
-            <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight mb-2">
+            <h1 className="text-[28px] font-bold text-foreground tracking-tight leading-tight mb-2">
               What do you want to analyse?
             </h1>
-            <p className="text-[14px] text-slate-500 max-w-md mx-auto leading-relaxed">
-              Ask about LFI data, transaction flags, or risk exposure in plain English. The pipeline handles the rest.
+            <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Ask about LFI data, transaction flags, or risk exposure in plain English.
             </p>
           </div>
 
-          {/* Input Card */}
-          <div className="bg-surface-base border border-slate-200 rounded-xl shadow-card-md overflow-hidden transition-all duration-200 focus-within:border-crimson-500/60 focus-within:glow-ring group">
-            <textarea
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g., Show me banks with more than 50 suspicious activity flags..."
-              className="w-full bg-transparent border-none outline-none resize-none px-4 pt-4 pb-2 text-[14px] text-slate-900 placeholder:text-slate-400 min-h-[110px] focus:ring-0 leading-relaxed"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault()
-                  handleRun()
-                }
-              }}
-            />
-
-            {/* Input footer bar */}
-            <div className="flex items-center justify-between px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-050/50">
-              <div className="flex gap-2 overflow-hidden mr-2">
-                {SAMPLE_QUERIES.slice(0, 2).map((sq, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleRun(sq)}
-                    className="px-2.5 py-1 rounded-full border border-slate-200 text-[11px] text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-surface-base transition-all truncate max-w-[185px] cursor-pointer font-medium"
-                  >
-                    {sq}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => handleRun()}
-                disabled={!query.trim() || isSubmitting}
-                className="flex items-center gap-1.5 bg-crimson-600 hover:bg-crimson-700 text-white px-4 py-2 rounded-lg text-[13px] font-semibold disabled:opacity-40 disabled:bg-slate-200 disabled:text-slate-400 transition-all cursor-pointer shrink-0 shadow-sm hover:shadow-card active:scale-[0.98]"
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-white/70 animate-pulse" />
-                    Running…
-                  </>
-                ) : (
-                  <>
-                    Analyse
-                    <CornerDownLeft className="w-3.5 h-3.5 opacity-70" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Suggested Queries */}
-          <div className="flex flex-col gap-1.5">
-            <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 px-1 mb-1">
-              Try these
-            </div>
-            {SAMPLE_QUERIES.map((sq, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleRun(sq)}
-                className="flex items-center gap-2.5 text-[13px] text-slate-600 hover:text-slate-900 hover:bg-surface-base border border-transparent hover:border-slate-100 rounded-lg px-3 py-2 transition-all text-left cursor-pointer group/item shadow-[0_0_0_0] hover:shadow-card"
-              >
-                <div className="w-5 h-5 rounded-md bg-crimson-050 border border-crimson-100 flex items-center justify-center shrink-0 group-hover/item:bg-crimson-100 transition-colors">
-                  <ArrowRight className="w-3 h-3 text-crimson-600" />
+          {/* Input card using shadcn Card */}
+          <Card className="shadow-md border-border focus-within:ring-2 focus-within:ring-ring/30 focus-within:border-primary/50 transition-all">
+            <CardContent className="p-0">
+              <Textarea
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="e.g., Show me banks with more than 50 suspicious activity flags..."
+                className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none px-4 pt-4 pb-2 min-h-[110px] text-sm rounded-b-none"
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    handleRun()
+                  }
+                }}
+              />
+              <Separator />
+              <div className="flex items-center justify-between px-3 py-2.5 bg-muted/40 rounded-b-lg">
+                <div className="flex gap-2 overflow-hidden mr-2">
+                  {SAMPLE_QUERIES.slice(0, 2).map((sq, i) => (
+                    <Button
+                      key={i}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRun(sq)}
+                      className="rounded-full text-[11px] h-6 px-3 truncate max-w-[180px]"
+                    >
+                      {sq}
+                    </Button>
+                  ))}
                 </div>
+                <Button
+                  onClick={() => handleRun()}
+                  disabled={!query.trim() || isSubmitting}
+                  size="lg"
+                  className="gap-1.5 shrink-0"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-primary-foreground/70 animate-pulse" />
+                      Running…
+                    </>
+                  ) : (
+                    <>
+                      Analyse
+                      <CornerDownLeft className="w-3.5 h-3.5 opacity-70" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Suggested queries */}
+          <div className="flex flex-col gap-1">
+            <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground px-1 mb-1">
+              Try these
+            </p>
+            {SAMPLE_QUERIES.map((sq, idx) => (
+              <Button
+                key={idx}
+                variant="ghost"
+                onClick={() => handleRun(sq)}
+                className="justify-start gap-2.5 h-auto py-2.5 px-3 text-left font-normal text-sm text-foreground"
+              >
+                <span className="w-5 h-5 rounded-md bg-crimson-050 border border-crimson-100 flex items-center justify-center shrink-0">
+                  <ArrowRight className="w-3 h-3 text-primary" />
+                </span>
                 <span className="leading-snug">{sq}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
-        {/* Footer note */}
-        <div className="text-center text-[11px] text-slate-400 font-medium">
+        <p className="text-center text-[11px] text-muted-foreground">
           Powered by a 7-agent autonomous analysis pipeline
-        </div>
-
+        </p>
       </div>
     </div>
   )
