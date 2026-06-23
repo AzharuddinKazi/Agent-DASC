@@ -17,36 +17,41 @@ const STATUS_DOT = {
 }
 
 const AGENT_LABELS = {
-  analyzer:            "Analyzer",
-  question_generator:  "Q-Gen",
-  planner:             "Planner",
-  coder:               "Coder",
-  executor:            "Executor",
-  verifier:            "Verifier",
-  debugger:            "Debugger",
-  router:              "Router",
-  sub_result_collector:"Collector",
-  writer:              "Writer",
-  report_evaluator:    "Evaluator",
+  analyzer:               "Analyzer",
+  question_generator:     "Q-Gen",
+  planner:                "Planner",
+  coder:                  "Coder",
+  executor:               "Executor",
+  verifier:               "Verifier",
+  debugger:               "Debugger",
+  router:                 "Router",
+  sub_result_collector:   "Collector",
+  writer:                 "Writer",
+  report_evaluator:       "Evaluator",
   gap_question_generator: "Gap-QGen",
-  report_finalizer:    "Finalizer",
-  finalizer:           "Finalizer",
+  report_finalizer:       "Finalizer",
+  finalizer:              "Finalizer",
 }
 
 function fmt(ts) {
   try {
-    const d = new Date(ts)
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
   } catch { return "" }
 }
 
 export default function LogPanel({ logs = [], isRunning }) {
-  const [open, setOpen] = useState(true)
-  const bottomRef = useRef(null)
+  const [open, setOpen] = useState(false)
+  const scrollRef = useRef(null)
 
+  // Auto-open when pipeline starts; close when done
   useEffect(() => {
-    if (open && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" })
+    if (isRunning) setOpen(true)
+  }, [isRunning])
+
+  // Scroll inside the panel only — never touches the page
+  useEffect(() => {
+    if (open && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [logs, open])
 
@@ -75,33 +80,25 @@ export default function LogPanel({ logs = [], isRunning }) {
       </button>
 
       {open && (
-        <div className="h-[220px] overflow-y-auto px-4 pb-3 font-mono text-[11px]">
+        <div ref={scrollRef} className="h-[200px] overflow-y-auto px-4 pb-3 font-mono text-[11px]">
           {logs.length === 0 ? (
             <p className="text-zinc-600 pt-2">Waiting for pipeline to start…</p>
           ) : (
             <div className="flex flex-col gap-0.5">
               {logs.map((entry, i) => (
                 <div key={i} className="flex items-start gap-2 py-0.5 min-w-0">
-                  {/* Time */}
                   <span className="text-zinc-600 shrink-0 tabular-nums w-[72px]">
                     {fmt(entry.ts)}
                   </span>
-
-                  {/* Status dot */}
                   <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[entry.status] || STATUS_DOT.info}`} />
-
-                  {/* Agent badge */}
                   <span className="shrink-0 w-[72px] text-zinc-500 truncate">
                     {AGENT_LABELS[entry.agent] || entry.agent}
                   </span>
-
-                  {/* Message */}
                   <span className={`leading-relaxed min-w-0 break-words ${STATUS_STYLES[entry.status] || "text-zinc-300"}`}>
                     {entry.message}
                   </span>
                 </div>
               ))}
-              <div ref={bottomRef} />
             </div>
           )}
         </div>
