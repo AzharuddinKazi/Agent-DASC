@@ -8,34 +8,118 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   ChevronRight, ChevronDown, ChevronUp, ChevronsUpDown,
   Download, ListTodo, CheckCircle2, DollarSign, Activity, Coins,
-  TrendingUp, Send, Flame, Eye, ShieldCheck, ArrowUpRight
+  TrendingUp, Send, Flame, Eye, ShieldCheck, Sparkles
 } from "lucide-react"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism"
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from "recharts"
 
+// ── Colour palette for charts ─────────────────────────────────────────────────
+const CHART_COLORS = ["#18181b", "#52525b", "#16a34a", "#d97706", "#dc2626", "#2563eb", "#7c3aed"]
+
+// ── Chart renderer ────────────────────────────────────────────────────────────
+function DataChart({ chart }) {
+  if (!chart || !chart.data || chart.data.length === 0) return null
+
+  const tickStyle  = { fontSize: 11, fill: "#71717a", fontFamily: "var(--font-sans)" }
+  const tooltipStyle = { fontSize: 12, fontFamily: "var(--font-sans)", border: "1px solid #e4e4e7", borderRadius: 6, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }
+
+  const sharedProps = { data: chart.data, margin: { top: 4, right: 16, left: 0, bottom: 4 } }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold">{chart.title}</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 pb-4">
+        <ResponsiveContainer width="100%" height={260}>
+          {chart.type === "pie" ? (
+            <PieChart>
+              <Pie data={chart.data} dataKey={chart.y_key} nameKey={chart.x_key} cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+            </PieChart>
+          ) : chart.type === "line" ? (
+            <LineChart {...sharedProps}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" />
+              <XAxis dataKey={chart.x_key} tick={tickStyle} label={{ value: chart.x_label, position: "insideBottom", offset: -2, style: tickStyle }} />
+              <YAxis tick={tickStyle} label={{ value: chart.y_label, angle: -90, position: "insideLeft", style: tickStyle }} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Line type="monotone" dataKey={chart.y_key} stroke="#18181b" strokeWidth={2} dot={{ r: 3, fill: "#18181b" }} activeDot={{ r: 5 }} />
+            </LineChart>
+          ) : (
+            <BarChart {...sharedProps} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" horizontal={false} />
+              <XAxis type="number" tick={tickStyle} label={{ value: chart.y_label, position: "insideBottom", offset: -2, style: tickStyle }} />
+              <YAxis dataKey={chart.x_key} type="category" tick={tickStyle} width={140} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#f4f4f5" }} />
+              <Bar dataKey={chart.y_key} radius={[0, 4, 4, 0]}>
+                {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          )}
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Key findings strip ────────────────────────────────────────────────────────
+function KeyFindings({ findings }) {
+  if (!findings || findings.length === 0) return null
+  return (
+    <Card className="border-foreground/10 bg-foreground text-background">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold text-background/90 flex items-center gap-2">
+          <Sparkles className="w-4 h-4" />
+          Key Findings
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <ul className="flex flex-col gap-2">
+          {findings.map((f, i) => (
+            <li key={i} className="flex items-start gap-2.5 text-sm text-background/80 leading-snug">
+              <span className="w-5 h-5 rounded-full bg-background/10 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 text-background">{i + 1}</span>
+              {f}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function ReportSections({ result, query, script, plan = [], taskId, onFollowUp }) {
-  const [showCode, setShowCode]           = useState(false)
-  const [showAudit, setShowAudit]         = useState(false)
-  const [showPlan, setShowPlan]           = useState(false)
-  const [followUpText, setFollowUpText]   = useState("")
-  const [sortCol, setSortCol]             = useState(null)
-  const [sortDir, setSortDir]             = useState("desc")
+  const [showCode, setShowCode]         = useState(false)
+  const [showAudit, setShowAudit]       = useState(false)
+  const [showPlan, setShowPlan]         = useState(false)
+  const [followUpText, setFollowUpText] = useState("")
+  const [sortCol, setSortCol]           = useState(null)
+  const [sortDir, setSortDir]           = useState("desc")
 
-  // ── Parse result ──────────────────────────────────────────────────────────
+  // ── Parse result ────────────────────────────────────────────────────────────
   const parsed = useMemo(() => {
     if (!result) return null
     try {
       let s = typeof result === "string" ? result.trim() : JSON.stringify(result)
       if (s.startsWith("```json")) s = s.replace(/^```json/, "").replace(/```$/, "")
-      else if (s.startsWith("```")) s = s.replace(/^```/, "").replace(/```$/, "")
+      else if (s.startsWith("```"))  s = s.replace(/^```/, "").replace(/```$/, "")
       return JSON.parse(s.trim())
     } catch { return null }
   }, [result])
 
-  const summary      = parsed?.summary || (typeof result === "string" ? result : "Analysis complete.")
-  const columns      = parsed?.columns || []
-  const rows         = parsed?.rows    || []
-  const rawText      = parsed?.raw     || ""
+  const summary      = parsed?.summary      || (typeof result === "string" ? result : "Analysis complete.")
+  const keyFindings  = parsed?.key_findings || []
+  const columns      = parsed?.columns      || []
+  const rows         = parsed?.rows         || []
+  const chart        = parsed?.chart        || null
+  const rawText      = parsed?.raw          || ""
   const hasTableData = columns.length > 0 && rows.length > 0
 
   const stats = useMemo(() => {
@@ -44,7 +128,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     return { rounds, tokens: inp + out, cost: inp * 0.00000125 + out * 0.000005 }
   }, [plan])
 
-  // ── Numeric column detection ───────────────────────────────────────────────
+  // ── Numeric detection ───────────────────────────────────────────────────────
   const numericColumnMap = useMemo(() => {
     const map = {}
     if (!hasTableData) return map
@@ -71,7 +155,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     return m
   }, [columns, rows, hasTableData, numericColumnMap])
 
-  // ── Risk highlights ────────────────────────────────────────────────────────
+  // ── Risk highlights derived from table ──────────────────────────────────────
   const { entityIdx, metricIdx, sortedByMetric } = useMemo(() => {
     if (!hasTableData) return { entityIdx: 0, metricIdx: -1, sortedByMetric: [] }
     let entityIdx = 0
@@ -83,13 +167,9 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     for (let i = 0; i < columns.length; i++) {
       if (i === entityIdx) continue
       const c = columns[i].toLowerCase()
-      if (["score","risk","ratio","amount","volume","count","sum","txs","val"].some(k => c.includes(k))) { metricIdx = i; break }
+      if (["score","risk","ratio","amount","volume","count","sum","txs","val","sar"].some(k => c.includes(k))) { metricIdx = i; break }
     }
-    if (metricIdx === -1) {
-      for (let i = 0; i < columns.length; i++) {
-        if (i !== entityIdx && numericColumnMap[i]) { metricIdx = i; break }
-      }
-    }
+    if (metricIdx === -1) for (let i = 0; i < columns.length; i++) { if (i !== entityIdx && numericColumnMap[i]) { metricIdx = i; break } }
     const sortedByMetric = [...rows].sort((a, b) => {
       if (metricIdx === -1) return 0
       return (parseFloat(String(b[metricIdx]).replace(/[^0-9.-]/g,""))||0) - (parseFloat(String(a[metricIdx]).replace(/[^0-9.-]/g,""))||0)
@@ -101,15 +181,15 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     if (!hasTableData) return []
     const sub = row => metricIdx !== -1 ? `${columns[metricIdx]}: ${row[metricIdx]}` : ""
     const maxVal = parseFloat(String(sortedByMetric[0]?.[metricIdx]).replace(/[^0-9.-]/g,"")) || 1
-    const pct = row => Math.round((parseFloat(String(row?.[metricIdx]).replace(/[^0-9.-]/g,""))||0) / maxVal * 100)
+    const pct    = row => Math.round((parseFloat(String(row?.[metricIdx]).replace(/[^0-9.-]/g,""))||0) / maxVal * 100)
     return [
-      { label: "Highest Risk",    row: sortedByMetric[0],                         icon: Flame,      badgeCls: "bg-danger/10 text-danger border-danger/20"    },
-      { label: "Watch",           row: sortedByMetric[1] || sortedByMetric[0],    icon: Eye,        badgeCls: "bg-warning-bg text-warning border-warning/20" },
-      { label: "Lowest Exposure", row: sortedByMetric[sortedByMetric.length - 1], icon: ShieldCheck,badgeCls: "bg-muted text-muted-foreground border-border"  },
+      { label: "Highest Risk",    row: sortedByMetric[0],                          icon: Flame,      color: "bg-danger" },
+      { label: "Watch",           row: sortedByMetric[1] || sortedByMetric[0],     icon: Eye,        color: "bg-warning" },
+      { label: "Lowest Exposure", row: sortedByMetric[sortedByMetric.length - 1],  icon: ShieldCheck, color: "bg-zinc-400" },
     ].map(h => ({ ...h, val: h.row?.[entityIdx] || "N/A", sub: sub(h.row || []), pct: pct(h.row || []) }))
   }, [hasTableData, columns, rows, entityIdx, metricIdx, sortedByMetric])
 
-  // ── Sorting ────────────────────────────────────────────────────────────────
+  // ── Sorting ─────────────────────────────────────────────────────────────────
   const handleSort = c => { if (sortCol === c) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(c); setSortDir("desc") } }
 
   const sortedRows = useMemo(() => {
@@ -150,7 +230,10 @@ export default function ReportSections({ result, query, script, plan = [], taskI
   return (
     <div className="flex flex-col gap-5 pb-24 w-full">
 
-      {/* ── Row 1: Summary + Risk highlights ── */}
+      {/* ── Key Findings (dark card, top of page) ── */}
+      <KeyFindings findings={keyFindings} />
+
+      {/* ── Summary + Risk Highlights ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
@@ -185,7 +268,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
                         <span className="text-xs font-semibold text-foreground truncate max-w-[100px]">{h.val}</span>
                       </div>
                       <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-700 ${i === 0 ? "bg-danger" : i === 1 ? "bg-warning" : "bg-zinc-400"}`} style={{ width: `${h.pct}%` }} />
+                        <div className={`h-full rounded-full transition-all duration-700 ${h.color}`} style={{ width: `${h.pct}%` }} />
                       </div>
                       {h.sub && <p className="text-[10px] text-muted-foreground mt-1 truncate">{h.sub}</p>}
                       {i < highlights.length - 1 && <Separator className="mt-3" />}
@@ -198,7 +281,10 @@ export default function ReportSections({ result, query, script, plan = [], taskI
         </Card>
       </div>
 
-      {/* ── Row 2: Data Table — primary output ── */}
+      {/* ── Chart ── */}
+      {chart && <DataChart chart={chart} />}
+
+      {/* ── Data Table ── */}
       {hasTableData && (
         <Card>
           <CardHeader className="pb-0">
@@ -222,7 +308,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
                     <TableHead className="w-10 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">#</TableHead>
                     {columns.map((col, idx) => {
                       const isSorted = sortCol === idx
-                      const isNum = numericColumnMap[idx]
+                      const isNum    = numericColumnMap[idx]
                       return (
                         <TableHead
                           key={idx}
@@ -231,8 +317,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
                         >
                           <span className={`flex items-center gap-1 ${isNum ? "justify-end" : ""}`}>
                             {col}
-                            {isSorted
-                              ? sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            {isSorted ? sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
                               : <ChevronsUpDown className="w-3 h-3 opacity-30" />}
                           </span>
                         </TableHead>
@@ -313,7 +398,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
         </Card>
       )}
 
-      {/* ── Collapsible: Audit details + Python script ── */}
+      {/* ── Collapsible: Audit Details + Python Script ── */}
       <Card className="border-dashed">
         <button
           onClick={() => setShowAudit(v => !v)}
@@ -331,13 +416,12 @@ export default function ReportSections({ result, query, script, plan = [], taskI
         {showAudit && (
           <>
             <Separator />
-            {/* Mini stat row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-border border-b border-border">
               {[
-                { label: "Analysis Rounds",  value: stats.rounds.toString(),         unit: stats.rounds === 1 ? "iteration" : "iterations", icon: Activity   },
-                { label: "Tokens Used",      value: stats.tokens.toLocaleString(),   unit: "total tokens",                                   icon: Coins      },
-                { label: "Model Cost",       value: `$${stats.cost.toFixed(4)}`,     unit: "estimated",                                      icon: DollarSign },
-                { label: "Data Rows",        value: hasTableData ? rows.length.toString() : "—", unit: hasTableData ? `${columns.length} columns` : "no table data", icon: TrendingUp },
+                { label: "Analysis Rounds", value: stats.rounds.toString(),       unit: stats.rounds === 1 ? "iteration" : "iterations", icon: Activity   },
+                { label: "Tokens Used",     value: stats.tokens.toLocaleString(), unit: "total tokens",                                   icon: Coins      },
+                { label: "Model Cost",      value: `$${stats.cost.toFixed(4)}`,   unit: "estimated",                                      icon: DollarSign },
+                { label: "Data Rows",       value: hasTableData ? rows.length.toString() : "—", unit: hasTableData ? `${columns.length} columns` : "no table data", icon: TrendingUp },
               ].map(({ label, value, unit, icon: Icon }) => (
                 <div key={label} className="flex items-start gap-3 px-5 py-4">
                   <div className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground shrink-0">
@@ -352,7 +436,6 @@ export default function ReportSections({ result, query, script, plan = [], taskI
               ))}
             </div>
 
-            {/* Python script toggle */}
             <button
               onClick={() => setShowCode(v => !v)}
               className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer"

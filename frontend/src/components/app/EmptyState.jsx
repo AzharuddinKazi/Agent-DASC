@@ -5,32 +5,42 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { ArrowRight, CornerDownLeft, TrendingUp, Flag, BarChart3, ShieldCheck } from "lucide-react"
+import { ArrowRight, CornerDownLeft, TrendingUp, Flag, BarChart3, ShieldCheck, FileText, Search } from "lucide-react"
 
-const SAMPLE_QUERIES = [
+const QA_QUERIES = [
   "Show the top 5 LFIs by SAR volume this quarter.",
   "Identify entities with a high reversal ratio (>15%).",
-  "Rank exchange houses by their composite risk score."
+  "Rank exchange houses by their composite risk score.",
+]
+
+const REPORT_QUERIES = [
+  "Produce a comprehensive supervisory risk report across all LFIs.",
+  "Analyse fraud patterns and provide an AML risk assessment.",
+  "Generate an entity-level exposure report with recommendations.",
 ]
 
 const CAPABILITIES = [
-  { icon: TrendingUp,  label: "SAR Analysis"   },
-  { icon: Flag,        label: "Risk Scoring"    },
-  { icon: BarChart3,   label: "Entity Ranking"  },
-  { icon: ShieldCheck, label: "AML Detection"   },
+  { icon: TrendingUp,  label: "SAR Analysis"  },
+  { icon: Flag,        label: "Risk Scoring"   },
+  { icon: BarChart3,   label: "Entity Ranking" },
+  { icon: ShieldCheck, label: "AML Detection"  },
 ]
 
 export default function EmptyState({ onSubmit }) {
-  const [query, setQuery] = useState("")
+  const [query, setQuery]               = useState("")
+  const [taskType, setTaskType]         = useState("qa")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const isReport      = taskType === "report"
+  const sampleQueries = isReport ? REPORT_QUERIES : QA_QUERIES
 
   const handleRun = async (text) => {
     const q = text || query
     if (!q.trim() || isSubmitting) return
     setIsSubmitting(true)
     try {
-      const res = await submitTask(q)
-      onSubmit(q, res.data.task_id)
+      const res = await submitTask(q, "", taskType)
+      onSubmit(q, res.data.task_id, taskType)
     } catch (err) {
       console.error(err)
       setIsSubmitting(false)
@@ -39,7 +49,7 @@ export default function EmptyState({ onSubmit }) {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background font-sans px-6">
-      <div className="w-full max-w-[600px] flex flex-col gap-8">
+      <div className="w-full max-w-[620px] flex flex-col gap-8">
 
         {/* Brand */}
         <div className="flex flex-col items-center gap-4 text-center">
@@ -51,16 +61,9 @@ export default function EmptyState({ onSubmit }) {
               DS<span className="text-brand">—</span>STAR
             </span>
           </div>
-
-          {/* Capability pills — proper wrapping, no overflow */}
           <div className="flex flex-wrap justify-center gap-2">
             {CAPABILITIES.map(({ icon: Icon, label }) => (
-              <Badge
-                key={label}
-                variant="outline"
-                className="gap-1.5 rounded-full px-3 py-1 font-medium whitespace-nowrap"
-                style={{ fontSize: '12px' }}
-              >
+              <Badge key={label} variant="outline" className="gap-1.5 rounded-full px-3 py-1 font-medium whitespace-nowrap" style={{ fontSize: '12px' }}>
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 {label}
               </Badge>
@@ -74,18 +77,51 @@ export default function EmptyState({ onSubmit }) {
             What do you want to analyse?
           </h1>
           <p className="text-[15px] text-muted-foreground leading-relaxed max-w-md mx-auto">
-            Ask about LFI data, transaction flags, or risk exposure in plain English.
-            The 7-agent pipeline handles the rest.
+            Ask a specific question or request a full research report.
+            The {isReport ? "DS-STAR+" : "DS-STAR"} pipeline handles the rest.
           </p>
         </div>
 
-        {/* Input card — no pills inside, just textarea + submit */}
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1 self-center">
+          <button
+            onClick={() => setTaskType("qa")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              !isReport ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Search className="w-3.5 h-3.5" />
+            QA Analysis
+          </button>
+          <button
+            onClick={() => setTaskType("report")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              isReport ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Research Report
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">DS-STAR+</Badge>
+          </button>
+        </div>
+
+        {/* Mode description */}
+        {isReport && (
+          <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 text-[13px] text-muted-foreground text-center leading-relaxed">
+            DS-STAR+ decomposes your query into targeted sub-analyses, runs each through the full pipeline independently, then synthesises a comprehensive research report.
+          </div>
+        )}
+
+        {/* Input card */}
         <Card className="shadow-sm border-border focus-within:ring-2 focus-within:ring-ring/20 focus-within:border-foreground/30 transition-all">
           <CardContent className="p-0">
             <Textarea
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="e.g., Show me banks with more than 50 suspicious activity flags this quarter..."
+              placeholder={isReport
+                ? "e.g., Produce a comprehensive supervisory risk report across all LFIs..."
+                : "e.g., Show me banks with more than 50 suspicious activity flags this quarter..."
+              }
               className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none px-5 pt-5 pb-3 text-[15px] rounded-b-none"
               style={{ minHeight: '120px' }}
               onKeyDown={e => {
@@ -97,14 +133,10 @@ export default function EmptyState({ onSubmit }) {
               <p className="text-[13px] text-muted-foreground">
                 Press <kbd className="px-1.5 py-0.5 rounded border border-border bg-background font-mono text-[11px]">Enter</kbd> to run
               </p>
-              <Button
-                onClick={() => handleRun()}
-                disabled={!query.trim() || isSubmitting}
-                className="gap-2"
-              >
+              <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting} className="gap-2">
                 {isSubmitting ? "Running…" : (
                   <>
-                    Analyse
+                    {isReport ? "Generate Report" : "Analyse"}
                     <CornerDownLeft className="w-4 h-4 opacity-70" />
                   </>
                 )}
@@ -113,13 +145,11 @@ export default function EmptyState({ onSubmit }) {
           </CardContent>
         </Card>
 
-        {/* Suggested queries — full-width rows, no truncation */}
+        {/* Suggested queries */}
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3 px-1">
-            Try these
-          </p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3 px-1">Try these</p>
           <div className="flex flex-col gap-1">
-            {SAMPLE_QUERIES.map((sq, idx) => (
+            {sampleQueries.map((sq, idx) => (
               <button
                 key={idx}
                 onClick={() => handleRun(sq)}

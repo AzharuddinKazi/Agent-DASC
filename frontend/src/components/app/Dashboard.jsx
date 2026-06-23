@@ -10,16 +10,20 @@ import { Separator } from "@/components/ui/separator"
 import { Menu } from "lucide-react"
 
 const PROGRESS_BY_AGENT = {
-  analyzer: 10, planner: 25, coder: 40, executor: 55,
-  debugger: 60, verifier: 72, router: 82, finalizer: 92,
+  analyzer: 8, question_generator: 15,
+  planner: 25, coder: 38, executor: 50,
+  debugger: 55, verifier: 65, router: 72,
+  sub_result_collector: 75, writer: 85, report_evaluator: 90,
+  gap_question_generator: 78, report_finalizer: 95, finalizer: 92,
 }
 
-export default function Dashboard({ query, taskId, onNew }) {
-  const [task, setTask] = useState(null)
-  const [activeQuery, setActiveQuery] = useState(query)
+export default function Dashboard({ query, taskId, taskType: initialTaskType, onNew }) {
+  const [task, setTask]                 = useState(null)
+  const [activeQuery, setActiveQuery]   = useState(query)
   const [activeTaskId, setActiveTaskId] = useState(taskId)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [elapsedTime, setElapsedTime] = useState(0)
+  const [activeTaskType, setActiveTaskType] = useState(initialTaskType || "qa")
+  const [drawerOpen, setDrawerOpen]     = useState(false)
+  const [elapsedTime, setElapsedTime]   = useState(0)
 
   useEffect(() => {
     if (!activeTaskId) return
@@ -49,12 +53,13 @@ export default function Dashboard({ query, taskId, onNew }) {
     }
   }, [task])
 
-  const handleSelect = (id, q) => { setActiveTaskId(id); setActiveQuery(q); setDrawerOpen(false) }
-  const handleFollowUp = async (text) => {
+  const handleSelect = (id, q, type) => { setActiveTaskId(id); setActiveQuery(q); if (type) setActiveTaskType(type); setDrawerOpen(false) }
+  const handleFollowUp = async (text, mode) => {
     if (!text.trim()) return
+    const type = mode || activeTaskType
     try {
-      const res = await submitTask(text)
-      setActiveTaskId(res.data.task_id); setActiveQuery(text); setTask(null); setElapsedTime(0)
+      const res = await submitTask(text, "", type)
+      setActiveTaskId(res.data.task_id); setActiveQuery(text); setActiveTaskType(type); setTask(null); setElapsedTime(0)
     } catch (err) { console.error(err) }
   }
 

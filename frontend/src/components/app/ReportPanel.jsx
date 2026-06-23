@@ -1,4 +1,5 @@
 import ReportSections from "./ReportSections.jsx"
+import ReportView from "./ReportView.jsx"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -10,22 +11,32 @@ function getAgentDescription(agent) {
     const m = agent.match(/\d+/)
     return m ? `Formulating plan for iteration ${m[0]}...` : "Formulating analytical plan..."
   }
+  if (agent.startsWith("sub_result")) return "Collecting sub-analysis result..."
   return {
-    analyzer: "Analyzing dataset schemas and preparing context...",
-    coder:    "Translating plan into secure Pandas execution script...",
-    executor: "Spinning up isolated Docker sandbox and executing code...",
-    verifier: "Evaluating execution results against your original query...",
-    router:   "Determining if further analysis is required...",
-    debugger: "Execution failed. Analyzing traceback and writing code patch...",
-    finalizer:"Formatting final report and data tables..."
+    analyzer:           "Analyzing dataset schemas and preparing context...",
+    question_generator: "Decomposing query into targeted sub-questions...",
+    coder:              "Translating plan into secure Pandas execution script...",
+    executor:           "Running code in isolated Docker sandbox...",
+    verifier:           "Evaluating results against the original query...",
+    router:             "Determining if further analysis is required...",
+    debugger:           "Execution failed — analysing traceback and patching code...",
+    finalizer:          "Formatting final answer as structured output...",
+    writer:             "Synthesising sub-analyses into research report...",
+    report_evaluator:   "Evaluating report quality and coverage...",
+    gap_question_generator: "Identifying gaps and generating additional sub-questions...",
+    report_finalizer:   "Finalising research report...",
   }[agent] || `Agent active: ${agent}`
 }
 
 export default function ReportPanel({ task, query, onFollowUp }) {
   const rawAgent  = task?.current_agent
   const baseAgent = rawAgent?.startsWith("planner") ? "planner" : rawAgent
+  const isReport  = task?.task_type === "report"
 
   if (task?.status === "completed" && task?.final_result) {
+    if (isReport) {
+      return <ReportView task={task} query={query} onFollowUp={onFollowUp} />
+    }
     return (
       <ReportSections
         result={task.final_result}
@@ -59,7 +70,6 @@ export default function ReportPanel({ task, query, onFollowUp }) {
   /* Loading state */
   return (
     <div className="flex flex-col gap-6 w-full">
-      {/* Status indicator */}
       <div className="flex flex-col items-center justify-center py-10 gap-5">
         <div className="relative flex items-center justify-center">
           <div className="absolute w-16 h-16 rounded-full bg-foreground/5 animate-ping opacity-50" style={{ animationDuration: '2s' }} />
@@ -74,7 +84,9 @@ export default function ReportPanel({ task, query, onFollowUp }) {
             </Badge>
           )}
           <p className="text-sm font-semibold text-foreground">{getAgentDescription(rawAgent)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Typically completes in 30–90 seconds</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {isReport ? "DS-STAR+ typically completes in 3–10 minutes" : "Typically completes in 30–90 seconds"}
+          </p>
         </div>
       </div>
 
