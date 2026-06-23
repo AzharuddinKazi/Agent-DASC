@@ -3,6 +3,7 @@ import { getTask, submitTask } from "../../api"
 import Sidebar from "./Sidebar"
 import AgentPipeline from "./AgentPipeline"
 import ReportPanel from "./ReportPanel"
+import LogPanel from "./LogPanel"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -143,6 +144,9 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
             roundsTaken={task?.rounds_taken}
           />
         </div>
+
+        {/* ACTIVITY LOG */}
+        <LogPanel logs={task?.logs || []} isRunning={isRunning} />
 
         {/* REPORT AREA */}
         <div className="flex-1 overflow-y-auto bg-background">

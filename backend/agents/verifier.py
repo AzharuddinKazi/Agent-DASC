@@ -1,6 +1,6 @@
 from agents.state import TaskState
+from agents.logger import log_event
 from llm_router import LLMRouter
-# from supabase import create_client
 from db import supabase
 import os
 
@@ -74,5 +74,13 @@ def verifier(state: TaskState) -> dict:
     verdict = "sufficient" if "yes" in answer else "insufficient"
 
     print(f"[Verifier] Verdict: {verdict}")
+
+    sub_questions   = state.get("sub_questions", [])
+    current_sub_idx = state.get("current_sub_idx", 0)
+    label = f"Sub-Q {current_sub_idx + 1}/{len(sub_questions)} · " if sub_questions else ""
+    log_event(state["task_id"], "verifier",
+              f"{label}Result verified — {'sufficient ✓' if verdict == 'sufficient' else 'needs more work'}",
+              "success" if verdict == "sufficient" else "info",
+              {"verdict": verdict, "round": state.get("current_round", 0)})
 
     return {"verifier_verdict": verdict}

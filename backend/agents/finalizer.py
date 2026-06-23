@@ -1,5 +1,6 @@
 from agents.state import TaskState
 from agents.executor import execute_script
+from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
 
@@ -69,6 +70,7 @@ Do not use try: and except: to prevent error."""
 
 def finalizer(state: TaskState) -> dict:
     supabase.table("tasks").update({"current_agent": "finalizer"}).eq("task_id", state["task_id"]).execute()
+    log_event(state["task_id"], "finalizer", "Formatting final structured answer...", "running")
 
     question         = state["query"]
     summaries        = state["data_descriptions"]
@@ -99,6 +101,9 @@ def finalizer(state: TaskState) -> dict:
     stdout, stderr, exit_code = execute_script(final_script)
     final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
     print(f"[Finalizer] exit={exit_code}")
+    log_event(state["task_id"], "finalizer",
+              "Analysis complete ✓" if exit_code == 0 else f"Finalizer script failed: {stderr[:120]}",
+              "success" if exit_code == 0 else "error")
 
     return {
         "final_result": final_output,

@@ -1,4 +1,5 @@
 from agents.state import TaskState
+from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
 
@@ -62,6 +63,9 @@ def question_generator(state: TaskState) -> dict:
         sub_questions = [ln.lstrip("0123456789.-) ").strip() for ln in text.splitlines() if ln.strip()]
 
     print(f"[QuestionGenerator] Generated {len(sub_questions)} sub-questions")
+    log_event(state["task_id"], "question_generator",
+              f"Generated {len(sub_questions)} sub-questions for the report",
+              "success", {"sub_questions": sub_questions})
 
     return {
         "sub_questions":    sub_questions,

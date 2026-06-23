@@ -12,6 +12,7 @@ from agents.finalizer import finalizer
 from agents.question_generator import question_generator
 from agents.writer import writer
 from agents.report_evaluator import report_evaluator
+from agents.logger import log_event
 import json
 
 
@@ -84,6 +85,12 @@ def sub_result_collector(state: TaskState) -> dict:
         "current_agent": f"sub_result_{current_sub_idx + 1}_of_{len(sub_questions)}"
     }).eq("task_id", state["task_id"]).execute()
 
+    if current_q:
+        log_event(state["task_id"], "sub_result_collector",
+                  f"✓ Sub-Q {current_sub_idx + 1}/{len(sub_questions)} complete — '{current_q[:80]}'",
+                  "success",
+                  {"sub_q_idx": current_sub_idx + 1, "sub_q_total": len(sub_questions), "sub_q_text": current_q})
+
     return {
         "sub_results":      sub_results,
         "current_sub_idx":  next_idx,
@@ -138,6 +145,9 @@ def gap_question_generator(state: TaskState) -> dict:
     sub_questions.extend(new_qs)
 
     supabase.table("tasks").update({"current_agent": "gap_question_generator"}).eq("task_id", state["task_id"]).execute()
+    log_event(state["task_id"], "gap_question_generator",
+              f"Identified {len(gaps)} gap(s) — adding {len(new_qs)} new sub-question(s)",
+              "info", {"gaps": gaps, "new_questions": new_qs})
 
     return {
         "sub_questions":   sub_questions,
@@ -161,6 +171,7 @@ def report_finalizer(state: TaskState) -> dict:
         "current_agent": "report_finalizer",
         "final_result":  draft,
     }).eq("task_id", state["task_id"]).execute()
+    log_event(state["task_id"], "report_finalizer", "Report finalised ✓", "success")
 
     return {"final_result": draft, "status": "completed"}
 

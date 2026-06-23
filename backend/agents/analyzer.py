@@ -2,8 +2,8 @@ import os
 import subprocess
 import tempfile
 from agents.state import TaskState
+from agents.logger import log_event
 from db import supabase
-# from supabase import create_client
 import json
 from llm_router import LLMRouter
 
@@ -88,6 +88,7 @@ def analyzer(state: TaskState) -> dict:
     descriptions = {}
 
     supabase.table("tasks").update({"current_agent": "analyzer"}).eq("task_id", state["task_id"]).execute()
+    log_event(state["task_id"], "analyzer", "Scanning data files...", "running")
 
     for fname in os.listdir(data_path):
         if fname.startswith("."):
@@ -120,4 +121,8 @@ def analyzer(state: TaskState) -> dict:
             "file_size_bytes": file_size,
         }).execute()
 
+    file_names = list(descriptions.keys())
+    log_event(state["task_id"], "analyzer",
+              f"Analyzed {len(file_names)} file(s): {', '.join(file_names)}",
+              "success", {"files": file_names})
     return {"data_descriptions": descriptions}

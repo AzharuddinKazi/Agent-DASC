@@ -126,10 +126,14 @@ async def get_task(task_id: str):
     if not response.data:
         raise HTTPException(status_code=404, detail="Task not found")
     row = response.data[0]
-    # Parse sub_results from JSON string back to dict
     if isinstance(row.get("sub_results"), str):
         try:
             row["sub_results"] = _json.loads(row["sub_results"])
         except Exception:
             row["sub_results"] = {}
+    if isinstance(row.get("logs"), str):
+        try:
+            row["logs"] = _json.loads(row["logs"])
+        except Exception:
+            row["logs"] = []
     return row

@@ -1,4 +1,5 @@
 from agents.state import TaskState
+from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
 import json
@@ -49,6 +50,9 @@ Rules:
 
 def writer(state: TaskState) -> dict:
     supabase.table("tasks").update({"current_agent": "writer"}).eq("task_id", state["task_id"]).execute()
+    log_event(state["task_id"], "writer",
+              f"Synthesising report from {len(state.get('sub_results', {}))} sub-analyses...",
+              "running", {"sub_q_count": len(state.get("sub_questions", []))})
 
     question     = state["query"]
     sub_questions = state.get("sub_questions", [])
@@ -82,5 +86,6 @@ Data (first 5 rows): {json.dumps(sr.get('rows', [])[:5])}"""
         report_text = re.sub(r"^```[a-z]*\n?", "", report_text).rstrip("`").strip()
 
     print(f"[Writer] Report generated ({result['output_tokens']} tokens)")
+    log_event(state["task_id"], "writer", "Draft report generated — sending for evaluation", "success")
 
     return {"draft_report": report_text}

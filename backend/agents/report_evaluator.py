@@ -1,4 +1,5 @@
 from agents.state import TaskState
+from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
 
@@ -60,6 +61,11 @@ def report_evaluator(state: TaskState) -> dict:
         gaps    = []
 
     print(f"[ReportEvaluator] Verdict: {verdict}, gaps: {gaps}")
+    gap_text = f" — gaps: {'; '.join(gaps[:3])}" if gaps else ""
+    log_event(state["task_id"], "report_evaluator",
+              f"Report quality: {'sufficient ✓' if verdict == 'sufficient' else f'insufficient{gap_text}'}",
+              "success" if verdict == "sufficient" else "info",
+              {"verdict": verdict, "gaps": gaps, "round": state.get("report_rounds", 0) + 1})
 
     return {
         "report_verdict": verdict,
