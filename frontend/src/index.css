@@ -106,3 +106,22 @@
   .text-sm    { font-size: 0.875rem !important; line-height: 1.6 !important; }
   .text-base  { font-size: 1rem     !important; }
 }
+
+@media print {
+  /* Hide chrome, keep only report content */
+  .print\:hidden { display: none !important; }
+
+  body { background: white; color: black; font-size: 12pt; }
+
+  /* Expand all collapsed sections when printing */
+  [class*="overflow-hidden"] { overflow: visible !important; }
+
+  /* Avoid page breaks inside cards */
+  .rounded-lg, [class*="Card"] { break-inside: avoid; }
+
+  /* Remove shadows and borders that look bad in print */
+  * { box-shadow: none !important; }
+
+  /* Page margins */
+  @page { margin: 2cm; }
+}

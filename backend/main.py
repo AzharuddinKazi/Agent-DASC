@@ -97,7 +97,7 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks):
         "report_verdict":        "",
         "report_gaps":           [],
         "report_rounds":         0,
-        "max_report_rounds":     1,   # one writer→evaluator pass; gaps add sub-Qs if needed
+        "max_report_rounds":     2,   # writer→evaluator passes before forcing finalizer
     }
 
     supabase.table("tasks").insert({
