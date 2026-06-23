@@ -78,25 +78,28 @@ export default function ReportPanel({ task, query, onFollowUp }) {
         </div>
       </div>
 
-      {/* Skeleton cards — mimics the metric card row */}
-      <div className="grid grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-5">
-              <Skeleton className="h-3 w-20 mb-3" />
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-24" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Skeleton — summary first, then table */}
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2">
-          <Skeleton className="h-48 w-full rounded-lg" />
+          <Card>
+            <CardContent className="p-5">
+              <Skeleton className="h-3 w-32 mb-4" />
+              <Skeleton className="h-3 w-full mb-2" />
+              <Skeleton className="h-3 w-5/6 mb-2" />
+              <Skeleton className="h-3 w-4/6" />
+            </CardContent>
+          </Card>
         </div>
-        <Skeleton className="h-48 rounded-lg" />
+        <Card>
+          <CardContent className="p-5">
+            <Skeleton className="h-3 w-24 mb-4" />
+            <Skeleton className="h-3 w-full mb-3" />
+            <Skeleton className="h-3 w-full mb-3" />
+            <Skeleton className="h-3 w-full" />
+          </CardContent>
+        </Card>
       </div>
-      <Skeleton className="h-64 w-full rounded-lg" />
+      <Skeleton className="h-72 w-full rounded-lg" />
     </div>
   )
 }

@@ -8,44 +8,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   ChevronRight, ChevronDown, ChevronUp, ChevronsUpDown,
   Download, ListTodo, CheckCircle2, DollarSign, Activity, Coins,
-  TrendingUp, TrendingDown, Send, Flame, Eye, ShieldCheck, ArrowUpRight, ArrowDownRight
+  TrendingUp, Send, Flame, Eye, ShieldCheck, ArrowUpRight
 } from "lucide-react"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism"
 
-// ─── helpers ───────────────────────────────────────────────────────────────
-function StatCard({ label, value, unit, icon: Icon, trend, trendLabel }) {
-  const positive = trend > 0
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <p className="text-xs text-muted-foreground font-medium">{label}</p>
-          <div className="w-8 h-8 rounded-md border border-border flex items-center justify-center text-muted-foreground shrink-0">
-            <Icon className="w-4 h-4" />
-          </div>
-        </div>
-        <p className="text-2xl font-bold text-foreground tracking-tight leading-none mb-1">{value}</p>
-        {trendLabel && (
-          <p className={`text-xs flex items-center gap-1 font-medium ${positive ? "text-success" : "text-danger"}`}>
-            {positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            {trendLabel}
-          </p>
-        )}
-        {unit && !trendLabel && <p className="text-xs text-muted-foreground">{unit}</p>}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── main ──────────────────────────────────────────────────────────────────
 export default function ReportSections({ result, query, script, plan = [], taskId, onFollowUp }) {
-  const [showCode, setShowCode] = useState(false)
-  const [followUpText, setFollowUpText] = useState("")
-  const [sortCol, setSortCol] = useState(null)
-  const [sortDir, setSortDir] = useState("desc")
+  const [showCode, setShowCode]           = useState(false)
+  const [showAudit, setShowAudit]         = useState(false)
+  const [showPlan, setShowPlan]           = useState(false)
+  const [followUpText, setFollowUpText]   = useState("")
+  const [sortCol, setSortCol]             = useState(null)
+  const [sortDir, setSortDir]             = useState("desc")
 
-  // Parse result
+  // ── Parse result ──────────────────────────────────────────────────────────
   const parsed = useMemo(() => {
     if (!result) return null
     try {
@@ -68,6 +44,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     return { rounds, tokens: inp + out, cost: inp * 0.00000125 + out * 0.000005 }
   }, [plan])
 
+  // ── Numeric column detection ───────────────────────────────────────────────
   const numericColumnMap = useMemo(() => {
     const map = {}
     if (!hasTableData) return map
@@ -94,7 +71,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     return m
   }, [columns, rows, hasTableData, numericColumnMap])
 
-  // Derive entity + metric for highlights
+  // ── Risk highlights ────────────────────────────────────────────────────────
   const { entityIdx, metricIdx, sortedByMetric } = useMemo(() => {
     if (!hasTableData) return { entityIdx: 0, metricIdx: -1, sortedByMetric: [] }
     let entityIdx = 0
@@ -126,12 +103,13 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     const maxVal = parseFloat(String(sortedByMetric[0]?.[metricIdx]).replace(/[^0-9.-]/g,"")) || 1
     const pct = row => Math.round((parseFloat(String(row?.[metricIdx]).replace(/[^0-9.-]/g,""))||0) / maxVal * 100)
     return [
-      { label: "Highest Risk",      row: sortedByMetric[0],                         icon: Flame,     badgeCls: "bg-danger/10 text-danger border-danger/20"     },
-      { label: "Watch",             row: sortedByMetric[1] || sortedByMetric[0],     icon: Eye,       badgeCls: "bg-warning-bg text-warning border-warning/20"  },
-      { label: "Lowest Exposure",   row: sortedByMetric[sortedByMetric.length - 1], icon: ShieldCheck,badgeCls: "bg-muted text-muted-foreground border-border"  },
+      { label: "Highest Risk",    row: sortedByMetric[0],                         icon: Flame,      badgeCls: "bg-danger/10 text-danger border-danger/20"    },
+      { label: "Watch",           row: sortedByMetric[1] || sortedByMetric[0],    icon: Eye,        badgeCls: "bg-warning-bg text-warning border-warning/20" },
+      { label: "Lowest Exposure", row: sortedByMetric[sortedByMetric.length - 1], icon: ShieldCheck,badgeCls: "bg-muted text-muted-foreground border-border"  },
     ].map(h => ({ ...h, val: h.row?.[entityIdx] || "N/A", sub: sub(h.row || []), pct: pct(h.row || []) }))
   }, [hasTableData, columns, rows, entityIdx, metricIdx, sortedByMetric])
 
+  // ── Sorting ────────────────────────────────────────────────────────────────
   const handleSort = c => { if (sortCol === c) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(c); setSortDir("desc") } }
 
   const sortedRows = useMemo(() => {
@@ -172,38 +150,8 @@ export default function ReportSections({ result, query, script, plan = [], taskI
   return (
     <div className="flex flex-col gap-5 pb-24 w-full">
 
-      {/* ── Row 1: 4 stat cards (like CRM top row) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Analysis Rounds"
-          value={stats.rounds.toString()}
-          unit={stats.rounds === 1 ? "iteration" : "iterations"}
-          icon={Activity}
-        />
-        <StatCard
-          label="Tokens Used"
-          value={stats.tokens.toLocaleString()}
-          unit="total tokens"
-          icon={Coins}
-        />
-        <StatCard
-          label="Model Cost"
-          value={`$${stats.cost.toFixed(4)}`}
-          unit="estimated"
-          icon={DollarSign}
-        />
-        <StatCard
-          label="Data Rows"
-          value={hasTableData ? rows.length.toString() : "—"}
-          unit={hasTableData ? `across ${columns.length} columns` : "no table data"}
-          icon={TrendingUp}
-        />
-      </div>
-
-      {/* ── Row 2: Summary (wide) + Highlights (narrow) ── */}
+      {/* ── Row 1: Summary + Risk highlights ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* Summary — 2/3 wide, like "Your target" card but for analysis */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -216,7 +164,6 @@ export default function ReportSections({ result, query, script, plan = [], taskI
           </CardContent>
         </Card>
 
-        {/* Highlights stacked — like sales pipeline */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">Risk Highlights</CardTitle>
@@ -237,14 +184,8 @@ export default function ReportSections({ result, query, script, plan = [], taskI
                         </div>
                         <span className="text-xs font-semibold text-foreground truncate max-w-[100px]">{h.val}</span>
                       </div>
-                      {/* Proportional bar */}
                       <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 ${
-                            i === 0 ? "bg-danger" : i === 1 ? "bg-warning" : "bg-zinc-400"
-                          }`}
-                          style={{ width: `${h.pct}%` }}
-                        />
+                        <div className={`h-full rounded-full transition-all duration-700 ${i === 0 ? "bg-danger" : i === 1 ? "bg-warning" : "bg-zinc-400"}`} style={{ width: `${h.pct}%` }} />
                       </div>
                       {h.sub && <p className="text-[10px] text-muted-foreground mt-1 truncate">{h.sub}</p>}
                       {i < highlights.length - 1 && <Separator className="mt-3" />}
@@ -257,47 +198,18 @@ export default function ReportSections({ result, query, script, plan = [], taskI
         </Card>
       </div>
 
-      {/* ── Row 3: Plan steps (like Tasks card) + pipeline summary ── */}
-      {hasTableData && plan && plan.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <ListTodo className="w-4 h-4 text-muted-foreground" />
-                Supervisory Plan
-              </CardTitle>
-              <Badge variant="secondary" className="text-[10px]">{plan.length} steps</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex flex-col gap-0">
-              {plan.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3 py-2.5 border-b border-border last:border-none">
-                  <div className="w-5 h-5 rounded-full bg-success/10 border border-success/30 flex items-center justify-center shrink-0 mt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-snug flex-1">
-                    <span className="font-semibold text-foreground mr-1.5">Step {idx + 1}.</span>{step}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Row 4: Data Table (like Leads table) ── */}
+      {/* ── Row 2: Data Table — primary output ── */}
       {hasTableData && (
         <Card>
           <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-semibold">Results</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">{rows.length} records returned</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{rows.length} records · {columns.length} columns</p>
               </div>
               <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5 h-7 text-xs">
                 <Download className="w-3.5 h-3.5" />
-                Export
+                Export CSV
               </Button>
             </div>
           </CardHeader>
@@ -365,28 +277,104 @@ export default function ReportSections({ result, query, script, plan = [], taskI
         </Card>
       )}
 
-      {/* ── Python Script ── */}
-      <Card>
+      {/* ── Collapsible: Supervisory Plan ── */}
+      {plan && plan.length > 0 && (
+        <Card>
+          <button
+            onClick={() => setShowPlan(v => !v)}
+            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors cursor-pointer rounded-lg"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              {showPlan ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+              <ListTodo className="w-4 h-4 text-muted-foreground" />
+              Supervisory Plan
+            </span>
+            <Badge variant="secondary" className="text-[10px]">{plan.length} steps</Badge>
+          </button>
+          {showPlan && (
+            <>
+              <Separator />
+              <CardContent className="pt-3 pb-4">
+                <div className="flex flex-col gap-0">
+                  {plan.map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-3 py-2.5 border-b border-border last:border-none">
+                      <div className="w-5 h-5 rounded-full bg-success/10 border border-success/30 flex items-center justify-center shrink-0 mt-0.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-snug flex-1">
+                        <span className="font-semibold text-foreground mr-1.5">Step {idx + 1}.</span>{step}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* ── Collapsible: Audit details + Python script ── */}
+      <Card className="border-dashed">
         <button
-          onClick={() => setShowCode(v => !v)}
-          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors cursor-pointer rounded-lg"
+          onClick={() => setShowAudit(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer rounded-lg"
         >
-          <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            {showCode ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-            View Python Script
+          <span className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+            {showAudit ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            Audit Details
           </span>
-          <Badge variant="secondary" className="font-mono text-[10px]">.py</Badge>
+          <span className="text-[11px] text-muted-foreground font-mono">
+            {stats.rounds}R · {stats.tokens.toLocaleString()} tok · ${stats.cost.toFixed(4)}
+          </span>
         </button>
-        {showCode && (
+
+        {showAudit && (
           <>
             <Separator />
-            <SyntaxHighlighter
-              language="python"
-              style={oneLight}
-              customStyle={{ background: '#fafafa', padding: '16px', margin: 0, fontSize: '12px', lineHeight: '1.6', fontFamily: "'Source Code Pro', monospace", borderRadius: '0 0 0.5rem 0.5rem' }}
+            {/* Mini stat row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-border border-b border-border">
+              {[
+                { label: "Analysis Rounds",  value: stats.rounds.toString(),         unit: stats.rounds === 1 ? "iteration" : "iterations", icon: Activity   },
+                { label: "Tokens Used",      value: stats.tokens.toLocaleString(),   unit: "total tokens",                                   icon: Coins      },
+                { label: "Model Cost",       value: `$${stats.cost.toFixed(4)}`,     unit: "estimated",                                      icon: DollarSign },
+                { label: "Data Rows",        value: hasTableData ? rows.length.toString() : "—", unit: hasTableData ? `${columns.length} columns` : "no table data", icon: TrendingUp },
+              ].map(({ label, value, unit, icon: Icon }) => (
+                <div key={label} className="flex items-start gap-3 px-5 py-4">
+                  <div className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground shrink-0">
+                    <Icon className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+                    <p className="text-base font-bold text-foreground leading-tight">{value}</p>
+                    <p className="text-[10px] text-muted-foreground">{unit}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Python script toggle */}
+            <button
+              onClick={() => setShowCode(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
             >
-              {script || "# No code executed."}
-            </SyntaxHighlighter>
+              <span className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+                {showCode ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                Python Script
+              </span>
+              <Badge variant="secondary" className="font-mono text-[10px]">.py</Badge>
+            </button>
+            {showCode && (
+              <>
+                <Separator />
+                <SyntaxHighlighter
+                  language="python"
+                  style={oneLight}
+                  customStyle={{ background: '#fafafa', padding: '16px', margin: 0, fontSize: '12px', lineHeight: '1.6', fontFamily: "'Source Code Pro', monospace", borderRadius: '0 0 0.5rem 0.5rem' }}
+                >
+                  {script || "# No code executed."}
+                </SyntaxHighlighter>
+              </>
+            )}
           </>
         )}
       </Card>
@@ -399,7 +387,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
               <Input
                 value={followUpText}
                 onChange={e => setFollowUpText(e.target.value)}
-                placeholder="Follow up on this analysis — e.g. 'Show this by quarter' or 'Filter to Islamic banks'"
+                placeholder="Follow up — e.g. 'Show this by quarter' or 'Filter to Islamic banks'"
                 className="border-none bg-transparent shadow-none focus-visible:ring-0 h-9 text-sm"
               />
               <Button type="submit" disabled={!followUpText.trim()} size="sm" className="gap-1.5 shrink-0">
