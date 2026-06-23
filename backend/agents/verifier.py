@@ -30,10 +30,11 @@ Your task is to check whether the current plan and its code implementation is en
 {result}
 
 # Your task
-Verify whether the current plan and its code implementation is enough to answer the question.
-Your response should be one of 'Yes' or 'No'.
-If it is enough to answer the question, please answer 'Yes'.
-Otherwise, please answer 'No'.
+Verify whether the execution result contains enough information to answer the question.
+Bias strongly toward 'Yes' — if the result contains any relevant data, numbers, or table rows
+that directly address the question, answer 'Yes'. Only answer 'No' if the result is completely
+empty, threw an error, or is entirely unrelated to the question.
+Your response must be exactly one of 'Yes' or 'No'.
 Your answer (Yes/No):"""
 
 

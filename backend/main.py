@@ -84,7 +84,7 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks):
         "exit_code":             0,
         "debug_attempts":        0,
         "current_round":         0,
-        "max_rounds":            10,
+        "max_rounds":            3,   # paper §3: max 3 sequential planning steps
         "verifier_verdict":      "",
         "router_decision":       "",
         "status":                "running",
@@ -97,7 +97,7 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks):
         "report_verdict":        "",
         "report_gaps":           [],
         "report_rounds":         0,
-        "max_report_rounds":     2,
+        "max_report_rounds":     1,   # one writer→evaluator pass; gaps add sub-Qs if needed
     }
 
     supabase.table("tasks").insert({

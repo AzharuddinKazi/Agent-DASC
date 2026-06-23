@@ -27,7 +27,7 @@ def route_after_analyzer(state: TaskState) -> str:
 
 def route_after_executor(state: TaskState) -> str:
     if state["exit_code"] != 0:
-        if state.get("debug_attempts", 0) < 3:
+        if state.get("debug_attempts", 0) < 2:
             return "debugger"
         return "finalizer"
     return "verifier"
