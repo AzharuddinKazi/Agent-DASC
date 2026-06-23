@@ -2,56 +2,126 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@import "@fontsource/manrope";
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/manrope/800.css";
 @import "@fontsource/source-code-pro";
 
 @theme inline {
   --font-sans: 'Manrope', sans-serif;
   --font-mono: 'Source Code Pro', monospace;
-  
-  /* Surfaces */
-  --color-surface-base: #FFFFFF;
-  --color-surface-subtle: #F7F8FA;
-  --color-surface-muted: #ECEEF2;
-  --color-surface-overlay: #E2E5EB;
-  
-  /* Slate (structural) */
-  --color-slate-900: #1C2029;
-  --color-slate-800: #2B3040;
-  --color-slate-700: #3A4055;
-  --color-slate-600: #4A5168;
-  --color-slate-400: #8A90A2;
-  --color-slate-200: #C8CBD6;
-  --color-slate-100: #DFE2EA;
-  --color-slate-050: #F2F3F7;
-  
-  /* Crimson (primary accent) */
-  --color-crimson-700: #9B1C1C;
-  --color-crimson-600: #C81D25;
-  --color-crimson-500: #E02020;
-  --color-crimson-400: #F05050;
-  --color-crimson-100: #FCE8E8;
-  --color-crimson-050: #FFF5F5;
-  
-  /* Semantic */
-  --color-green-600: #16A34A;
-  --color-green-100: #DCFCE7;
-  --color-amber-600: #D97706;
-  --color-amber-100: #FEF3C7;
-  --color-blue-600: #2563EB;
-  --color-blue-100: #DBEAFE;
-  --color-red-600: #DC2626;
-  --color-red-100: #FEE2E2;
-  
-  /* Tight Border Radii */
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
+
+  /* ── Shadcn neutral/zinc palette (matches CRM screenshot) ── */
+  --color-background:           #ffffff;
+  --color-foreground:           #09090b;
+
+  --color-card:                 #ffffff;
+  --color-card-foreground:      #09090b;
+
+  --color-popover:              #ffffff;
+  --color-popover-foreground:   #09090b;
+
+  /* Primary = near-black (shadcn default neutral) */
+  --color-primary:              #18181b;
+  --color-primary-foreground:   #fafafa;
+
+  --color-secondary:            #f4f4f5;
+  --color-secondary-foreground: #18181b;
+
+  --color-muted:                #f4f4f5;
+  --color-muted-foreground:     #71717a;
+
+  --color-accent:               #f4f4f5;
+  --color-accent-foreground:    #18181b;
+
+  --color-destructive:          #ef4444;
+
+  --color-border:               #e4e4e7;
+  --color-input:                #e4e4e7;
+  --color-ring:                 #18181b;
+
+  /* Sidebar — white, bordered */
+  --color-sidebar:              #ffffff;
+  --color-sidebar-foreground:   #09090b;
+  --color-sidebar-primary:      #18181b;
+  --color-sidebar-primary-foreground: #fafafa;
+  --color-sidebar-accent:       #f4f4f5;
+  --color-sidebar-accent-foreground:  #18181b;
+  --color-sidebar-border:       #e4e4e7;
+  --color-sidebar-ring:         #18181b;
+
+  /* ── Brand accent — crimson (logo only + progress bar) ── */
+  --color-brand:                #C81D25;
+  --color-brand-light:          #FCE8E8;
+
+  /* ── Semantic ── */
+  --color-success:              #16a34a;
+  --color-success-bg:           #f0fdf4;
+  --color-warning:              #d97706;
+  --color-warning-bg:           #fffbeb;
+  --color-danger:               #dc2626;
+  --color-danger-bg:            #fef2f2;
+  --color-info:                 #2563eb;
+  --color-info-bg:              #eff6ff;
+
+  /* ── Zinc raw palette for direct use ── */
+  --color-zinc-950: #09090b;
+  --color-zinc-900: #18181b;
+  --color-zinc-800: #27272a;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-600: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-050: #fafafa;
+
+  /* Border radius */
+  --radius: 0.5rem;
+
+  /* Chart */
+  --color-chart-1: #18181b;
+  --color-chart-2: #52525b;
+  --color-chart-3: #16a34a;
+  --color-chart-4: #d97706;
+  --color-chart-5: #dc2626;
 }
 
 @layer base {
-  body {
-    @apply bg-surface-subtle text-slate-900 font-sans antialiased;
+  html {
+    font-size: 15px; /* bump shadcn's xs-heavy defaults up to readable scale */
   }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.6;
+  }
+
+  /* Make shadcn's xs/sm text classes less microscopic */
+  .text-xs    { font-size: 0.8rem   !important; line-height: 1.5 !important; }
+  .text-sm    { font-size: 0.875rem !important; line-height: 1.6 !important; }
+  .text-base  { font-size: 1rem     !important; }
+}
+
+@media print {
+  /* Hide chrome, keep only report content */
+  .print\:hidden { display: none !important; }
+
+  body { background: white; color: black; font-size: 12pt; }
+
+  /* Expand all collapsed sections when printing */
+  [class*="overflow-hidden"] { overflow: visible !important; }
+
+  /* Avoid page breaks inside cards */
+  .rounded-lg, [class*="Card"] { break-inside: avoid; }
+
+  /* Remove shadows and borders that look bad in print */
+  * { box-shadow: none !important; }
+
+  /* Page margins */
+  @page { margin: 2cm; }
 }

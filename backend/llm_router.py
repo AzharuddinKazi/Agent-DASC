@@ -61,6 +61,13 @@ class LLMRouter:
         "finalizer":     "medium",  # formats a known result into output structure
         "query_clarity": "low",     # classifies ambiguity + mode — runs before every task
         "analyzer":      "low",     # generates file profiling scripts — runs once per file
+        # DS-STAR+ report pipeline agents
+        "question_generator":     "medium",
+        "writer":                 "high",
+        "report_evaluator":       "medium",
+        "gap_question_generator": "medium",
+        "report_finalizer":       "medium",
+        "sub_result_collector":   "low",
     }
 
     def __init__(self):

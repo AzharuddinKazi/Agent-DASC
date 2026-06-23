@@ -1,6 +1,6 @@
 from agents.state import TaskState
+from agents.logger import log_event
 from llm_router import LLMRouter
-# from supabase import create_client
 from db import supabase
 import os
 
@@ -30,10 +30,11 @@ Your task is to check whether the current plan and its code implementation is en
 {result}
 
 # Your task
-Verify whether the current plan and its code implementation is enough to answer the question.
-Your response should be one of 'Yes' or 'No'.
-If it is enough to answer the question, please answer 'Yes'.
-Otherwise, please answer 'No'.
+Verify whether the execution result contains enough information to answer the question.
+Bias strongly toward 'Yes' — if the result contains any relevant data, numbers, or table rows
+that directly address the question, answer 'Yes'. Only answer 'No' if the result is completely
+empty, threw an error, or is entirely unrelated to the question.
+Your response must be exactly one of 'Yes' or 'No'.
 Your answer (Yes/No):"""
 
 
@@ -74,5 +75,13 @@ def verifier(state: TaskState) -> dict:
     verdict = "sufficient" if "yes" in answer else "insufficient"
 
     print(f"[Verifier] Verdict: {verdict}")
+
+    sub_questions   = state.get("sub_questions", [])
+    current_sub_idx = state.get("current_sub_idx", 0)
+    label = f"Sub-Q {current_sub_idx + 1}/{len(sub_questions)} · " if sub_questions else ""
+    log_event(state["task_id"], "verifier",
+              f"{label}Result verified — {'sufficient ✓' if verdict == 'sufficient' else 'needs more work'}",
+              "success" if verdict == "sufficient" else "info",
+              {"verdict": verdict, "round": state.get("current_round", 0)})
 
     return {"verifier_verdict": verdict}

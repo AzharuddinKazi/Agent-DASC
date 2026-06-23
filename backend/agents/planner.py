@@ -1,8 +1,8 @@
 import os
 
 from agents.state import TaskState
+from agents.logger import log_event
 from llm_router import LLMRouter
-# from supabase import create_client
 from db import supabase
 router = LLMRouter()
 
@@ -89,11 +89,25 @@ def planner(state: TaskState) -> dict:
 
     print(f"[Planner] Round {current_round + 1}: {new_step}")
 
-    # Broadcast the new logic step to the dashboard immediately
     updated_plan = cumulative_plan + [new_step]
     supabase.table("tasks").update({
         "cumulative_plan": updated_plan
     }).eq("task_id", state["task_id"]).execute()
+
+    sub_questions   = state.get("sub_questions", [])
+    current_sub_idx = state.get("current_sub_idx", 0)
+    sub_ctx = {}
+    if sub_questions:
+        sub_ctx = {
+            "sub_q_idx":   current_sub_idx + 1,
+            "sub_q_total": len(sub_questions),
+            "sub_q_text":  sub_questions[current_sub_idx] if current_sub_idx < len(sub_questions) else "",
+        }
+
+    label = f"Sub-Q {current_sub_idx + 1}/{len(sub_questions)} · " if sub_questions else ""
+    log_event(state["task_id"], "planner",
+              f"{label}Round {current_round + 1} — {new_step}",
+              "running", {"round": current_round + 1, **sub_ctx})
 
     return {
         "cumulative_plan": updated_plan,

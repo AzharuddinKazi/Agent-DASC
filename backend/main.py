@@ -35,6 +35,7 @@ app.add_middleware(
 class TaskSubmission(BaseModel):
     query: str
     formatting_guidelines: str = ""
+    task_type: str = "qa"   # "qa" | "report"
 
 
 async def run_graph(task_id: str, initial_state: dict):
@@ -43,11 +44,14 @@ async def run_graph(task_id: str, initial_state: dict):
         result = await asyncio.get_event_loop().run_in_executor(
             None, lambda: graph.invoke(initial_state, config=config)
         )
+        import json as _json
         supabase.table("tasks").update({
             "status":       result["status"],
             "final_result": result.get("final_result"),
-            "rounds_taken": result["current_round"],
+            "rounds_taken": result.get("current_round", 0),
             "current_script": result.get("current_script"),
+            "task_type":    result.get("task_type", "qa"),
+            "sub_results":  _json.dumps(result.get("sub_results") or {}),
         }).eq("task_id", task_id).execute()
     except Exception as e:
         import traceback
@@ -64,12 +68,15 @@ async def health():
 
 @app.post("/api/v1/submit_task", summary="Submit Task", tags=["Tasks"], status_code=202)
 async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks):
-    task_id = str(uuid.uuid4())
+    task_id   = str(uuid.uuid4())
+    task_type = task.task_type if task.task_type in ("qa", "report") else "qa"
 
     initial_state = {
         "task_id":               task_id,
         "query":                 task.query,
         "formatting_guidelines": task.formatting_guidelines,
+        "task_type":             task_type,
+        # QA pipeline
         "data_descriptions":     {},
         "cumulative_plan":       [],
         "current_script":        "",
@@ -77,23 +84,33 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks):
         "exit_code":             0,
         "debug_attempts":        0,
         "current_round":         0,
-        "max_rounds":            10,
+        "max_rounds":            3,   # paper §3: max 3 sequential planning steps
         "verifier_verdict":      "",
         "router_decision":       "",
         "status":                "running",
         "final_result":          None,
+        # Report pipeline
+        "sub_questions":         [],
+        "current_sub_idx":       0,
+        "sub_results":           {},
+        "draft_report":          "",
+        "report_verdict":        "",
+        "report_gaps":           [],
+        "report_rounds":         0,
+        "max_report_rounds":     2,   # writer→evaluator passes before forcing finalizer
     }
 
     supabase.table("tasks").insert({
         "task_id":               task_id,
         "query":                 task.query,
         "formatting_guidelines": task.formatting_guidelines,
+        "task_type":             task_type,
         "status":                "running",
     }).execute()
 
     background_tasks.add_task(run_graph, task_id, initial_state)
 
-    return {"task_id": task_id, "status": "running", "query": task.query}
+    return {"task_id": task_id, "status": "running", "query": task.query, "task_type": task_type}
 
 
 @app.get("/api/v1/get_tasks", summary="Get Tasks", tags=["Tasks"])
@@ -104,7 +121,19 @@ async def get_tasks():
 
 @app.get("/api/v1/get_task/{task_id}", summary="Get Task", tags=["Tasks"])
 async def get_task(task_id: str):
+    import json as _json
     response = supabase.table("tasks").select("*").eq("task_id", task_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Task not found")
-    return response.data[0]
+    row = response.data[0]
+    if isinstance(row.get("sub_results"), str):
+        try:
+            row["sub_results"] = _json.loads(row["sub_results"])
+        except Exception:
+            row["sub_results"] = {}
+    if isinstance(row.get("logs"), str):
+        try:
+            row["logs"] = _json.loads(row["logs"])
+        except Exception:
+            row["logs"] = []
+    return row
