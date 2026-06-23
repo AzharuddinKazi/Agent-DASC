@@ -6,7 +6,7 @@ during a DS-STAR task. Every node reads from this and returns updates to it.
 No node communicates with another node directly — only through state.
 """
 
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, List, Dict, Any
 
 
 class TaskState(TypedDict):
@@ -20,6 +20,11 @@ class TaskState(TypedDict):
     query:                      str
     formatting_guidelines:      str
     data_descriptions:          dict        # {filename: d_i description}
+
+    sub_questions:              List[Dict[str, Any]]
+    current_question_index:     int
+    completed_sections:         Dict[str, Any]
+
     cumulative_plan:            list        # [p_0, p_1, ...] — grows each round
     current_script:             str         # s_k — most recent script
     execution_result:           str         # r_k — stdout from most recent execution

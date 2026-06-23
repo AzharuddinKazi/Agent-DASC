@@ -53,7 +53,12 @@ def planner(state: TaskState) -> dict:
     # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": f"planner_round_{state['current_round']}"}).eq("task_id", state["task_id"]).execute()
 
-    question = state["query"]
+    current_idx = state["current_question_index"]
+    sub_question_obj = state["sub_questions"][current_idx]
+    question = sub_question_obj["question_text"]
+    needs_chart = sub_question_obj.get("needs_chart", False)
+
+    print(f"[Planner] Tackling Section {current_idx + 1}: {question}")
     summaries = state["data_descriptions"]
     cumulative_plan = state["cumulative_plan"]
     current_round = state["current_round"]
