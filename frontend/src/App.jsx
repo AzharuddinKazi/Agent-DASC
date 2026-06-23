@@ -1,7 +1,7 @@
 import { useState } from "react"
-import EmptyState from "@/components/app/EmptyState"
-import Dashboard from "@/components/app/Dashboard"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import EmptyState from "./components/app/EmptyState"
+import Dashboard from "./components/app/Dashboard"
+import { TooltipProvider } from "./components/ui/tooltip"
 
 export default function App() {
   const [view, setView]       = useState("empty")
@@ -22,7 +22,7 @@ export default function App() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-[#09090B]">
+      <div className="min-h-screen bg-surface-subtle text-slate-900">
         {view === "empty" && <EmptyState onSubmit={handleSubmit} />}
         {view === "dashboard" && (
           <Dashboard query={query} taskId={taskId} onNew={handleNew} />

@@ -1,67 +1,71 @@
-import ReportSections from "./ReportSections"
+import ReportSections from "./ReportSections.jsx"
+import { AlertTriangle } from "lucide-react"
 
-const PROGRESS_BY_AGENT = {
-  analyzer: 10, planner: 25, coder: 40,
-  executor: 55, verifier: 70, router: 75, finalizer: 90,
+// Helper to translate raw agent strings into analyst-friendly descriptions
+function getAgentDescription(agent) {
+  if (!agent) return "Initializing autonomous pipeline..."
+  if (agent.startsWith("planner")) {
+    const match = agent.match(/\d+/)
+    const round = match ? match[0] : ""
+    return round ? `Formulating logical plan for iteration ${round}...` : "Formulating analytical plan..."
+  }
+  
+  const descriptions = {
+    analyzer: "Analyzing dataset schemas and preparing context...",
+    coder: "Translating plan into secure Pandas execution script...",
+    executor: "Spinning up isolated Docker sandbox and executing code...",
+    verifier: "Evaluating execution results against your original query...",
+    router: "Determining if further analysis is required...",
+    debugger: "Execution failed. Analyzing traceback and writing code patch...",
+    finalizer: "Formatting final report and data tables..."
+  }
+  
+  return descriptions[agent] || `Agent active: ${agent}`
 }
 
-export default function ReportPanel({ task, query }) {
-  const base = task?.current_agent?.startsWith("planner") ? "planner" : task?.current_agent
-  const progress = task?.status === "completed" ? 100
-    : task?.status === "failed" ? 100
-    : PROGRESS_BY_AGENT[base] ?? 5
+export default function ReportPanel({ task, query, onFollowUp }) {
+  const rawAgent = task?.current_agent
+  const baseAgent = rawAgent?.startsWith("planner") ? "planner" : rawAgent
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="px-6 py-4 border-b border-zinc-800/60 flex items-center justify-between">
-        <div className="text-xs font-medium text-zinc-600 uppercase tracking-widest">
-          Live analysis · report
-        </div>
-        {task?.status === "running" && (
-          <div className="flex items-center gap-2 text-xs text-violet-400">
-            <div className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
-            Generating · {progress}%
-          </div>
-        )}
-        {task?.status === "completed" && (
-          <div className="flex items-center gap-2 text-xs text-green-400">
-            <i className="ti ti-circle-check text-sm" />
-            Complete
-          </div>
-        )}
-      </div>
-
-      <div className="h-0.5 bg-zinc-800">
-        <div
-          className="h-0.5 bg-violet-600 transition-all duration-700"
-          style={{ width: `${progress}%` }}
+    <div className="w-full">
+      {task?.status === "completed" && task?.final_result ? (
+        <ReportSections 
+          result={task.final_result} 
+          query={query} 
+          script={task.current_script} 
+          plan={task.cumulative_plan} 
+          taskId={task.task_id}
+          onFollowUp={onFollowUp}
         />
-      </div>
+      ) : task?.status === "failed" ? (
+        <div className="rounded-[4px] bg-red-100 border border-red-200 p-5 max-w-2xl mx-auto mt-6 shadow-sm font-sans">
+          <div className="flex items-center gap-2 text-red-700 text-[13px] font-semibold mb-3">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            Analysis Pipeline Failed
+          </div>
+          <p className="text-xs text-red-800 leading-relaxed font-mono whitespace-pre-wrap bg-white/50 p-3 rounded border border-red-500/10">
+            {task?.final_result ?? "An unexpected infrastructure error occurred."}
+          </p>
+        </div>
+      ) : (
+        /* --- Redesigned Light Neutral Pulsing UI --- */
+        <div className="flex flex-col items-center justify-center min-h-[350px] gap-6 w-full font-sans">
+          <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-blue-100 border border-blue-200">
+            <div className="absolute inset-0 rounded-full animate-ping bg-blue-600/10 duration-1000"></div>
+            <div className="relative z-10 w-3.5 h-3.5 rounded-full bg-blue-600 shadow-[0_0_12px_rgba(37,99,235,0.4)]"></div>
+          </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {task?.status === "completed" && task?.final_result ? (
-          <ReportSections result={task.final_result} query={query} script={task.current_script} />
-        ) : task?.status === "failed" ? (
-          <div className="rounded-xl bg-red-950/30 border border-red-900/50 p-4">
-            <div className="flex items-center gap-2 text-red-400 text-sm font-medium mb-2">
-              <i className="ti ti-alert-circle" />
-              Analysis failed
-            </div>
-            <p className="text-xs text-red-400/70 leading-relaxed">
-              {task?.final_result ?? "An unexpected error occurred."}
+          <div className="text-center space-y-2">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {baseAgent || "System Initialization"}
+            </h3>
+            <p className="text-sm text-slate-600 leading-relaxed max-w-sm animate-pulse font-medium">
+              {getAgentDescription(rawAgent)}
             </p>
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-              <i className="ti ti-report text-zinc-600 text-lg" />
-            </div>
-            <p className="text-xs text-zinc-600 leading-relaxed">
-              Report will appear here<br />as agents complete their work
-            </p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

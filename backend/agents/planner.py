@@ -89,8 +89,14 @@ def planner(state: TaskState) -> dict:
 
     print(f"[Planner] Round {current_round + 1}: {new_step}")
 
+    # Broadcast the new logic step to the dashboard immediately
+    updated_plan = cumulative_plan + [new_step]
+    supabase.table("tasks").update({
+        "cumulative_plan": updated_plan
+    }).eq("task_id", state["task_id"]).execute()
+
     return {
-        "cumulative_plan": cumulative_plan + [new_step],
+        "cumulative_plan": updated_plan,
         "current_round":   current_round + 1,
         "status":          "running",
     }
