@@ -1,5 +1,5 @@
 import ReportSections from "./ReportSections.jsx"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertTriangle, Zap } from "lucide-react"
@@ -40,13 +40,15 @@ export default function ReportPanel({ task, query, onFollowUp }) {
 
   if (task?.status === "failed") {
     return (
-      <Card className="border-red-200 bg-red-100 max-w-2xl mx-auto mt-8">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 text-red-700 font-bold mb-3">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
+      <Card className="border-destructive/30 bg-destructive/5 max-w-2xl mx-auto mt-6">
+        <CardHeader>
+          <CardTitle className="text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
             Analysis Pipeline Failed
-          </div>
-          <pre className="text-xs text-red-800 leading-relaxed whitespace-pre-wrap bg-white/60 p-4 rounded-lg border border-red-200/60 font-mono overflow-x-auto">
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <pre className="text-xs text-destructive/80 leading-relaxed whitespace-pre-wrap bg-background p-4 rounded-md border border-destructive/20 font-mono overflow-x-auto">
             {task?.final_result ?? "An unexpected infrastructure error occurred."}
           </pre>
         </CardContent>
@@ -56,41 +58,45 @@ export default function ReportPanel({ task, query, onFollowUp }) {
 
   /* Loading state */
   return (
-    <div className="flex flex-col items-center justify-center min-h-[420px] gap-8 w-full">
-
-      {/* Animated orb */}
-      <div className="relative flex items-center justify-center">
-        <div className="absolute w-20 h-20 rounded-full bg-primary/10 animate-ping opacity-40" style={{ animationDuration: '2s' }} />
-        <div className="absolute w-14 h-14 rounded-full bg-primary/15 animate-ping opacity-60" style={{ animationDuration: '1.5s', animationDelay: '0.2s' }} />
-        <div className="relative z-10 w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
-          <Zap className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
+    <div className="flex flex-col gap-6 w-full">
+      {/* Status indicator */}
+      <div className="flex flex-col items-center justify-center py-10 gap-5">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute w-16 h-16 rounded-full bg-foreground/5 animate-ping opacity-50" style={{ animationDuration: '2s' }} />
+          <div className="relative z-10 w-10 h-10 rounded-full bg-foreground flex items-center justify-center">
+            <Zap className="w-5 h-5 text-background" strokeWidth={2.5} />
+          </div>
+        </div>
+        <div className="text-center">
+          {baseAgent && (
+            <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider mb-2">
+              {baseAgent}
+            </Badge>
+          )}
+          <p className="text-sm font-semibold text-foreground">{getAgentDescription(rawAgent)}</p>
+          <p className="text-xs text-muted-foreground mt-1">Typically completes in 30–90 seconds</p>
         </div>
       </div>
 
-      <div className="flex flex-col items-center text-center gap-3">
-        {baseAgent && (
-          <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider">
-            {baseAgent}
-          </Badge>
-        )}
-        <p className="text-[15px] font-semibold text-foreground max-w-sm leading-snug">
-          {getAgentDescription(rawAgent)}
-        </p>
-        <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-          The autonomous pipeline is working through your query. This typically takes 30–90 seconds.
-        </p>
+      {/* Skeleton cards — mimics the metric card row */}
+      <div className="grid grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-5">
+              <Skeleton className="h-3 w-20 mb-3" />
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-24" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
-
-      {/* Skeleton placeholders */}
-      <div className="w-full max-w-xl flex flex-col gap-3">
-        <Skeleton className="h-24 w-full rounded-lg" />
-        <div className="grid grid-cols-3 gap-3">
-          <Skeleton className="h-16 rounded-lg" />
-          <Skeleton className="h-16 rounded-lg" />
-          <Skeleton className="h-16 rounded-lg" />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-2">
+          <Skeleton className="h-48 w-full rounded-lg" />
         </div>
-        <Skeleton className="h-40 w-full rounded-lg" />
+        <Skeleton className="h-48 rounded-lg" />
       </div>
+      <Skeleton className="h-64 w-full rounded-lg" />
     </div>
   )
 }

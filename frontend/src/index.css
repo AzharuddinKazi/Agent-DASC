@@ -13,101 +13,85 @@
   --font-sans: 'Manrope', sans-serif;
   --font-mono: 'Source Code Pro', monospace;
 
-  /* ── Shadcn semantic tokens → our palette ── */
-  --color-background:        #F5F6FA;
-  --color-foreground:        #1A1F2E;
+  /* ── Shadcn neutral/zinc palette (matches CRM screenshot) ── */
+  --color-background:           #ffffff;
+  --color-foreground:           #09090b;
 
-  --color-card:              #FFFFFF;
-  --color-card-foreground:   #1A1F2E;
+  --color-card:                 #ffffff;
+  --color-card-foreground:      #09090b;
 
-  --color-popover:           #FFFFFF;
-  --color-popover-foreground:#1A1F2E;
+  --color-popover:              #ffffff;
+  --color-popover-foreground:   #09090b;
 
-  /* Primary = Crimson */
-  --color-primary:           #C81D25;
-  --color-primary-foreground:#FFFFFF;
+  /* Primary = near-black (shadcn default neutral) */
+  --color-primary:              #18181b;
+  --color-primary-foreground:   #fafafa;
 
-  /* Secondary = light slate */
-  --color-secondary:         #ECEEF4;
-  --color-secondary-foreground: #252B3B;
+  --color-secondary:            #f4f4f5;
+  --color-secondary-foreground: #18181b;
 
-  /* Muted = very light gray */
-  --color-muted:             #F0F2F7;
-  --color-muted-foreground:  #646B80;
+  --color-muted:                #f4f4f5;
+  --color-muted-foreground:     #71717a;
 
-  /* Accent = slate-050 */
-  --color-accent:            #F0F2F7;
-  --color-accent-foreground: #1A1F2E;
+  --color-accent:               #f4f4f5;
+  --color-accent-foreground:    #18181b;
 
-  /* Destructive = red */
-  --color-destructive:       #DC2626;
+  --color-destructive:          #ef4444;
 
-  --color-border:            #D0D4DF;
-  --color-input:             #D0D4DF;
-  --color-ring:              #C81D25;
+  --color-border:               #e4e4e7;
+  --color-input:                #e4e4e7;
+  --color-ring:                 #18181b;
 
-  /* Sidebar tokens */
-  --color-sidebar:           #1A1F2E;
-  --color-sidebar-foreground:#E4E7EF;
-  --color-sidebar-primary:   #C81D25;
-  --color-sidebar-primary-foreground: #FFFFFF;
-  --color-sidebar-accent:    #252B3B;
-  --color-sidebar-accent-foreground: #E4E7EF;
-  --color-sidebar-border:    #343C52;
-  --color-sidebar-ring:      #C81D25;
+  /* Sidebar — white, bordered */
+  --color-sidebar:              #ffffff;
+  --color-sidebar-foreground:   #09090b;
+  --color-sidebar-primary:      #18181b;
+  --color-sidebar-primary-foreground: #fafafa;
+  --color-sidebar-accent:       #f4f4f5;
+  --color-sidebar-accent-foreground:  #18181b;
+  --color-sidebar-border:       #e4e4e7;
+  --color-sidebar-ring:         #18181b;
 
-  /* ── Raw palette for direct use ── */
-  --color-slate-950: #0D1117;
-  --color-slate-900: #1A1F2E;
-  --color-slate-800: #252B3B;
-  --color-slate-700: #343C52;
-  --color-slate-600: #4A5268;
-  --color-slate-500: #646B80;
-  --color-slate-400: #8890A4;
-  --color-slate-300: #B0B6C6;
-  --color-slate-200: #D0D4DF;
-  --color-slate-100: #E4E7EF;
-  --color-slate-050: #F0F2F7;
+  /* ── Brand accent — crimson (logo only + progress bar) ── */
+  --color-brand:                #C81D25;
+  --color-brand-light:          #FCE8E8;
 
-  --color-crimson-700: #9B1C1C;
-  --color-crimson-600: #C81D25;
-  --color-crimson-500: #E02020;
-  --color-crimson-400: #F05050;
-  --color-crimson-100: #FCE8E8;
-  --color-crimson-050: #FFF5F5;
+  /* ── Semantic ── */
+  --color-success:              #16a34a;
+  --color-success-bg:           #f0fdf4;
+  --color-warning:              #d97706;
+  --color-warning-bg:           #fffbeb;
+  --color-danger:               #dc2626;
+  --color-danger-bg:            #fef2f2;
+  --color-info:                 #2563eb;
+  --color-info-bg:              #eff6ff;
 
-  --color-green-700:  #15803D;
-  --color-green-600:  #16A34A;
-  --color-green-100:  #DCFCE7;
-  --color-green-050:  #F0FDF4;
-  --color-amber-600:  #D97706;
-  --color-amber-100:  #FEF3C7;
-  --color-blue-600:   #2563EB;
-  --color-blue-100:   #DBEAFE;
-  --color-blue-050:   #EFF6FF;
-  --color-red-600:    #DC2626;
-  --color-red-100:    #FEE2E2;
+  /* ── Zinc raw palette for direct use ── */
+  --color-zinc-950: #09090b;
+  --color-zinc-900: #18181b;
+  --color-zinc-800: #27272a;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-600: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-050: #fafafa;
 
-  /* Border radii — shadcn uses --radius */
+  /* Border radius */
   --radius: 0.5rem;
 
-  /* Chart colours (shadcn expects these) */
-  --color-chart-1: #C81D25;
-  --color-chart-2: #2563EB;
-  --color-chart-3: #16A34A;
-  --color-chart-4: #D97706;
-  --color-chart-5: #8890A4;
+  /* Chart */
+  --color-chart-1: #18181b;
+  --color-chart-2: #52525b;
+  --color-chart-3: #16a34a;
+  --color-chart-4: #d97706;
+  --color-chart-5: #dc2626;
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground font-sans antialiased;
-  }
-}
-
-@layer utilities {
-  .dot-grid {
-    background-image: radial-gradient(circle, #C8CBD6 1px, transparent 1px);
-    background-size: 28px 28px;
   }
 }

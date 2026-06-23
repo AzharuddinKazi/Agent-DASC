@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Shield, Clock, RotateCcw } from "lucide-react"
+import {
+  Plus, LayoutDashboard, Clock, RotateCcw,
+  ChevronDown, User
+} from "lucide-react"
 
 function elapsed(created_at) {
-  if (!created_at) return "0s ago"
+  if (!created_at) return "just now"
   const s = Math.floor((Date.now() - new Date(created_at)) / 1000)
   if (s < 60) return `${s}s ago`
   if (s < 3600) return `${Math.floor(s / 60)}m ago`
@@ -18,55 +21,66 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
   const [tasks, setTasks] = useState([])
 
   useEffect(() => {
-    const fetch = async () => {
+    const load = async () => {
       try { const r = await getTasks(); setTasks(r.data) }
       catch (e) { console.error(e) }
     }
-    fetch()
-    const t = setInterval(fetch, 5000)
+    load()
+    const t = setInterval(load, 5000)
     return () => clearInterval(t)
   }, [])
 
   return (
-    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground font-sans">
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
 
-      {/* Header */}
-      <div className="px-5 pt-6 pb-4">
-        <div className="flex items-center gap-2.5 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
-            <Shield className="w-4 h-4 text-sidebar-primary-foreground" strokeWidth={2.5} />
+      {/* Brand / Logo */}
+      <div className="h-14 flex items-center px-4 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center gap-2">
+          {/* Small logo mark */}
+          <div className="w-6 h-6 rounded bg-zinc-900 flex items-center justify-center">
+            <span className="text-[10px] font-black text-white leading-none">DS</span>
           </div>
-          <div>
-            <div className="text-[15px] font-extrabold tracking-tight leading-none">
-              DS<span className="text-sidebar-primary">—</span>STAR
-            </div>
-            <div className="text-[9px] text-sidebar-foreground/40 uppercase tracking-[0.15em] font-bold mt-0.5">
-              Supervisory Intelligence
-            </div>
+          <div className="flex items-center gap-0.5">
+            <span className="text-sm font-bold text-foreground tracking-tight">DS</span>
+            <span className="text-sm font-bold text-brand tracking-tight">—</span>
+            <span className="text-sm font-bold text-foreground tracking-tight">STAR</span>
           </div>
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1" />
         </div>
+      </div>
 
+      {/* Nav section */}
+      <div className="px-3 py-3 shrink-0">
+        {/* Active: Analysis */}
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-accent text-accent-foreground font-semibold text-sm cursor-default">
+          <LayoutDashboard className="w-4 h-4 shrink-0" />
+          Analysis
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* New analysis button */}
+      <div className="px-3 py-3 shrink-0">
         <Button
           onClick={onNew}
           variant="outline"
-          className="w-full gap-2 border-sidebar-border bg-transparent text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:border-sidebar-accent"
+          className="w-full justify-start gap-2 text-sm h-8 font-medium"
         >
           <Plus className="w-3.5 h-3.5" />
           New Analysis
         </Button>
       </div>
 
-      <Separator className="bg-sidebar-border" />
-
-      {/* History list */}
-      <ScrollArea className="flex-1 py-3">
-        <p className="px-5 mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/30">
-          Recent Analyses
+      {/* History */}
+      <ScrollArea className="flex-1 px-3 pb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
+          Recent
         </p>
 
-        <div className="flex flex-col gap-0.5 px-2">
+        <div className="flex flex-col gap-0.5">
           {tasks.length === 0 && (
-            <p className="px-3 py-6 text-center text-xs text-sidebar-foreground/30">No analyses yet</p>
+            <p className="text-xs text-muted-foreground px-2 py-3">No analyses yet</p>
           )}
           {tasks.map(task => {
             const active = task.task_id === currentTaskId
@@ -74,24 +88,22 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
               <button
                 key={task.task_id}
                 onClick={() => onSelect(task.task_id, task.query)}
-                className={`w-full text-left px-3 py-3 rounded-lg transition-all cursor-pointer ${
+                className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors cursor-pointer ${
                   active
-                    ? "bg-sidebar-primary/10 border border-sidebar-primary/25 text-sidebar-foreground"
-                    : "border border-transparent text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <p className="text-[13px] line-clamp-2 leading-snug flex-1 font-medium">{task.query}</p>
-                  <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                    task.status === "completed" ? "bg-green-500" :
-                    task.status === "running"   ? "bg-blue-500 animate-pulse" :
-                    task.status === "failed"    ? "bg-red-500" : "bg-sidebar-foreground/30"
+                <p className="line-clamp-2 leading-snug text-[13px] mb-1">{task.query}</p>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    task.status === "completed" ? "bg-success" :
+                    task.status === "running"   ? "bg-info animate-pulse" :
+                    task.status === "failed"    ? "bg-danger" : "bg-zinc-400"
                   }`} />
-                </div>
-                <div className="flex items-center gap-2 text-[10px] font-mono text-sidebar-foreground/30">
-                  <span className="flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{elapsed(task.created_at)}</span>
+                  <span>{elapsed(task.created_at)}</span>
                   <span>·</span>
-                  <span className="flex items-center gap-1"><RotateCcw className="w-2.5 h-2.5" />Round {task.rounds_taken || 1}</span>
+                  <span>R{task.rounds_taken || 1}</span>
                 </div>
               </button>
             )
@@ -99,19 +111,22 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
         </div>
       </ScrollArea>
 
-      <Separator className="bg-sidebar-border" />
+      <Separator />
 
-      {/* Footer */}
-      <div className="px-4 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-[11px] font-bold text-sidebar-primary-foreground shrink-0">
-            AK
+      {/* User footer — matches CRM screenshot style */}
+      <div className="px-3 py-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-full bg-zinc-900 flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-bold text-white">AK</span>
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-sidebar-foreground">Azharuddin K.</p>
-            <p className="text-[10px] text-sidebar-foreground/40">Supervisory Analyst</p>
+            <p className="text-xs font-semibold text-foreground leading-none">Azharuddin K.</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Supervisory Analyst</p>
           </div>
         </div>
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
+          <User className="w-3.5 h-3.5" />
+        </Button>
       </div>
     </div>
   )

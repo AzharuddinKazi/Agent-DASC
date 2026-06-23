@@ -14,16 +14,6 @@ const AGENT_DESCRIPTIONS = {
   finalizer:"Structures the result into a clean report",
 }
 
-const AGENT_MESSAGES = {
-  analyzer: "Profiling your data files...",
-  planner:  "Planning the analysis approach...",
-  coder:    "Writing analysis code...",
-  executor: "Running the analysis...",
-  verifier: "Checking result quality...",
-  router:   "Refining the approach, starting next round...",
-  finalizer:"Preparing your report...",
-}
-
 const AGENT_ICONS = {
   analyzer: Search, planner: ListTodo, coder: Code,
   executor: Play, verifier: ShieldCheck, router: GitBranch, finalizer: Sparkles,
@@ -50,52 +40,38 @@ export default function AgentPipeline({ currentAgent, status, roundsTaken }) {
         const Icon  = AGENT_ICONS[agent]
         const isLast = i === arr.length - 1
 
-        // Pick Badge variant based on state
-        const badgeVariant =
-          state === "done"    ? "outline" :
-          state === "running" ? "default" :
-          state === "failed"  ? "destructive" : "secondary"
-
-        const badgeClass =
-          state === "done"
-            ? "border-green-200 bg-green-050 text-green-700 gap-1"
-            : state === "running"
-            ? "bg-primary text-primary-foreground gap-1 shadow-md shadow-primary/30"
-            : state === "failed"
-            ? "gap-1"
-            : "gap-1 text-muted-foreground"
-
         return (
           <div key={agent} className="flex items-center flex-1 min-w-0">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="cursor-help">
-                  <Badge variant={badgeVariant} className={`${badgeClass} rounded-full px-2.5 py-1 h-auto text-[10px] font-bold capitalize tracking-wide`}>
-                    {state === "done" ? (
-                      <Check className="w-3 h-3 stroke-[3px]" />
-                    ) : state === "failed" ? (
-                      <AlertCircle className="w-3 h-3" />
-                    ) : (
-                      <Icon className={`w-3 h-3 ${state === "running" ? "animate-pulse" : ""}`} />
-                    )}
-                    <span className="hidden sm:inline">{agent}</span>
-                  </Badge>
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full cursor-help transition-all duration-200 border text-[10px] font-semibold capitalize tracking-wide ${
+                  state === "done"
+                    ? "bg-zinc-900 border-zinc-900 text-white"
+                    : state === "running"
+                    ? "bg-foreground border-foreground text-background shadow-sm"
+                    : state === "failed"
+                    ? "bg-danger/10 border-danger/30 text-danger"
+                    : "bg-background border-border text-muted-foreground"
+                }`}>
+                  {state === "done" ? (
+                    <Check className="w-3 h-3 stroke-[2.5px]" />
+                  ) : state === "failed" ? (
+                    <AlertCircle className="w-3 h-3" />
+                  ) : (
+                    <Icon className={`w-3 h-3 ${state === "running" ? "animate-pulse" : ""}`} />
+                  )}
+                  <span className="hidden sm:block">{agent}</span>
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px]">
-                <p className="font-semibold capitalize mb-0.5">{agent}</p>
-                <p className="text-muted-foreground text-xs">{AGENT_DESCRIPTIONS[agent]}</p>
-                {state === "running" && (
-                  <p className="text-primary text-[10px] font-medium border-t border-border pt-1 mt-1">
-                    {AGENT_MESSAGES[agent]}
-                  </p>
-                )}
+              <TooltipContent side="bottom" className="max-w-[200px]">
+                <p className="font-semibold capitalize mb-0.5 text-xs">{agent}</p>
+                <p className="text-muted-foreground text-xs leading-snug">{AGENT_DESCRIPTIONS[agent]}</p>
               </TooltipContent>
             </Tooltip>
 
             {!isLast && (
-              <div className={`flex-1 h-px mx-1 transition-colors duration-500 ${
-                state === "done" ? "bg-green-300" : "bg-border"
+              <div className={`flex-1 h-px mx-1.5 transition-colors duration-500 ${
+                state === "done" ? "bg-zinc-900" : "bg-border"
               }`} />
             )}
           </div>

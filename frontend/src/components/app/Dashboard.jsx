@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Menu, Shield } from "lucide-react"
+import { Menu } from "lucide-react"
 
 const PROGRESS_BY_AGENT = {
   analyzer: 10, planner: 25, coder: 40, executor: 55,
@@ -65,79 +65,85 @@ export default function Dashboard({ query, taskId, onNew }) {
   const baseAgent = task?.current_agent?.startsWith("planner") ? "planner" : task?.current_agent
   const progress  = isComplete ? 100 : isFailed ? 100 : PROGRESS_BY_AGENT[baseAgent] ?? 5
 
-  const formatTimer = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+  const formatTimer = (s) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden font-sans">
+    <div className="h-screen flex bg-background overflow-hidden font-sans">
 
-      {/* TOP BAR */}
-      <div className="relative h-[54px] bg-card border-b border-border flex items-center justify-between px-3 shrink-0 z-40">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Hamburger */}
-          <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0">
-                <Menu className="w-4 h-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[280px] p-0 border-none bg-sidebar" showCloseButton={false}>
-              <SheetTitle className="sr-only">History</SheetTitle>
-              <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} />
-            </SheetContent>
-          </Sheet>
-
-          {/* Logo */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-              <Shield className="w-3.5 h-3.5 text-primary-foreground" strokeWidth={2.5} />
-            </div>
-            <span className="text-[15px] font-extrabold text-foreground tracking-tight">
-              DS<span className="text-primary">—</span>STAR
-            </span>
-          </div>
-
-          <Separator orientation="vertical" className="h-5 mx-1" />
-
-          <span className="text-sm font-semibold text-foreground truncate">
-            {activeQuery}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Timer */}
-          <span className="font-mono text-xs text-muted-foreground tabular-nums tracking-wider">
-            {formatTimer(elapsedTime)}
-          </span>
-
-          {/* Status badge */}
-          {isRunning  && <Badge variant="outline" className="gap-1.5 border-blue-200 bg-blue-050 text-blue-700"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />Running</Badge>}
-          {isComplete && <Badge variant="outline" className="gap-1.5 border-green-200 bg-green-050 text-green-700"><span className="w-1.5 h-1.5 rounded-full bg-green-500" />Complete</Badge>}
-          {isFailed   && <Badge variant="destructive" className="gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-destructive-foreground" />Failed</Badge>}
-
-          <Button variant="outline" size="sm" onClick={onNew} className="text-xs">
-            + New
-          </Button>
-        </div>
-
-        {/* Progress bar */}
-        <div
-          className="absolute bottom-0 left-0 h-[2px] transition-all duration-700 ease-in-out"
-          style={{
-            width: `${progress}%`,
-            background: isComplete ? '#16A34A' : isFailed ? '#DC2626' : 'linear-gradient(90deg,#C81D25,#F05050)'
-          }}
+      {/* ── Permanent sidebar (desktop) ── */}
+      <div className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-sidebar">
+        <Sidebar
+          onNew={onNew}
+          currentTaskId={activeTaskId}
+          onSelect={handleSelect}
         />
       </div>
 
-      {/* PIPELINE STRIP */}
-      <div className="h-[52px] bg-card border-b border-border px-6 flex items-center shrink-0">
-        <AgentPipeline currentAgent={task?.current_agent} status={task?.status} roundsTaken={task?.rounds_taken} />
-      </div>
+      {/* ── Main column ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-      {/* REPORT AREA */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <ReportPanel task={task} query={activeQuery} onFollowUp={handleFollowUp} />
+        {/* TOP BAR */}
+        <div className="relative h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-40">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Mobile hamburger */}
+            <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden shrink-0">
+                  <Menu className="w-4 h-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[240px] p-0 border-r border-border bg-sidebar" showCloseButton={false}>
+                <SheetTitle className="sr-only">Navigation</SheetTitle>
+                <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} />
+              </SheetContent>
+            </Sheet>
+
+            {/* Page title */}
+            <div>
+              <h1 className="text-sm font-bold text-foreground leading-none">Analysis Dashboard</h1>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[420px]">{activeQuery}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+              {formatTimer(elapsedTime)}
+            </span>
+
+            {isRunning  && <Badge variant="outline" className="gap-1.5 text-info border-info/30 bg-info-bg"><span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />Running</Badge>}
+            {isComplete && <Badge variant="outline" className="gap-1.5 text-success border-success/30 bg-success-bg"><span className="w-1.5 h-1.5 rounded-full bg-success" />Complete</Badge>}
+            {isFailed   && <Badge variant="destructive" className="gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/80" />Failed</Badge>}
+
+            <Button size="sm" onClick={onNew} className="h-7 text-xs px-3">
+              + New Analysis
+            </Button>
+          </div>
+
+          {/* Progress bar */}
+          <div
+            className="absolute bottom-0 left-0 h-[2px] transition-all duration-700 ease-in-out"
+            style={{
+              width: `${progress}%`,
+              background: isComplete ? '#16a34a' : isFailed ? '#dc2626' : '#18181b'
+            }}
+          />
+        </div>
+
+        {/* AGENT PIPELINE */}
+        <div className="h-12 border-b border-border bg-zinc-050 px-6 flex items-center shrink-0">
+          <AgentPipeline
+            currentAgent={task?.current_agent}
+            status={task?.status}
+            roundsTaken={task?.rounds_taken}
+          />
+        </div>
+
+        {/* REPORT AREA */}
+        <div className="flex-1 overflow-y-auto bg-background">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <ReportPanel task={task} query={activeQuery} onFollowUp={handleFollowUp} />
+          </div>
         </div>
       </div>
     </div>
