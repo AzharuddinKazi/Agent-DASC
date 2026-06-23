@@ -30,19 +30,22 @@ export default function EmptyState({ onSubmit }) {
   const [query, setQuery]               = useState("")
   const [taskType, setTaskType]         = useState("qa")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError]               = useState("")
 
   const isReport      = taskType === "report"
   const sampleQueries = isReport ? REPORT_QUERIES : QA_QUERIES
 
   const handleRun = async (text) => {
-    const q = text || query
-    if (!q.trim() || isSubmitting) return
+    const q = (typeof text === "string" ? text : query).trim()
+    if (!q || isSubmitting) return
     setIsSubmitting(true)
+    setError("")
     try {
       const res = await submitTask(q, "", taskType)
       onSubmit(q, res.data.task_id, taskType)
     } catch (err) {
       console.error(err)
+      setError(err?.response?.data?.detail || err?.message || "Failed to submit — is the backend running?")
       setIsSubmitting(false)
     }
   }
@@ -129,6 +132,9 @@ export default function EmptyState({ onSubmit }) {
               }}
             />
             <Separator />
+            {error && (
+              <p className="text-[12px] text-destructive px-5 pb-2">{error}</p>
+            )}
             <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-b-lg">
               <p className="text-[13px] text-muted-foreground">
                 Press <kbd className="px-1.5 py-0.5 rounded border border-border bg-background font-mono text-[11px]">Enter</kbd> to run
