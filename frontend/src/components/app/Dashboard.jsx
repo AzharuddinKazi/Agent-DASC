@@ -101,21 +101,21 @@ export default function Dashboard({ query, taskId, onNew }) {
 
             {/* Page title */}
             <div>
-              <h1 className="text-sm font-bold text-foreground leading-none">Analysis Dashboard</h1>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[420px]">{activeQuery}</p>
+              <h1 className="text-[15px] font-bold text-foreground leading-none">Analysis Dashboard</h1>
+              <p className="text-[13px] text-muted-foreground mt-0.5 truncate max-w-[420px]">{activeQuery}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            <span className="font-mono text-[13px] text-muted-foreground tabular-nums">
               {formatTimer(elapsedTime)}
             </span>
 
-            {isRunning  && <Badge variant="outline" className="gap-1.5 text-info border-info/30 bg-info-bg"><span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />Running</Badge>}
-            {isComplete && <Badge variant="outline" className="gap-1.5 text-success border-success/30 bg-success-bg"><span className="w-1.5 h-1.5 rounded-full bg-success" />Complete</Badge>}
-            {isFailed   && <Badge variant="destructive" className="gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/80" />Failed</Badge>}
+            {isRunning  && <Badge variant="outline" className="gap-1.5 text-info border-info/30 bg-info-bg text-[12px]"><span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />Running</Badge>}
+            {isComplete && <Badge variant="outline" className="gap-1.5 text-success border-success/30 bg-success-bg text-[12px]"><span className="w-1.5 h-1.5 rounded-full bg-success" />Complete</Badge>}
+            {isFailed   && <Badge variant="destructive" className="gap-1.5 text-[12px]"><span className="w-1.5 h-1.5 rounded-full bg-white/80" />Failed</Badge>}
 
-            <Button size="sm" onClick={onNew} className="h-7 text-xs px-3">
+            <Button size="sm" onClick={onNew} className="h-8 text-[13px] px-4">
               + New Analysis
             </Button>
           </div>

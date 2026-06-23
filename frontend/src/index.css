@@ -91,7 +91,18 @@
 }
 
 @layer base {
+  html {
+    font-size: 15px; /* bump shadcn's xs-heavy defaults up to readable scale */
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.6;
   }
+
+  /* Make shadcn's xs/sm text classes less microscopic */
+  .text-xs    { font-size: 0.8rem   !important; line-height: 1.5 !important; }
+  .text-sm    { font-size: 0.875rem !important; line-height: 1.6 !important; }
+  .text-base  { font-size: 1rem     !important; }
 }

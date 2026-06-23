@@ -38,23 +38,30 @@ export default function EmptyState({ onSubmit }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background font-sans px-4">
-      <div className="w-full max-w-[560px] flex flex-col gap-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background font-sans px-6">
+      <div className="w-full max-w-[600px] flex flex-col gap-8">
 
         {/* Brand */}
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center">
-              <span className="text-[11px] font-black text-background leading-none">DS</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-foreground flex items-center justify-center shrink-0">
+              <span className="text-xs font-black text-background leading-none">DS</span>
             </div>
-            <span className="text-xl font-bold text-foreground tracking-tight">
+            <span className="text-2xl font-bold text-foreground tracking-tight">
               DS<span className="text-brand">—</span>STAR
             </span>
           </div>
+
+          {/* Capability pills — proper wrapping, no overflow */}
           <div className="flex flex-wrap justify-center gap-2">
             {CAPABILITIES.map(({ icon: Icon, label }) => (
-              <Badge key={label} variant="outline" className="gap-1.5 rounded-full text-xs px-3 py-1 font-medium">
-                <Icon className="w-3 h-3" />
+              <Badge
+                key={label}
+                variant="outline"
+                className="gap-1.5 rounded-full px-3 py-1 font-medium whitespace-nowrap"
+                style={{ fontSize: '12px' }}
+              >
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 {label}
               </Badge>
             ))}
@@ -63,59 +70,68 @@ export default function EmptyState({ onSubmit }) {
 
         {/* Heading */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">
+          <h1 className="text-[2rem] font-bold text-foreground tracking-tight leading-tight mb-3">
             What do you want to analyse?
           </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+          <p className="text-[15px] text-muted-foreground leading-relaxed max-w-md mx-auto">
             Ask about LFI data, transaction flags, or risk exposure in plain English.
             The 7-agent pipeline handles the rest.
           </p>
         </div>
 
-        {/* Input card */}
+        {/* Input card — no pills inside, just textarea + submit */}
         <Card className="shadow-sm border-border focus-within:ring-2 focus-within:ring-ring/20 focus-within:border-foreground/30 transition-all">
           <CardContent className="p-0">
             <Textarea
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="e.g., Show me banks with more than 50 suspicious activity flags this quarter..."
-              className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none px-4 pt-4 pb-2 min-h-[110px] text-sm rounded-b-none"
+              className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none px-5 pt-5 pb-3 text-[15px] rounded-b-none"
+              style={{ minHeight: '120px' }}
               onKeyDown={e => {
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleRun() }
               }}
             />
             <Separator />
-            <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30 rounded-b-lg">
-              <div className="flex gap-2 overflow-hidden mr-2">
-                {SAMPLE_QUERIES.slice(0, 2).map((sq, i) => (
-                  <Button key={i} variant="outline" size="sm" onClick={() => handleRun(sq)}
-                    className="rounded-full text-xs h-6 px-3 truncate max-w-[185px]">
-                    {sq}
-                  </Button>
-                ))}
-              </div>
-              <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting} className="gap-1.5 shrink-0">
-                {isSubmitting ? "Running…" : <><span>Analyse</span><CornerDownLeft className="w-3.5 h-3.5 opacity-60" /></>}
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-b-lg">
+              <p className="text-[13px] text-muted-foreground">
+                Press <kbd className="px-1.5 py-0.5 rounded border border-border bg-background font-mono text-[11px]">Enter</kbd> to run
+              </p>
+              <Button
+                onClick={() => handleRun()}
+                disabled={!query.trim() || isSubmitting}
+                className="gap-2"
+              >
+                {isSubmitting ? "Running…" : (
+                  <>
+                    Analyse
+                    <CornerDownLeft className="w-4 h-4 opacity-70" />
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Suggested queries */}
+        {/* Suggested queries — full-width rows, no truncation */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3 px-1">
             Try these
           </p>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1">
             {SAMPLE_QUERIES.map((sq, idx) => (
-              <Button key={idx} variant="ghost" onClick={() => handleRun(sq)}
-                className="justify-start gap-3 h-auto py-2.5 font-normal text-sm text-muted-foreground hover:text-foreground text-left">
-                <ArrowRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                {sq}
-              </Button>
+              <button
+                key={idx}
+                onClick={() => handleRun(sq)}
+                className="flex items-start gap-3 px-3 py-3 rounded-lg text-left text-[14px] text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer w-full"
+              >
+                <ArrowRight className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground" />
+                <span className="leading-snug">{sq}</span>
+              </button>
             ))}
           </div>
         </div>
+
       </div>
     </div>
   )

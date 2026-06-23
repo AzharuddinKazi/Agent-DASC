@@ -52,7 +52,7 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
       {/* Nav section */}
       <div className="px-3 py-3 shrink-0">
         {/* Active: Analysis */}
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-accent text-accent-foreground font-semibold text-sm cursor-default">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-accent text-accent-foreground font-semibold text-[14px] cursor-default">
           <LayoutDashboard className="w-4 h-4 shrink-0" />
           Analysis
         </div>
