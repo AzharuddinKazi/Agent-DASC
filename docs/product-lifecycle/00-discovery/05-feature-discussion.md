@@ -132,11 +132,16 @@
 
 ---
 
+## Topic 7: PII Handling
+
+🔮 **Deferred to V2.** V1 data sources are analyst-uploaded files (Excel, CSV, PDF) rather than live production databases. PII masking is not implemented in V1 — analysts are responsible for the sensitivity of data they upload. When CBUAE connects live institutional databases in a future version, PII masking rules will be designed at that point based on actual data schemas and CBUAE data governance policy.
+
+---
+
 ## Topics Not Yet Started
 
 | # | Topic |
 |---|-------|
-| 7 | PII handling — what gets masked, for whom, when |
 | 8 | Audit & compliance — what the system must log, for how long |
 | 9 | API & export — REST API consumers, export formats |
 | 10 | Frontend — full UI layout, what actions are available |
