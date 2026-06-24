@@ -80,11 +80,26 @@
 
 ---
 
+## Topic 3: The Planning & Execution Loop
+
+### Confirmed decisions
+
+| # | Feature | Decision |
+|---|---------|---------|
+| 1 | Stop / cancel | Analyst can stop a running analysis entirely at any point. Task is cancelled, nothing returned. |
+| 2 | Pause and resume | Analyst can pause a running task and resume it later. Enabled by LangGraph checkpointing to PostgreSQL — resumes from the exact round it was paused at. V1. |
+| 3 | Mid-analysis steering | Analyst can inject a plain-English hint while the task is running (e.g., "Focus on card fraud only, ignore wire transfers"). Hint is appended to the Planner's context for all subsequent rounds. Multiple hints accumulate — they are not overwritten. All hints visible in the real-time progress panel with timestamps. V1: hints apply from next round onward only (no backtracking). V2: smart backtracking when hint contradicts current plan direction. |
+| 4 | Default round limit | 5–6 rounds per task on first run. Applies equally to DS-STAR (single query) and each DS-STAR+ sub-question individually. Departure from paper's 20-round default — chosen for faster analyst feedback. |
+| 5 | Extension mechanism | When default rounds are exhausted without a sufficient result, the system presents Option E (see below) and offers "Extend and continue." Extension adds 5 rounds per click (fixed increment). Analyst-chosen increment is V2. |
+| 6 | Hard round cap | 40 cumulative rounds per query for DS-STAR. 40 cumulative rounds per sub-question for DS-STAR+. Cap is enforced regardless of how many "Extend and continue" cycles the analyst runs. Round budget always visible to analyst ("12 / 40 rounds used"). |
+| 7 | Task failure / max rounds behaviour (Option E) | When a task hits its round cap or fails unrecoverably, the system shows: (a) best partial result clearly labelled **INCOMPLETE ANALYSIS**, (b) plain-English diagnostic — what was found, what wasn't, why it stopped, suggested next steps, (c) three action buttons: **Accept partial result** / **Refine and retry** (pre-fills query for editing) / **Extend and continue** (resumes from checkpoint, consumes from remaining round budget). For hard failures with no partial result (container crash, GPU failure): diagnostic only + Retry button. |
+
+---
+
 ## Topics Not Yet Started
 
 | # | Topic |
 |---|-------|
-| 3 | The Planning & Execution Loop — what happens between query submission and result |
 | 4 | Output types — tables, charts, narratives, files |
 | 5 | DS-STAR+ thematic reports — trigger, output, audience |
 | 6 | Department-specific features — what differs per department |
