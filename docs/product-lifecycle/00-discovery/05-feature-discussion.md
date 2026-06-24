@@ -96,11 +96,25 @@
 
 ---
 
+## Topic 4: Output Types
+
+### Confirmed decisions
+
+| # | Feature | Decision |
+|---|---------|---------|
+| 1 | Default output | Narrative + tables + charts always included. Raw data file and analysis code are opt-in via a toggle in the result panel — available but not surfaced by default. |
+| 2 | Chart output format | Coder outputs a structured JSON describing data, chart type, axes, and configuration — not a matplotlib PNG. Frontend renders it as native interactive HTML charts using Recharts (React-native, matches ShadCN/Tailwind aesthetic). Plotly.js used as fallback for chart types Recharts cannot support. On export to Word/PDF, the same JSON is server-side rendered to a static image. |
+| 3 | Reformat without re-running | Analyst can trigger a reformat of any completed result (re-sort, regroup, relabel, change format) by re-running only the Finalizer against the existing stored output. Full pipeline does not re-execute. Fast and cheap. |
+| 4 | DS-STAR output feel | Chat-style response — concise executive summary paragraph + supporting tables and charts. Feels like a direct answer, not a document. |
+| 5 | DS-STAR+ output feel | Formal document — structured sections matching examiner report / thematic review / supervisory letter annex format used by CBUAE today. Department-specific templates govern section structure. |
+| 6 | Charting library | Recharts for V1. If Recharts cannot meet a specific requirement, Plotly.js used for that chart type. Other libraries (Vega-Lite) considered in future if needed. |
+
+---
+
 ## Topics Not Yet Started
 
 | # | Topic |
 |---|-------|
-| 4 | Output types — tables, charts, narratives, files |
 | 5 | DS-STAR+ thematic reports — trigger, output, audience |
 | 6 | Department-specific features — what differs per department |
 | 7 | PII handling — what gets masked, for whom, when |
