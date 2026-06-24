@@ -151,11 +151,24 @@
 
 ---
 
+## Topic 9: API & Export
+
+### Confirmed decisions
+
+| # | Feature | Decision |
+|---|---------|---------|
+| 1 | External API consumers | None in V1. The REST API is internal — consumed only by the React frontend. No third-party systems, no machine-to-machine integrations in V1. External API access is future scope. |
+| 2 | Frontend / backend separation | React frontend is a separate server from the backend. The backend is built on top of LangGraph Server, which natively exposes HTTP and WebSocket endpoints for the state machine. The frontend calls the backend API; they do not share a process. |
+| 3 | Export formats | Three formats supported: **Word (.docx)** (analyst edits the document), **PDF** (read-only shareable version), **Excel (.xlsx)** (tables and raw data from the analysis). All three available on any completed analysis. JSON and other programmatic formats are future scope. |
+| 4 | WebSocket / real-time streaming | WebSocket endpoint for live agent progress is V1 and consumed exclusively by the web UI. No external system needs live progress feeds in V1. |
+| 5 | API authentication | Frontend-to-backend only, so **JWT tokens** are sufficient. Analyst authenticates via login screen, receives a signed JWT, and every subsequent API/WebSocket call from the browser carries that token. No API keys or mTLS needed in V1 (those are for machine-to-machine, which doesn't exist in V1). |
+
+---
+
 ## Topics Not Yet Started
 
 | # | Topic |
 |---|-------|
-| 9 | API & export — REST API consumers, export formats |
 | 10 | Frontend — full UI layout, what actions are available |
 
 ---
