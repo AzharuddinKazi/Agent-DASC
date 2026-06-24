@@ -165,11 +165,19 @@
 
 ---
 
-## Topics Not Yet Started
+## Topic 10: Frontend — Full UI Layout
 
-| # | Topic |
-|---|-------|
-| 10 | Frontend — full UI layout, what actions are available |
+### Confirmed decisions
+
+| # | Feature | Decision |
+|---|---------|---------|
+| 1 | Page structure | Four pages in V1: `/login`, `/chat`, `/dashboard`, `/admin`. Additional pages deferred to future scope. |
+| 2 | Navigation flow | Login → `/chat`. Submitting a query navigates the analyst to `/dashboard`. "New Analysis" button on the dashboard is the only path back to `/chat`. No persistent top nav between chat and dashboard — the two pages are intentionally separated by the query submission action. |
+| 3 | `/chat` page | Clean, minimal text box (GPT/Claude-style). Starter templates displayed prominently. History sidebar present but closed by default. Formatting control field collapsed by default. No clutter. |
+| 4 | `/dashboard` page | Single destination for all post-submission activity. Left panel: full analysis history sidebar (open). Main panel: live agent progress during execution, then result (narrative + tables + charts) when complete. Mid-analysis controls (Pause, Stop, Extend, Steering input) visible while task is running. Export buttons (Word, PDF, Excel), Reformat button, and raw data / code opt-in toggle visible on completed result. |
+| 5 | Result display location | Results appear inline on the dashboard, below the progress panel. Not a separate panel or new page. |
+| 6 | DS-STAR+ "Report Mode" visual signal | When routed to DS-STAR+: (a) "Report Mode" badge with purple accent colour in the dashboard header (vs. default blue for DS-STAR); (b) progress panel switches from a single round counter to a numbered sub-question breakdown list — each sub-question shows its own status (queued / running / complete); (c) round budget shown per sub-question ("Sub-question 3 of 7 · Round 4 / 6"). Analyst always knows they are in Report Mode and can see the full scope of work. |
+| 7 | Admin panel access | `/admin` is a completely separate URL, not visible or accessible to regular analysts. Admin users have their own login. Regular analysts never see the admin panel. |
 
 ---
 
