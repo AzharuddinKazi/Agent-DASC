@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CBUAE FIP — Architecture v3.0 (Production-Grade)</title>
+<title>CBUAE FIP — Architecture v3.1 (Production-Grade)</title>
 <style>
   :root {
     --bg:            #070b16;
@@ -328,7 +328,7 @@
      ═══════════════════════════════════════════════════════════ -->
 <div class="hdr">
   <h1>CBUAE Financial Intelligence Platform (FIP)</h1>
-  <h2>DS-STAR + DS-STAR+ Architecture &mdash; <strong>v3.0 Production-Grade</strong></h2>
+  <h2>DS-STAR + DS-STAR+ Architecture &mdash; <strong>v3.1 Production-Grade</strong></h2>
   <div class="hdr-tags">
     <span class="htag" style="background:#052e16;color:#4ade80;border:1px solid #166534">Financial Crime &amp; Market Conduct</span>
     <span class="htag" style="background:#172554;color:#93c5fd;border:1px solid #1e3a8a">On-Premise · Air-Gapped</span>
@@ -504,7 +504,7 @@
       <div class="ap"><span class="ic">💻</span><div><div>Coder</div><div class="as">Generates Python sₖ implementing full cumulative plan · Absolute /workspace/data/ paths · Memory-safe loading · Multi-delimiter CSV handling</div></div></div>
       <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
 
-      <div class="ap"><span class="ic">▶️</span><div><div>Executor</div><div class="as">Spawns ephemeral container → runs sₖ → captures stdout/stderr/exit_code → rₖ · Executor is the orchestrator, NOT inside the container · Container budget enforced (see Sandbox)</div></div></div>
+      <div class="ap"><span class="ic">▶️</span><div><div>Executor</div><div class="as">Manages one persistent container per task (started at task begin, destroyed at task end) · Each round runs sₖ inside the existing container via docker exec · Captures stdout/stderr/exit_code → rₖ · Executor is the orchestrator, NOT inside the container · Container budget enforced (see Sandbox)</div></div></div>
 
       <div class="dbranch">
         <div class="ap" style="border-color:#f8717166;color:#f87171;background:#200505;min-width:0">
@@ -622,15 +622,15 @@
     <div class="col" style="min-width:255px">
       <div class="box lsb">
         <div class="bname">▶️ Executor Agent <span style="font-size:10px;color:var(--text-muted);font-weight:400">(outside container)</span></div>
-        <div class="bsub">Manages container lifecycle · Passes generated script · Captures stdout / stderr / exit_code → rₖ · Enforces per-execution timeout (60s default) · Cleans up container on task death or timeout</div>
+        <div class="bsub">Starts container once at task creation · Runs each sₖ via docker exec (no container restart between rounds) · Captures stdout / stderr / exit_code → rₖ · Enforces per-round execution timeout (60s) · Destroys container when task completes, fails, or times out</div>
       </div>
-      <div style="color:var(--ca-sandbox);padding-left:20px;font-size:18px">↓ spawns per round</div>
+      <div style="color:var(--ca-sandbox);padding-left:20px;font-size:18px">↓ one container per task — rounds share it</div>
       <div class="box lsb">
-        <div class="bname">📦 Ephemeral Container &nbsp;<span style="font-size:10px;color:var(--text-muted)">Docker / Kubernetes Job</span></div>
-        <div class="bsub">New container per execution round · Destroyed immediately after run · No state persists between rounds (stateless) · Non-root user · Read-only filesystem except /tmp</div>
+        <div class="bname">📦 Task-Scoped Container &nbsp;<span style="font-size:10px;color:var(--text-muted)">Docker (persistent for task lifetime)</span></div>
+        <div class="bsub">One container per task, alive for all rounds · Each round runs complete sₖ script via docker exec — script always re-imports and re-computes everything, so stale state is never an issue · Non-root user · Read-only filesystem except /tmp · DS-STAR+: one container per sub-question</div>
       </div>
       <div class="note-gold">
-        🔁 Container budget: max 5 concurrent containers per task · Max 20 containers total per DS-STAR+ query · Excess requests queued — prevents resource exhaustion from parallel sub-question execution
+        🔁 Container budget: max 5 concurrent containers system-wide (= max 5 tasks or sub-questions running in parallel) · Eliminates cold-start overhead (~3s) × 20 rounds × n sub-questions that per-round containers would incur · Excess tasks queued in Celery priority queue
       </div>
     </div>
 
@@ -884,12 +884,13 @@
     </div>
 
     <div class="hi">
-      <div class="hi-title">📦 Container Concurrency Budget</div>
+      <div class="hi-title">📦 Container Lifecycle: Task-Scoped, Not Round-Scoped</div>
       <div class="hi-body">
-        v2 had no container resource management. DS-STAR+ with 8 sub-questions × 20 rounds = 160 container spawns per query. 5 concurrent DS-STAR+ queries = 800 containers. This exhausts host resources.<br><br>
-        Fixed in v3: Max 5 concurrent containers per task. Max 20 containers total system-wide. Sub-question execution is sequential by default (parallel mode available via config flag, but off by default).
+        v2 showed containers as ephemeral per round. With DS-STAR+ (8 sub-questions × 20 rounds), that would be 160 container cold-starts per query (~3s each = 8 minutes of pure overhead). Unacceptable for analyst UX.<br><br>
+        Fixed in v3: One container per task, alive for all rounds. Each round runs its complete sₖ script via docker exec. Because the Coder always generates a full script (not a delta), it re-imports and re-computes everything from scratch — making stale container state a non-issue. Rounds get warm execution with zero cold-start penalty.<br><br>
+        DS-STAR+: one container per sub-question (sub-questions share no state). Max 5 containers concurrent system-wide. Sequential sub-question execution by default; parallel mode available via config flag.
       </div>
-      <div class="hi-ok">✅ Container sprawl eliminated — predictable resource usage</div>
+      <div class="hi-ok">✅ Container sprawl eliminated · Cold-start overhead eliminated · Predictable resource usage</div>
     </div>
 
     <div class="hi">
@@ -965,7 +966,7 @@
   Based on DS-STAR paper: <em>"Data Science Agent for Solving Diverse Tasks across Heterogeneous Formats and Open-Ended Queries"</em>
   &nbsp;·&nbsp; arXiv:2509.21825 &nbsp;·&nbsp; Jaehyun Nam, Jinsung Yoon, Jiefeng Chen, Raj Sinha, Tomas Pfister (Google Cloud) &nbsp;·&nbsp; v4, Feb 2026
   <br><br>
-  CBUAE Financial Crime &amp; Market Conduct &nbsp;&middot;&nbsp; Architecture v3.0 — Production-Grade &nbsp;&middot;&nbsp; Reviewed June 2026
+  CBUAE Financial Crime &amp; Market Conduct &nbsp;&middot;&nbsp; Architecture v3.1 — Production-Grade &nbsp;&middot;&nbsp; Reviewed June 2026
 </div>
 
 </body>
