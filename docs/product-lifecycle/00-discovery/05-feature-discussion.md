@@ -54,12 +54,13 @@
 
 ### Admin Panel — confirmed scope
 
+**Important clarification:** The admin panel does NOT include data management or data upload. All data is uploaded by analysts themselves and stays within their own session and account. Institutional datasets are loaded via backend pipelines (IT/data engineering), not through any admin UI. The admin panel is purely for system and user governance.
+
 **V1 scope:**
-- Data management — upload, version, organise institutional datasets; view what's currently loaded per department
 - User management — add/remove users, assign department and role
 - File upload toggle — enable/disable globally or per department
-- Query template management — create, edit, publish shared templates
-- Shared report template management — upload department-level Word templates
+- Query template management — create, edit, publish shared templates visible on the Chat UI
+- Shared report template management — upload and govern department-level Word templates centrally
 - System health dashboard — task queue depth, active tasks, GPU utilisation, error rates, DLQ alerts
 - Audit log viewer — searchable log of all queries, by user, date, department
 
@@ -70,12 +71,12 @@
 - Email notification configuration
 - Data retention policy management
 
-### Open questions
+### Remaining Topic 2 decisions
 
-| # | Question | Options considered | Status |
-|---|---------|-------------------|--------|
-| Q5 | Should V1 support unstructured document analysis (PDF, Word as narrative docs) in addition to structured data files (CSV, Excel, JSON)? | (a) V1: structured only; (b) V1: both structured and unstructured | 🔄 Open |
-| Q6 | Data versioning — should every analysis result be linked to a point-in-time snapshot of the institutional data for legal defensibility? | (a) On by default for all institutional data; (b) Optional per dataset | 🔄 Open |
+| # | Question | Decision |
+|---|---------|---------|
+| Q5 | Structured vs unstructured file support in V1 | ✅ **Both in V1.** Supporting structured (CSV, Excel, JSON) and unstructured (PDF, Word as narrative documents) simultaneously is a core selling point of the system. The Analyzer handles each format differently: tabular profiling for structured files; text extraction, structure identification, and entity recognition for documents. This must not be deferred. |
+| Q6 | Data versioning | ✅ **On by default for all datasets.** Every analysis result is automatically linked to a point-in-time snapshot of the data that produced it. No exceptions. Required for regulatory defensibility — if a finding in a supervisory letter is ever challenged, the exact data snapshot that produced it must be retrievable. |
 
 ---
 
