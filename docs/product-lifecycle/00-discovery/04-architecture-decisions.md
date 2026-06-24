@@ -205,6 +205,92 @@ The DS-STAR+ pipeline runs the Analyzer once at the outer level (before sub-ques
 
 ---
 
+## Q11: Does DS-STAR+ have a separate Evaluator agent, or does the Sub-Question Generator handle refinement?
+
+**Date:** 2026-06-24  
+**Source:** Paper confirmed — Algorithm 2 (page 20) + prompt listings (pages 80–82)
+
+### What the paper says
+The paper's Algorithm 2 contains **no separate Evaluator agent**. The refinement loop works as follows:
+
+```
+Round 0:  Generator(q, D) → initial sub-questions
+          DS-STAR per sub-question → answers
+          Writer(q, answers) → Report R
+
+Round k:  Generator(q, D, R)  ← receives current R, identifies gaps
+          DS-STAR per new sub-questions → new answers
+          Writer(q, R, new answers) → updated R  ← refines, not rewrites
+```
+
+The Sub-Question Generator handles **both** initial decomposition **and** gap identification for refinement. It receives the current report `R` as additional context in refinement rounds and is prompted to "suggest supplementary questions that can strengthen the report" with "new information not included in the report." The Generator itself acts as its own quality assessor.
+
+The paper ran K=1 refinement round in all experiments and found consistent quality improvement (+68% preference over no refinement).
+
+### Our decision
+**Remove the separate Evaluator agent from the architecture. Replace with Generator (refinement mode).**
+
+For CBUAE production: expose K (number of refinement rounds) as a configurable parameter (default K=1 following paper; admin can increase for higher-stakes reports). An optional early-stop check can be added: if the Generator produces zero supplementary sub-questions at round k, refinement terminates early (the report is already complete).
+
+---
+
+## Q12: Does the Debugger receive only the traceback, or also the data descriptions D?
+
+**Date:** 2026-06-24  
+**Source:** Paper confirmed — Section 3.1, page 6
+
+### What the paper says
+The paper explicitly states this as a key design insight:
+
+> *"Tracebacks alone are often insufficient for resolving errors in data-centric scripts, while `{dᵢ}` might include critical metadata such as column headers in a CSV file, sheet names in an Excel workbook, or database schema information."*
+
+The Debugger's formal input is:
+```
+s ← Debugger(s, traceback, {dᵢ}ᴺᵢ₌₁)
+```
+It receives the broken script, the error traceback, AND the full data descriptions D.
+
+### Why this matters
+Without D, the Debugger can only fix syntactic errors. With D, it can fix semantic errors like:
+- "Column 'fraud_type' not found" → checks D, finds the actual column is 'fraud_type_code', fixes the script
+- "Sheet 'Data' not found" → checks D, finds the actual sheet is 'Q1_2025', fixes the script
+- "JSON key 'lfi_id' missing" → checks D, finds the nested path, fixes the access pattern
+
+### Our decision
+**Debugger prompt must include D alongside the traceback.** This was missing from our earlier architecture description. Update all Debugger agent implementations and prompt designs to pass `(s, traceback, D)` — not just `(s, traceback)`.
+
+---
+
+## Q13: What structure does a DS-STAR+ report follow?
+
+**Date:** 2026-06-24  
+**Source:** Paper confirmed — Writer agent prompt (page 81) + example Report 1 (pages 25–29)
+
+### What the paper says
+The Writer agent's prompt specifies **no fixed section structure**. The instructions are:
+> *"The report should have nice structure, good readability, and should be professional. Write a very comprehensive data science report."*
+
+Sections emerge dynamically from the query and the collected evidence. Analysis of Report 1 (payment fee optimization) shows the Writer produced:
+1. Executive Summary (key findings, cited inline with `[c]`, `[7]` etc.)
+2. Introduction (methodology overview)
+3. Data & Methodology (datasets used, enrichment steps)
+4. Analysis & Key Drivers (findings sub-sectioned by theme)
+5. Recommendations (per-entity actionable steps)
+
+Citations are inline throughout, not in a separate annex.
+
+### Our decision
+**The Writer agent decides sections dynamically based on query content.** CBUAE templates control branding, header/footer, classification markings, and tone — not section structure. Fixed elements across all reports:
+- Header (title, date, analyst name, classification)
+- Executive Summary (always first)
+- Query & Scope (always second)
+- Methodology (always third)
+- Dynamic findings sections (Writer decides)
+- Recommendations (always last)
+- Inline citations throughout (sub-question number → code reference)
+
+---
+
 ## Summary Table
 
 | # | Question | Paper's stance | Our decision |
@@ -219,6 +305,9 @@ The DS-STAR+ pipeline runs the Analyzer once at the outer level (before sub-ques
 | Q8 | What if rₖ is legitimately large? | stdout capped (limit unspecified) | 10KB cap; large outputs written to file in /tmp and copied to MinIO |
 | Q9 | Does Verifier see the code or just the result? | Full 4-tuple (q, plan, sₖ, rₖ) | Follow paper exactly |
 | Q10 | Does Analyzer re-run per sub-question in DS-STAR+? | Once at outer level; D shared | D shared; re-run only for supplementary data sources |
+| Q11 | Separate Evaluator agent in DS-STAR+? | No — Generator handles refinement (Algorithm 2) | Removed Evaluator; Generator runs in refinement mode receiving current R |
+| Q12 | Debugger input: traceback only or also D? | Receives (s, traceback, D) — paper explicit | Debugger must receive full D; enables fixing semantic data errors not just syntax |
+| Q13 | DS-STAR+ report structure: fixed or dynamic? | Dynamic — Writer decides sections from query | Dynamic sections; fixed: header, exec summary, scope, methodology, recommendations |
 
 ---
 

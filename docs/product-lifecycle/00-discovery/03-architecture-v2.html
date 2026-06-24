@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CBUAE FIP — Architecture v3.1 (Production-Grade)</title>
+<title>CBUAE FIP — Architecture v3.2 (Production-Grade)</title>
 <style>
   :root {
     --bg:            #070b16;
@@ -328,7 +328,7 @@
      ═══════════════════════════════════════════════════════════ -->
 <div class="hdr">
   <h1>CBUAE Financial Intelligence Platform (FIP)</h1>
-  <h2>DS-STAR + DS-STAR+ Architecture &mdash; <strong>v3.1 Production-Grade</strong></h2>
+  <h2>DS-STAR + DS-STAR+ Architecture &mdash; <strong>v3.2 Production-Grade</strong></h2>
   <div class="hdr-tags">
     <span class="htag" style="background:#052e16;color:#4ade80;border:1px solid #166534">Financial Crime &amp; Market Conduct</span>
     <span class="htag" style="background:#172554;color:#93c5fd;border:1px solid #1e3a8a">On-Premise · Air-Gapped</span>
@@ -556,9 +556,9 @@
       <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
 
       <div class="dp"><span class="ic">🔄</span><div>
-        <div>Evaluator <span class="bdg b-new">New</span></div>
-        <div class="as">Assesses report depth &amp; completeness · Can trigger another round of sub-questions if insufficient · Max 3 refinement rounds · Uses Flash-tier LLM</div>
-        <div class="as" style="margin-top:3px">↺ loops to Sub-Q Generator for deeper coverage</div>
+        <div>Sub-Q Generator <span style="font-size:9px;color:var(--text-muted)">(refinement mode)</span> <span class="bdg b-fix">Corrected</span></div>
+        <div class="as">Receives current report R and identifies gaps · Generates supplementary sub-questions to fill missing coverage · No separate Evaluator — Generator does double duty: initial decomposition + gap-finding · <strong>Paper Algorithm 2 confirmed:</strong> Generator(q, D, R) → new sub-questions · Max K refinement rounds (default K=1 per paper) · Uses Flash-tier LLM</div>
+        <div class="as" style="margin-top:3px">↺ loops back through DS-STAR inner engine × n_new sub-questions → Report Writer updates R</div>
       </div></div>
     </div>
 
@@ -692,7 +692,7 @@
       <div class="gpu-label">⚡ Flash Tier — Llama 3.2 11B</div>
       <div class="gpu-node">🖥️ GPU Server A &nbsp;<span style="font-size:9px;color:var(--text-muted)">(primary)</span></div>
       <div class="gpu-node">🖥️ GPU Server B &nbsp;<span style="font-size:9px;color:#f59e0b">(standby / overflow)</span></div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Agents: Analyzer · Planner · Coder · Debugger · Verifier · Router · Sub-Q Generator · Evaluator</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Agents: Analyzer · Planner · Coder · Debugger · Verifier · Router · Sub-Q Generator (initial + refinement) · Report Writer</div>
     </div>
 
     <div class="gpu-cluster">
@@ -949,7 +949,7 @@
   <div class="cgrid">
     <div class="ci"><div class="ci-t">❌ DS-STAR+ misrepresented</div><div class="ci-f">✅ DS-STAR+ is wrapper, not peer agent</div><div class="ci-d">Report Writer was a peer to Analyzer/Planner. DS-STAR+ wraps DS-STAR — calls it n times as inner engine.</div></div>
     <div class="ci"><div class="ci-t">❌ Sub-Q Generator missing</div><div class="ci-f">✅ Added: Core DS-STAR+ component</div><div class="ci-d">Decomposes open-ended queries into sub-questions. DS-STAR+ cannot function without it.</div></div>
-    <div class="ci"><div class="ci-t">❌ Evaluator missing</div><div class="ci-f">✅ Added: DS-STAR+ refinement loop</div><div class="ci-d">Checks report quality, triggers more sub-questions if insufficient. Paper cites correlation with refinement rounds.</div></div>
+    <div class="ci"><div class="ci-t">❌ Separate Evaluator agent</div><div class="ci-f">✅ Generator handles refinement (paper confirmed)</div><div class="ci-d">Paper Algorithm 2 shows no separate Evaluator. The Sub-Q Generator receives the current report R and identifies gaps itself — Generator(q, D, R) → supplementary sub-questions. Generator does double duty: initial decomposition and gap-finding for refinement. Removed Evaluator box; Generator now shown in both initial and refinement modes.</div></div>
     <div class="ci"><div class="ci-t">❌ LLM tiering: same model size</div><div class="ci-f">✅ 11B (Flash) vs 70B (Pro)</div><div class="ci-d">Llama 3.1 70B vs 3.3 70B is the same parameter count — no real cost/quality tradeoff.</div></div>
     <div class="ci"><div class="ci-t">❌ Executor shown twice</div><div class="ci-f">✅ Executor is orchestrator, not inside sandbox</div><div class="ci-d">Executor is the DS-STAR agent that spawns containers. It does not run inside the sandbox.</div></div>
     <div class="ci"><div class="ci-t">❌ Temporal + Celery both listed</div><div class="ci-f">✅ Celery + Redis only</div><div class="ci-d">Competing solutions. Celery+Redis is simpler and sufficient. Temporal adds unneeded on-premise complexity.</div></div>
@@ -966,7 +966,7 @@
   Based on DS-STAR paper: <em>"Data Science Agent for Solving Diverse Tasks across Heterogeneous Formats and Open-Ended Queries"</em>
   &nbsp;·&nbsp; arXiv:2509.21825 &nbsp;·&nbsp; Jaehyun Nam, Jinsung Yoon, Jiefeng Chen, Raj Sinha, Tomas Pfister (Google Cloud) &nbsp;·&nbsp; v4, Feb 2026
   <br><br>
-  CBUAE Financial Crime &amp; Market Conduct &nbsp;&middot;&nbsp; Architecture v3.1 — Production-Grade &nbsp;&middot;&nbsp; Reviewed June 2026
+  CBUAE Financial Crime &amp; Market Conduct &nbsp;&middot;&nbsp; Architecture v3.2 — Production-Grade &nbsp;&middot;&nbsp; Reviewed June 2026
 </div>
 
 </body>

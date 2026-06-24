@@ -111,11 +111,25 @@
 
 ---
 
+## Topic 5: DS-STAR+ Thematic Reports
+
+### Confirmed decisions
+
+| # | Feature | Decision |
+|---|---------|---------|
+| 1 | UI mode signalling | Once routing is confirmed as DS-STAR+, the UI clearly signals "Report Mode" — different header, different progress layout (sub-question breakdown prominent, not a single round tracker). Analyst always knows which mode they're in. |
+| 2 | Report section structure | Dynamic — the Writer agent decides sections based on the query and evidence collected. No fixed template imposed. Fixed elements across all reports: Header (title, date, analyst, classification), Executive Summary, Query & Scope, Methodology, dynamic findings sections (Writer decides names and count), Recommendations. Citations are inline throughout — not in a separate annex. |
+| 3 | CBUAE report adaptation | Department templates control branding, header/footer, document classification markings, and tone. They do not mandate a fixed section structure. "Recommendations" becomes "Supervisory Recommendations" in regulatory templates. |
+| 4 | Refinement: no separate Evaluator | Paper confirmed (Algorithm 2): there is no separate Evaluator agent. The Sub-Question Generator handles both initial decomposition AND gap-finding for refinement. In refinement mode, Generator receives the current report R and identifies missing coverage. Default K=1 refinement round (paper's setting). K is configurable in the admin panel. Early stop: if Generator produces zero new sub-questions, refinement terminates. |
+| 5 | Debugger correction (paper confirmed) | Debugger receives `(s, traceback, D)` — not just `(s, traceback)`. Data descriptions D are critical for fixing semantic errors (wrong column names, wrong sheet names, wrong JSON paths). This must be reflected in all Debugger prompt implementations. |
+| 6 | Report audience | Primarily internal (analyst, their manager, department head). Reports going to LFIs (as supervisory letter annexes) get a "regulatory tone" modifier in the Writer's prompt — but same structure. |
+
+---
+
 ## Topics Not Yet Started
 
 | # | Topic |
 |---|-------|
-| 5 | DS-STAR+ thematic reports — trigger, output, audience |
 | 6 | Department-specific features — what differs per department |
 | 7 | PII handling — what gets masked, for whom, when |
 | 8 | Audit & compliance — what the system must log, for how long |
