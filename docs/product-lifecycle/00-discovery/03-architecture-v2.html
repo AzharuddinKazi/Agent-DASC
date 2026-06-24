@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CBUAE FIP — Architecture v2.0</title>
+<style>
+  :root {
+    --bg:            #080c18;
+    --surface:       #0e1220;
+    --border-subtle: #1e2440;
+
+    --c-present:  #1d6fa4;   --ca-present:  #4fb3f6;
+    --c-security: #6b21a8;   --ca-security: #c084fc;
+    --c-orch:     #065f46;   --ca-orch:     #34d399;
+    --c-dsstar:   #1e3a5f;   --ca-dsstar:   #60a5fa;
+    --c-dsp:      #4a1d78;   --ca-dsp:      #a78bfa;
+    --c-sandbox:  #78350f;   --ca-sandbox:  #fbbf24;
+    --c-output:   #7c2d12;   --ca-output:   #fb923c;
+    --c-llm:      #064e3b;   --ca-llm:      #10b981;
+    --c-persist:  #1e1b4b;   --ca-persist:  #818cf8;
+    --c-data:     #14532d;   --ca-data:     #86efac;
+    --c-obs:      #7f1d1d;   --ca-obs:      #f87171;
+
+    --text:       #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim:   #94a3b8;
+    --white:      #ffffff;
+    --radius:     10px;
+    --radius-sm:  6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 40px 32px 60px;
+    min-width: 1300px;
+  }
+
+  /* ─── HEADER ─────────────────────────────────────────── */
+  .header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .header h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--white);
+    letter-spacing: -0.3px;
+  }
+  .header h2 {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .header-badges {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .hbadge {
+    font-size: 11px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  /* ─── LAYER WRAPPER ──────────────────────────────────── */
+  .layer {
+    border-radius: var(--radius);
+    border: 1px solid;
+    padding: 14px 18px 16px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .layer-title {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .layer-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.25;
+  }
+
+  /* ─── BOXES ──────────────────────────────────────────── */
+  .box {
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    padding: 9px 13px;
+    flex-shrink: 0;
+  }
+  .box-name {
+    font-weight: 700;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .box-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  /* ─── BADGES ─────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border-radius: 20px;
+    vertical-align: middle;
+    margin-left: 5px;
+    text-transform: uppercase;
+  }
+  .badge-new  { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+  .badge-fix  { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+  .badge-kept { background: #172554; color: #93c5fd; border: 1px solid #1e3a8a; }
+
+  /* ─── CONNECTORS ─────────────────────────────────────── */
+  .conn {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 20px;
+    line-height: 1;
+    margin: 2px 0;
+  }
+  .conn-label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    font-style: italic;
+  }
+
+  /* ─── FLEX HELPERS ───────────────────────────────────── */
+  .row  { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .col  { display: flex; flex-direction: column; gap: 8px; }
+  .center { align-items: center; }
+  .fill { flex: 1; }
+  .gap-lg { gap: 16px; }
+
+  /* ─── PRESENTATION ───────────────────────────────────── */
+  .lay-present  { background: #060d17; border-color: var(--c-present); }
+  .lay-present .layer-title { color: var(--ca-present); }
+  .lay-present .box { background: #0a1826; border-color: #1d6fa466; color: var(--ca-present); }
+
+  /* ─── SECURITY ───────────────────────────────────────── */
+  .lay-security { background: #0d0614; border-color: var(--c-security); }
+  .lay-security .layer-title { color: var(--ca-security); }
+  .lay-security .box { background: #130720; border-color: #6b21a866; color: var(--ca-security); }
+
+  /* ─── ORCHESTRATION ──────────────────────────────────── */
+  .lay-orch { background: #020f09; border-color: var(--c-orch); }
+  .lay-orch .layer-title { color: var(--ca-orch); }
+  .lay-orch .box { background: #041a0e; border-color: #065f4666; color: var(--ca-orch); }
+
+  /* ─── DS-STAR ────────────────────────────────────────── */
+  .lay-dsstar { background: #060e1a; border-color: var(--ca-dsstar); }
+  .lay-dsstar .layer-title { color: var(--ca-dsstar); }
+  .lay-dsstar .box { background: #091428; border-color: #60a5fa55; color: var(--ca-dsstar); }
+
+  /* agent pill inside DS-STAR */
+  .agent-pill {
+    background: #0f1e38;
+    border: 1px solid #60a5fa33;
+    border-radius: var(--radius-sm);
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ca-dsstar);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .agent-pill .icon { font-size: 14px; }
+  .agent-pill .sub  { font-size: 10px; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
+
+  /* ─── DS-STAR+ ───────────────────────────────────────── */
+  .lay-dsp { background: #0d061a; border-color: var(--ca-dsp); }
+  .lay-dsp .layer-title { color: var(--ca-dsp); }
+  .lay-dsp .box { background: #150a28; border-color: #a78bfa55; color: var(--ca-dsp); }
+
+  .dsp-pill {
+    background: #1a0f36;
+    border: 1px solid #a78bfa33;
+    border-radius: var(--radius-sm);
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ca-dsp);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .dsp-pill .icon { font-size: 14px; }
+  .dsp-pill .sub  { font-size: 10px; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
+
+  /* ─── SANDBOX ────────────────────────────────────────── */
+  .lay-sandbox { background: #0e0802; border-color: var(--ca-sandbox); }
+  .lay-sandbox .layer-title { color: var(--ca-sandbox); }
+  .lay-sandbox .box { background: #1a1003; border-color: #fbbf2455; color: var(--ca-sandbox); }
+
+  .constraint-tag {
+    display: inline-block;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    background: #1a100344;
+    border: 1px solid #fbbf2430;
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin: 3px 3px 0 0;
+    color: #fbbf24bb;
+  }
+
+  /* data volume pill */
+  .data-vol {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #0e1a07;
+    border: 1px solid #86efac44;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ca-data);
+    margin: 3px;
+    white-space: nowrap;
+  }
+
+  /* ─── OUTPUT PIPELINE ────────────────────────────────── */
+  .lay-output { background: #0f0804; border-color: var(--ca-output); }
+  .lay-output .layer-title { color: var(--ca-output); }
+  .lay-output .box { background: #1c0e05; border-color: #fb923c55; color: var(--ca-output); }
+
+  /* ─── BOTTOM GRID ────────────────────────────────────── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr 1.2fr 0.9fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  /* ─── LLM ────────────────────────────────────────────── */
+  .lay-llm { background: #010c09; border-color: var(--ca-llm); }
+  .lay-llm .layer-title { color: var(--ca-llm); }
+  .lay-llm .box { background: #031610; border-color: #10b98155; color: var(--ca-llm); }
+
+  .tier-card {
+    background: #031610;
+    border: 1px solid #10b98133;
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+  .tier-label {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+  .tier-model {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ca-llm);
+  }
+  .tier-agents {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+  .tier-divider { width: 100%; height: 1px; background: #10b98122; margin: 8px 0; }
+
+  /* ─── PERSISTENCE ────────────────────────────────────── */
+  .lay-persist { background: #04041a; border-color: var(--ca-persist); }
+  .lay-persist .layer-title { color: var(--ca-persist); }
+  .lay-persist .box { background: #080830; border-color: #818cf855; color: var(--ca-persist); }
+
+  .persist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #080830;
+    border: 1px solid #818cf822;
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+  }
+  .persist-icon { font-size: 20px; flex-shrink: 0; }
+  .persist-name { font-size: 12px; font-weight: 700; color: var(--ca-persist); }
+  .persist-desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .persist-warn { font-size: 10px; color: #f87171; margin-top: 3px; }
+
+  /* ─── DATA ───────────────────────────────────────────── */
+  .lay-data { background: #010f04; border-color: var(--ca-data); }
+  .lay-data .layer-title { color: var(--ca-data); }
+  .lay-data .box { background: #031a08; border-color: #86efac55; color: var(--ca-data); }
+
+  /* ─── OBSERVABILITY ──────────────────────────────────── */
+  .lay-obs { background: #0f0202; border-color: var(--ca-obs); }
+  .lay-obs .layer-title { color: var(--ca-obs); }
+  .lay-obs .box { background: #1e0303; border-color: #f8717155; color: var(--ca-obs); }
+
+  .obs-item {
+    background: #1e0303;
+    border: 1px solid #f8717122;
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ca-obs);
+  }
+  .obs-item .obs-sub { font-size: 10px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+
+  /* ─── MODE SPLIT HEADER ──────────────────────────────── */
+  .mode-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 4px 0 2px;
+  }
+  .mode-tag {
+    border-radius: var(--radius-sm);
+    padding: 5px 12px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .mode-a-tag { background: #0f1e38; border: 1px solid var(--ca-dsstar); color: var(--ca-dsstar); }
+  .mode-b-tag { background: #1a0f36; border: 1px solid var(--ca-dsp);   color: var(--ca-dsp); }
+
+  /* ─── TWO-COLUMN ENGINES ─────────────────────────────── */
+  .engine-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* agent flow */
+  .agent-flow {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .agent-flow .conn { text-align: left; padding-left: 18px; }
+
+  .agent-branch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 6px;
+    border-left: 2px dashed #f8717144;
+    margin-left: 20px;
+    margin-top: -4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .agent-branch-label {
+    font-size: 10px;
+    color: #f87171;
+    font-style: italic;
+    white-space: nowrap;
+  }
+
+  /* ─── INNER ENGINE REFERENCE ─────────────────────────── */
+  .inner-ref {
+    background: #0f1e3888;
+    border: 1px dashed #60a5fa88;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #60a5fa99;
+    font-style: italic;
+    text-align: center;
+  }
+
+  /* ─── CORRECTIONS PANEL ──────────────────────────────── */
+  .corrections {
+    margin-top: 24px;
+    border: 1px solid #7f1d1d;
+    border-radius: var(--radius);
+    background: #0f0202;
+    padding: 18px 22px;
+  }
+  .corrections h3 {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ca-obs);
+    margin-bottom: 14px;
+  }
+  .corrections-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .correction-item {
+    background: #1a0303;
+    border: 1px solid #7f1d1d88;
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+  }
+  .correction-item .ci-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fca5a5;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .correction-item .ci-fix {
+    font-size: 10px;
+    color: #4ade80;
+    margin-bottom: 2px;
+  }
+  .correction-item .ci-desc {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ─── FLOW ARROW ROW ─────────────────────────────────── */
+  .flow-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 20px;
+    margin: 2px 0;
+  }
+
+  /* ─── DIVIDER ────────────────────────────────────────── */
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 14px 0;
+  }
+
+  .footnote {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 28px;
+  }
+  .footnote a { color: #60a5fa; }
+
+  /* ─── MISC ───────────────────────────────────────────── */
+  .tag-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CBUAE Financial Intelligence Platform (FIP)</h1>
+  <h2>DS-STAR + DS-STAR+ Architecture &mdash; v2.0 &nbsp;|&nbsp; Corrected &amp; Complete</h2>
+  <div class="header-badges">
+    <span class="hbadge" style="background:#052e16;color:#4ade80;border:1px solid #166534">Financial Crime &amp; Market Conduct Vertical</span>
+    <span class="hbadge" style="background:#172554;color:#93c5fd;border:1px solid #1e3a8a">On-Premise · Air-Gapped Deployment</span>
+    <span class="hbadge" style="background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d">12 Corrections from Gemini v1</span>
+    <span class="hbadge" style="background:#1e1b4b;color:#a5b4fc;border:1px solid #3730a3">Based on DS-STAR Paper arXiv:2509.21825</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LAYER 1 — PRESENTATION
+     ══════════════════════════════════════════════════════════ -->
+<div class="layer lay-present">
+  <div class="layer-title">🖥️ &nbsp; Presentation Layer &nbsp;(CBUAE Intranet)</div>
+  <div class="row center">
+    <div class="box lay-present" style="min-width:220px">
+      <div class="box-name">⚛️ &nbsp;Next.js / React Frontend</div>
+      <div class="box-sub">Natural-language query input · Visual report rendering · Department role views</div>
+    </div>
+    <div style="color:var(--text-muted);font-size:18px;padding:0 4px">⇄</div>
+    <div class="box lay-present" style="min-width:200px">
+      <div class="box-name">🔌 &nbsp;WebSocket Client</div>
+      <div class="box-sub">Real-time step-by-step agent status · Live plan updates</div>
+    </div>
+    <div style="flex:1"></div>
+    <div class="box lay-present" style="min-width:180px;opacity:0.75">
+      <div class="box-name">📄 &nbsp;PDF / Excel Export</div>
+      <div class="box-sub">Standalone reports for regulatory submissions</div>
+    </div>
+  </div>
+</div>
+
+<div class="conn">↕<span class="conn-label">HTTPS / WSS — CBUAE Intranet only, no external egress</span></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LAYER 2 — SECURITY & API
+     ══════════════════════════════════════════════════════════ -->
+<div class="layer lay-security">
+  <div class="layer-title">🔐 &nbsp; Security &amp; API Gateway Layer
+    <span class="badge badge-new">New</span>
+  </div>
+  <div class="row center">
+    <div class="box lay-security" style="min-width:170px">
+      <div class="box-name">⚡ FastAPI Gateway</div>
+      <div class="box-sub">REST + WebSocket · Task submission · Status polling</div>
+    </div>
+    <div style="color:var(--ca-security);font-size:16px">→</div>
+    <div class="box lay-security" style="min-width:190px">
+      <div class="box-name">🪪 SSO / Active Directory Auth</div>
+      <div class="box-sub">CBUAE staff identity · Department attribution</div>
+    </div>
+    <div style="color:var(--ca-security);font-size:16px">→</div>
+    <div class="box lay-security" style="min-width:190px">
+      <div class="box-name">🛡️ RBAC Engine</div>
+      <div class="box-sub">Dept-scoped data access · Per-LFI permissions · Cross-dept isolation</div>
+    </div>
+    <div style="color:var(--ca-security);font-size:16px">→</div>
+    <div class="box lay-security" style="min-width:150px">
+      <div class="box-name">⏱️ Rate Limiter</div>
+      <div class="box-sub">Per-user query limits · LLM cost controls</div>
+    </div>
+  </div>
+  <div style="font-size:10px;color:var(--text-muted);margin-top:10px;padding-left:2px">
+    ⚠️ &nbsp;RBAC enforces data scope at query time — Fraud Prevention analysts only access fraud loss data; AML analysts only access SAR/STR data, unless explicitly cross-authorized.
+  </div>
+</div>
+
+<div class="conn">↓<span class="conn-label">Authenticated &amp; authorized request passes to orchestration</span></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LAYER 3 — ORCHESTRATION
+     ══════════════════════════════════════════════════════════ -->
+<div class="layer lay-orch">
+  <div class="layer-title">⚙️ &nbsp; Orchestration Layer</div>
+  <div class="row center gap-lg">
+
+    <div class="col" style="min-width:200px">
+      <div class="box lay-orch">
+        <div class="box-name">📋 Celery + Redis</div>
+        <div class="box-sub">Async task queue · Background execution · Non-blocking API</div>
+      </div>
+      <div style="font-size:10px;color:var(--ca-obs);padding:2px 4px">
+        ✱ Temporal removed — Celery+Redis is sufficient and simpler to operate on-premise
+      </div>
+    </div>
+
+    <div style="color:var(--ca-orch);font-size:18px">→</div>
+
+    <div class="box lay-orch" style="min-width:200px">
+      <div class="box-name">🕸️ LangGraph Orchestrator</div>
+      <div class="box-sub">State machine · Conditional edge routing · Graph checkpointing</div>
+    </div>
+
+    <div style="color:var(--ca-orch);font-size:18px">→</div>
+
+    <div class="box lay-orch" style="min-width:240px;position:relative">
+      <div class="box-name">🔍 Query Clarity Agent <span class="badge badge-new">New</span></div>
+      <div class="box-sub">Validates answerability from available data · Maps business terms → data columns · Routes Mode A vs Mode B</div>
+    </div>
+  </div>
+</div>
+
+<!-- Mode routing arrows -->
+<div class="flow-row" style="margin:6px 0 4px">
+  <div style="color:var(--ca-dsstar);font-weight:700">↙ Mode A — Specific / Factoid Query</div>
+  <div style="color:var(--ca-dsp);font-weight:700">↘ Mode B — Open-Ended Research / Report</div>
+</div>
+<div class="flow-row" style="font-size:11px;color:var(--text-muted);margin-bottom:6px">
+  <div><em>"Which LFIs have the highest card fraud rate in Q1 2025?"</em></div>
+  <div><em>"Generate a thematic analysis of APP fraud growth across UAE banks"</em></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ENGINE GRID — DS-STAR (LEFT) + DS-STAR+ (RIGHT)
+     ══════════════════════════════════════════════════════════ -->
+<div class="engine-grid">
+
+  <!-- ── DS-STAR MODE A ── -->
+  <div class="layer lay-dsstar" style="margin-bottom:0">
+    <div class="layer-title">🤖 &nbsp;DS-STAR Engine &nbsp;(Mode A — Inner Engine) <span class="badge badge-kept">Core Paper</span></div>
+
+    <div class="agent-flow">
+      <div class="agent-pill"><span class="icon">🔬</span><div><div>Analyzer</div><div class="sub">Profiles all data files → D (CBUAE schema-aware)</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:20px">↓</div>
+
+      <div class="agent-pill"><span class="icon">📐</span><div><div>Planner</div><div class="sub">One step at a time · Conditioned on rₖ₋₁ · CBUAE knowledge injected</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:20px">↓</div>
+
+      <div class="agent-pill"><span class="icon">💻</span><div><div>Coder</div><div class="sub">Generates Python sₖ from cumulative plan {p₀…pₖ}</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:20px">↓</div>
+
+      <div class="agent-pill"><span class="icon">▶️</span><div><div>Executor</div><div class="sub">Spawns ephemeral Docker container → runs sₖ → returns rₖ</div></div></div>
+
+      <!-- debug branch -->
+      <div class="agent-branch">
+        <div class="agent-pill" style="border-color:#f8717166;color:#f87171;background:#200505">
+          <span class="icon">🐛</span><div><div>Debugger</div><div class="sub">Fixes code on exit_code≠0 · Max 3 attempts · Does NOT change plan</div></div>
+        </div>
+        <span class="agent-branch-label">← on error only, loops back to Executor</span>
+      </div>
+
+      <div class="conn" style="text-align:left;padding-left:20px">↓</div>
+
+      <div class="agent-pill"><span class="icon">✅</span><div><div>Verifier</div><div class="sub">LLM-as-judge · "sufficient" or "insufficient" · Checks query is answered</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:20px">↓</div>
+
+      <div class="agent-pill"><span class="icon">🔀</span><div><div>Router</div><div class="sub">"Add Step" → extend plan · Index l → backtrack &amp; truncate to {p₀…pₗ₋₁}</div></div></div>
+      <div style="font-size:10px;color:var(--text-muted);padding-left:4px;margin:2px 0 4px">
+        &nbsp;&nbsp;↺ loops to Planner · max 20 rounds
+      </div>
+
+      <div class="agent-pill"><span class="icon">🏁</span><div><div>Finalizer</div><div class="sub">Formats result per formatting_guidelines · May run a short formatting script</div></div></div>
+    </div>
+  </div>
+
+  <!-- ── DS-STAR+ MODE B ── -->
+  <div class="layer lay-dsp" style="margin-bottom:0">
+    <div class="layer-title">✨ &nbsp;DS-STAR+ Extension &nbsp;(Mode B — Research Reports) <span class="badge badge-fix">Corrected</span></div>
+
+    <div style="font-size:10px;color:#f87171;margin-bottom:10px;padding:6px 10px;background:#200505;border-radius:4px;border:1px solid #7f1d1d55">
+      ⚠️ Gemini v1 placed Report Writer as a peer agent. <strong>This is wrong.</strong> DS-STAR+ is a separate orchestration layer that wraps the entire DS-STAR engine (Mode A). It calls Mode A multiple times as an inner engine.
+    </div>
+
+    <div class="agent-flow">
+      <div class="dsp-pill"><span class="icon">❓</span>
+        <div>
+          <div>Sub-Question Generator <span class="badge badge-new">New</span></div>
+          <div class="sub">Decomposes open-ended query into focused sub-questions {sq₁…sqₙ}</div>
+          <div class="sub" style="margin-top:2px">Example: "APP fraud report" → 4–6 specific analysis questions</div>
+        </div>
+      </div>
+      <div class="conn" style="text-align:left;padding-left:20px">↓ &nbsp;<span style="font-size:10px;color:var(--text-muted)">for each sqᵢ</span></div>
+
+      <div class="inner-ref">
+        🔁 &nbsp;<strong>DS-STAR Engine (Mode A) × n</strong><br>
+        <span style="font-size:10px">Full 8-agent pipeline runs independently per sub-question<br>
+        Each produces: answer aᵢ · code sᵢ · result rᵢ<br>
+        Uses Flash-tier LLM for cost efficiency</span>
+      </div>
+      <div class="conn" style="text-align:left;padding-left:20px">↓ &nbsp;<span style="font-size:10px;color:var(--text-muted)">evidence set {(sq₁,a₁,s₁) … (sqₙ,aₙ,sₙ)}</span></div>
+
+      <div class="dsp-pill"><span class="icon">📝</span>
+        <div>
+          <div>Report Writer <span class="badge badge-fix">Corrected</span></div>
+          <div class="sub">Synthesizes all evidence into structured report · Every claim cited to sqᵢ and sᵢ</div>
+          <div class="sub" style="margin-top:2px;color:#c084fc">Uses Pro-tier LLM — highest quality model reserved for synthesis</div>
+        </div>
+      </div>
+      <div class="conn" style="text-align:left;padding-left:20px">↓</div>
+
+      <div class="dsp-pill"><span class="icon">🔄</span>
+        <div>
+          <div>Evaluator <span class="badge badge-new">New</span></div>
+          <div class="sub">Assesses report depth &amp; completeness · Can trigger more sub-questions if insufficient</div>
+          <div class="sub" style="margin-top:2px">↺ loops back to Sub-Question Generator for deeper coverage</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;padding:8px 10px;background:#0d061a;border:1px solid #a78bfa33;border-radius:4px">
+      <div style="font-size:10px;font-weight:700;color:var(--ca-dsp);margin-bottom:6px">CBUAE DS-STAR+ Use Cases</div>
+      <div style="font-size:10px;color:var(--text-muted);line-height:1.7">
+        🔎 Fraud Prevention: Thematic reviews (APP fraud, card fraud), LFI benchmarking reports, supervisory letter annexes<br>
+        🏦 AML/CFT: FATF evaluation reports, typology trend analysis, STR filing sector reports<br>
+        📊 Policy &amp; Research: Annual sector reports, GCC benchmarking, regulatory impact assessments<br>
+        ⚖️ Enforcement: Evidence packages, historical compliance pattern analysis
+      </div>
+    </div>
+  </div>
+
+</div><!-- /engine-grid -->
+
+<!-- converge arrow -->
+<div class="conn" style="margin:4px 0">↓<span class="conn-label">Both modes converge here · results pass through output pipeline</span></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     OUTPUT PIPELINE
+     ══════════════════════════════════════════════════════════ -->
+<div class="layer lay-output">
+  <div class="layer-title">📤 &nbsp; Output Pipeline <span class="badge badge-new">New</span></div>
+  <div class="row center">
+    <div class="box lay-output" style="min-width:220px">
+      <div class="box-name">💬 Natural Language Explainer <span class="badge badge-new">New</span></div>
+      <div class="box-sub">Converts raw DataFrames / numbers into plain English narrative · Tailored per department persona · Non-technical analyst friendly</div>
+    </div>
+    <div style="color:var(--ca-output);font-size:20px">→</div>
+    <div class="box lay-output" style="min-width:190px">
+      <div class="box-name">🔒 PII Masker <span class="badge badge-new">New</span></div>
+      <div class="box-sub">Masks account numbers · National IDs · Customer names · Applied before any output is delivered · Role-controlled unmasking</div>
+    </div>
+    <div style="color:var(--ca-output);font-size:20px">→</div>
+    <div class="box lay-output" style="min-width:220px">
+      <div class="box-name">🗂️ Audit Logger <span class="badge badge-fix">Corrected</span></div>
+      <div class="box-sub">Every query · Every plan step · Every code version · Every result · Append-only · Tamper-evident · Separate from object storage</div>
+    </div>
+    <div style="color:var(--ca-output);font-size:20px">→</div>
+    <div class="box lay-output" style="min-width:160px">
+      <div class="box-name">🌐 REST API / WebSocket</div>
+      <div class="box-sub">Delivers result to frontend or external consumer · Task polling + streaming events</div>
+    </div>
+  </div>
+</div>
+
+<div class="conn">↕<span class="conn-label">Executor interacts with sandbox; data volumes are mounted read-only</span></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ZERO-TRUST EXECUTION SANDBOX
+     ══════════════════════════════════════════════════════════ -->
+<div class="layer lay-sandbox">
+  <div class="layer-title">🔒 &nbsp; Zero-Trust Execution Sandbox &nbsp;<span class="badge badge-kept">Paper Spec</span></div>
+  <div class="row center gap-lg">
+    <div class="col" style="min-width:240px">
+      <div class="box lay-sandbox">
+        <div class="box-name">▶️ Executor Agent</div>
+        <div class="box-sub">Orchestrates container lifecycle · Passes generated script · Captures stdout/stderr/exit_code · Does NOT run inside the container</div>
+      </div>
+      <div style="color:var(--ca-sandbox);font-size:18px;padding-left:20px">↓ spawns</div>
+      <div class="box lay-sandbox">
+        <div class="box-name">📦 Ephemeral Container &nbsp;<span style="font-size:10px;opacity:0.7">(Docker / Kubernetes Job)</span></div>
+        <div class="box-sub">Destroyed after each script run · Fresh environment per round · Non-root user</div>
+      </div>
+      <div style="font-size:10px;color:var(--ca-obs);margin-top:4px">
+        ✱ Gemini v1 showed Executor both inside and outside sandbox — corrected: Executor orchestrates the container, it does not run inside it.
+      </div>
+    </div>
+
+    <div class="col fill">
+      <div style="font-size:10px;font-weight:700;color:var(--ca-sandbox);margin-bottom:4px;letter-spacing:0.5px">CONTAINER CONSTRAINTS</div>
+      <div>
+        <span class="constraint-tag">--network=none</span>
+        <span class="constraint-tag">--memory=2g</span>
+        <span class="constraint-tag">--read-only data mount</span>
+        <span class="constraint-tag">--user=nonroot</span>
+        <span class="constraint-tag">--cpu-quota enforced</span>
+        <span class="constraint-tag">--timeout per execution</span>
+        <span class="constraint-tag">--no write access to host fs</span>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--ca-data);margin:10px 0 4px;letter-spacing:0.5px">READ-ONLY LFI DATA VOLUMES (mounted per RBAC scope)</div>
+      <div>
+        <span class="data-vol">📊 Fraud Loss Reports</span>
+        <span class="data-vol">🏦 Transaction Monitoring Alerts</span>
+        <span class="data-vol">👤 KYC / CDD Data</span>
+        <span class="data-vol">📋 SAR / STR Records</span>
+        <span class="data-vol">📈 Market Surveillance Data</span>
+        <span class="data-vol">⚖️ Enforcement Case Files</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     BOTTOM INFRASTRUCTURE GRID
+     ══════════════════════════════════════════════════════════ -->
+<div class="bottom-grid">
+
+  <!-- LLM -->
+  <div class="layer lay-llm" style="margin-bottom:0">
+    <div class="layer-title">🧠 &nbsp;LLM Inference <span class="badge badge-fix">Corrected</span></div>
+
+    <div class="box lay-llm" style="margin-bottom:10px">
+      <div class="box-name">🔌 Provider-Agnostic Adapter</div>
+      <div class="box-sub">Single config flag: Ollama · Azure OpenAI · Gemini API · All agents use same interface</div>
+    </div>
+
+    <div style="font-size:10px;color:var(--ca-obs);margin-bottom:8px;padding:5px 8px;background:#1e030344;border-radius:4px;border:1px solid #7f1d1d55">
+      ✱ Gemini v1 used Llama 3.1 70B vs Llama 3.3 70B — same size, no real tier difference. Corrected to meaningful parameter-count split.
+    </div>
+
+    <div class="tier-card" style="margin-bottom:8px">
+      <div class="tier-label">⚡ Flash Tier — Fast &amp; Efficient</div>
+      <div class="tier-model">Llama 3.2 11B &nbsp;<span style="font-size:10px;color:var(--text-muted)">or Qwen 2.5 7B</span></div>
+      <div class="tier-agents">Analyzer · Planner · Coder · Debugger · Verifier · Router · Sub-Q Generator · Evaluator</div>
+    </div>
+
+    <div class="tier-card">
+      <div class="tier-label">🏆 Pro Tier — High Quality Synthesis</div>
+      <div class="tier-model">Llama 3.1 70B &nbsp;<span style="font-size:10px;color:var(--text-muted)">or Qwen 2.5 72B</span></div>
+      <div class="tier-agents">Finalizer · Report Writer &nbsp;(synthesis tasks only)</div>
+    </div>
+
+    <div style="font-size:10px;color:var(--text-muted);margin-top:8px">
+      Both tiers run on-premise via Ollama or vLLM. Air-gapped — no external API calls in production.
+    </div>
+  </div>
+
+  <!-- PERSISTENCE -->
+  <div class="layer lay-persist" style="margin-bottom:0">
+    <div class="layer-title">🗄️ &nbsp;State &amp; Persistence <span class="badge badge-fix">Corrected</span></div>
+
+    <div class="col" style="gap:8px">
+      <div class="persist-item">
+        <div class="persist-icon">🐘</div>
+        <div>
+          <div class="persist-name">PostgreSQL</div>
+          <div class="persist-desc">LangGraph state checkpointer · Task metadata · Query history · Dept-scoped row security</div>
+        </div>
+      </div>
+
+      <div class="persist-item" style="border-color:#f8717144">
+        <div class="persist-icon">📜</div>
+        <div>
+          <div class="persist-name" style="color:#fca5a5">Audit Log Store <span class="badge badge-fix">Corrected</span></div>
+          <div class="persist-desc">Separate from object storage · Append-only enforced at DB level</div>
+          <div class="persist-warn">Captures: user ID · timestamp · full query · every plan step · every code version · every execution result · PII access events</div>
+          <div class="persist-desc" style="margin-top:3px">Required for CBUAE regulatory examination readiness</div>
+        </div>
+      </div>
+
+      <div class="persist-item">
+        <div class="persist-icon">🪣</div>
+        <div>
+          <div class="persist-name">MinIO (Object Storage)</div>
+          <div class="persist-desc">S3-compatible · On-premise · Generated reports (PDF/Excel) · Chart artifacts · Large result files only</div>
+          <div class="persist-warn" style="color:#fbbf24">⚠️ Gemini v1 used MinIO for audit logs — corrected: MinIO is for reports/artifacts only, not audit trails</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATA INGESTION -->
+  <div class="layer lay-data" style="margin-bottom:0">
+    <div class="layer-title">📥 &nbsp;Data Ingestion &amp; LFI Volumes <span class="badge badge-new">New</span></div>
+
+    <div class="col" style="gap:8px">
+      <div class="box lay-data">
+        <div class="box-name">🔄 Secure Ingestion Pipeline</div>
+        <div class="box-sub">Scheduled LFI data uploads via SFTP / CBUAE reporting portal · Schema validation · Format normalization (CSV, XLSX, JSON) · Quarantine on failure</div>
+      </div>
+
+      <div class="box lay-data">
+        <div class="box-name">📂 LFI Data Volume Registry</div>
+        <div class="box-sub">Version-controlled data snapshots · Partition by LFI · Reporting period · Data type</div>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--ca-data);margin-top:4px">DATA TYPES</div>
+      <div class="tag-row">
+        <span class="data-vol" style="font-size:9px">Fraud Loss Reports</span>
+        <span class="data-vol" style="font-size:9px">Tx Monitoring Alerts</span>
+        <span class="data-vol" style="font-size:9px">SAR / STR Records</span>
+        <span class="data-vol" style="font-size:9px">KYC / CDD Profiles</span>
+        <span class="data-vol" style="font-size:9px">Market Surveillance</span>
+        <span class="data-vol" style="font-size:9px">Enforcement Cases</span>
+        <span class="data-vol" style="font-size:9px">Consumer Complaints</span>
+        <span class="data-vol" style="font-size:9px">LFI Risk Assessments</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- OBSERVABILITY -->
+  <div class="layer lay-obs" style="margin-bottom:0">
+    <div class="layer-title">📡 &nbsp;Observability <span class="badge badge-new">New</span></div>
+
+    <div class="col" style="gap:8px">
+      <div class="obs-item">
+        📊 Prometheus
+        <div class="obs-sub">LLM token usage per agent · Query latency · Sandbox execution time · Error rates</div>
+      </div>
+      <div class="obs-item">
+        📈 Grafana
+        <div class="obs-sub">Agent performance dashboards · Department usage patterns · Cost per query</div>
+      </div>
+      <div class="obs-item">
+        🚨 Alert Manager
+        <div class="obs-sub">Sandbox failure spikes · Budget overruns · LLM latency degradation · Queue depth</div>
+      </div>
+      <div class="obs-item">
+        🔍 Structured Logging
+        <div class="obs-sub">JSON logs per agent · Correlation IDs · Full trace per task_id</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /bottom-grid -->
+
+<!-- ══════════════════════════════════════════════════════════
+     CORRECTIONS PANEL
+     ══════════════════════════════════════════════════════════ -->
+<div class="corrections">
+  <h3>🔧 &nbsp;12 Issues Corrected from Gemini Architecture v1</h3>
+  <div class="corrections-grid">
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #1 &nbsp;DS-STAR+ misrepresented</div>
+      <div class="ci-fix">✅ Fixed: DS-STAR+ is a wrapper, not a peer agent</div>
+      <div class="ci-desc">Report Writer was placed as a peer to Analyzer/Planner. DS-STAR+ is a separate orchestration layer that calls DS-STAR n times as its inner engine.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #2 &nbsp;Sub-Question Generator missing</div>
+      <div class="ci-fix">✅ Added: Core DS-STAR+ component</div>
+      <div class="ci-desc">Decomposes open-ended queries into focused sub-questions. Without it, DS-STAR+ cannot function.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #3 &nbsp;Evaluator missing</div>
+      <div class="ci-fix">✅ Added: DS-STAR+ refinement loop</div>
+      <div class="ci-desc">The Evaluator checks report quality and triggers additional sub-questions if the report is insufficiently deep. Paper cites positive correlation with refinement rounds.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #4 &nbsp;LLM tiering: same model size</div>
+      <div class="ci-fix">✅ Fixed: 11B (Flash) vs 70B (Pro)</div>
+      <div class="ci-desc">Llama 3.1 70B vs Llama 3.3 70B is the same parameter count — no real cost/quality tradeoff. Corrected to Llama 3.2 11B (Flash) vs Llama 3.1 70B (Pro).</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #5 &nbsp;Executor shown twice</div>
+      <div class="ci-fix">✅ Fixed: Executor orchestrates, doesn't run inside sandbox</div>
+      <div class="ci-desc">Executor is the DS-STAR agent that spawns the container. It does not live inside the sandbox. The container is the ephemeral runtime.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #6 &nbsp;Temporal + Celery both listed</div>
+      <div class="ci-fix">✅ Decided: Celery + Redis only</div>
+      <div class="ci-desc">Temporal and Celery are competing solutions. Celery+Redis is simpler, well-understood, and sufficient for this use case. Temporal adds operational complexity with marginal benefit on-premise.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #7 &nbsp;Query Clarity Agent missing</div>
+      <div class="ci-fix">✅ Added: Pre-Planner validation node</div>
+      <div class="ci-desc">Validates answerability, maps domain terms to data columns, and routes to Mode A or Mode B. Critical for non-technical analyst experience.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #8 &nbsp;Auth / RBAC entirely absent</div>
+      <div class="ci-fix">✅ Added: Security &amp; API Gateway Layer</div>
+      <div class="ci-desc">Multi-department system at a financial regulator requires SSO authentication, department-scoped data access enforcement, and per-LFI permissions.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #9 &nbsp;Audit log conflated with MinIO</div>
+      <div class="ci-fix">✅ Fixed: Separate append-only audit store</div>
+      <div class="ci-desc">Object storage is wrong for audit logs — they must be append-only, tamper-evident, and queryable for regulatory examination. MinIO is for reports/artifacts only.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #10 &nbsp;NL Explainer missing</div>
+      <div class="ci-fix">✅ Added: Output Pipeline layer</div>
+      <div class="ci-desc">Non-technical analysts need plain English narratives, not raw DataFrames. Explainer converts technical results into department-tailored explanations before delivery.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #11 &nbsp;PII Masker missing</div>
+      <div class="ci-fix">✅ Added: Output Pipeline layer</div>
+      <div class="ci-desc">Central bank handling customer financial data must mask account numbers, national IDs, and names before output delivery. Role-controlled unmasking for authorized investigators.</div>
+    </div>
+
+    <div class="correction-item">
+      <div class="ci-title">❌ #12 &nbsp;Observability &amp; data ingestion missing</div>
+      <div class="ci-fix">✅ Added: Observability + Data Ingestion layers</div>
+      <div class="ci-desc">Production system requires Prometheus/Grafana for LLM cost tracking and error alerting. Ingestion pipeline explains how LFI data reaches the read-only volumes.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footnote">
+  Based on DS-STAR paper: <em>"Data Science Agent for Solving Diverse Tasks across Heterogeneous Formats and Open-Ended Queries"</em>
+  &nbsp;·&nbsp; arXiv:2509.21825 &nbsp;·&nbsp; Jaehyun Nam, Jinsung Yoon, Jiefeng Chen, Raj Sinha, Tomas Pfister (Google Cloud) &nbsp;·&nbsp; v4, Feb 2026
+  <br><br>
+  CBUAE Financial Crime &amp; Market Conduct &nbsp;·&nbsp; Architecture v2.0 &nbsp;·&nbsp; Corrected &amp; Complete &nbsp;·&nbsp; June 2026
+</div>
+
+</body>
+</html>
