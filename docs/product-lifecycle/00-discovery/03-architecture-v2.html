@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CBUAE FIP — Architecture v3.2 (Production-Grade)</title>
+<title>CBUAE FIP — Architecture v3.3 (Production-Grade)</title>
 <style>
   :root {
     --bg:            #070b16;
@@ -328,7 +328,7 @@
      ═══════════════════════════════════════════════════════════ -->
 <div class="hdr">
   <h1>CBUAE Financial Intelligence Platform (FIP)</h1>
-  <h2>DS-STAR + DS-STAR+ Architecture &mdash; <strong>v3.2 Production-Grade</strong></h2>
+  <h2>DS-STAR + DS-STAR+ Architecture &mdash; <strong>v3.3 Production-Grade</strong></h2>
   <div class="hdr-tags">
     <span class="htag" style="background:#052e16;color:#4ade80;border:1px solid #166534">Financial Crime &amp; Market Conduct</span>
     <span class="htag" style="background:#172554;color:#93c5fd;border:1px solid #1e3a8a">On-Premise · Air-Gapped</span>
@@ -501,26 +501,26 @@
       <div class="ap"><span class="ic">📐</span><div><div>Planner</div><div class="as">One step at a time · Conditioned on rₖ₋₁ (last execution result) · CBUAE regulatory knowledge injected from Config Store · Cumulative plan {p₀…pₖ}</div></div></div>
       <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
 
-      <div class="ap"><span class="ic">💻</span><div><div>Coder</div><div class="as">Generates Python sₖ implementing full cumulative plan · Absolute /workspace/data/ paths · Memory-safe loading · Multi-delimiter CSV handling</div></div></div>
+      <div class="ap"><span class="ic">💻</span><div><div>Coder</div><div class="as">Extends previous script sₖ₋₁ with the new plan step pₖ (incremental, not a rewrite) · Output is always a complete standalone script · Receives (q, {dᵢ}, p₀…pₖ, sₖ₋₁) · Absolute /workspace/data/ paths · Memory-safe loading · Multi-delimiter CSV handling · Listing 51 paper-confirmed</div></div></div>
       <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
 
       <div class="ap"><span class="ic">▶️</span><div><div>Executor</div><div class="as">Manages one persistent container per task (started at task begin, destroyed at task end) · Each round runs sₖ inside the existing container via docker exec · Captures stdout/stderr/exit_code → rₖ · Executor is the orchestrator, NOT inside the container · Container budget enforced (see Sandbox)</div></div></div>
 
       <div class="dbranch">
         <div class="ap" style="border-color:#f8717166;color:#f87171;background:#200505;min-width:0">
-          <span class="ic">🐛</span><div><div>Debugger</div><div class="as">Fixes code on exit_code≠0 · Max 3 attempts · Repairs sₖ only — NEVER modifies plan · Passes best-effort if still failing after 3 tries</div></div>
+          <span class="ic">🐛</span><div><div>Debugger</div><div class="as">Two-step process (paper Listings 55–57): (1) Traceback Summariser condenses raw stderr into concise diagnosis; (2) Code Fixer repairs sₖ using summarised traceback + D · Max 3 attempts · Repairs code only — NEVER modifies plan · Passes best-effort if still failing after 3 tries</div></div>
         </div>
         <span class="dbranch-lbl">on error only ↺ Executor</span>
       </div>
       <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
 
-      <div class="ap"><span class="ic">✅</span><div><div>Verifier</div><div class="as">LLM-as-judge · Input: (q, p₀…pₖ, sₖ, rₖ) · Output: "sufficient" | "insufficient" · Checks the result actually answers q, not just "did code run"</div></div></div>
+      <div class="ap"><span class="ic">✅</span><div><div>Verifier</div><div class="as">LLM-as-judge · Input: (q, p₀…pₖ, sₖ, rₖ) · Output: "Yes" | "No" (paper Listing 52) · Checks the result actually answers q, not just "did code run"</div></div></div>
       <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
 
       <div class="ap"><span class="ic">🔀</span><div><div>Router</div><div class="as">"Add Step" → extend plan with pₖ₊₁ · Index l → truncate to {p₀…pₗ₋₁} and regenerate from pₗ · Truncate-and-regenerate (not direct edit) for solution diversity · Max 20 rounds</div></div></div>
       <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0;font-size:11px;color:var(--text-muted)">↺ loops to Planner &nbsp;·&nbsp; sufficient → Finalizer</div>
 
-      <div class="ap"><span class="ic">🏁</span><div><div>Finalizer</div><div class="as">Formats result per formatting_guidelines · May generate/run a short formatting script · Output: final answer ready for Output Pipeline</div></div></div>
+      <div class="ap"><span class="ic">🏁</span><div><div>Finalyzer</div><div class="as">Generates a Python formatting script and executes it in the sandbox (paper Listing 54 — not text-only reformatting) · Receives (sₖ, rₖ, formatting_guidelines) · Formatting guidelines: "round to 2dp", "output as JSON", "summarise in bullets", or a named CBUAE template · Output: final answer ready for Output Pipeline</div></div></div>
     </div>
   </div>
 
@@ -887,7 +887,7 @@
       <div class="hi-title">📦 Container Lifecycle: Task-Scoped, Not Round-Scoped</div>
       <div class="hi-body">
         v2 showed containers as ephemeral per round. With DS-STAR+ (8 sub-questions × 20 rounds), that would be 160 container cold-starts per query (~3s each = 8 minutes of pure overhead). Unacceptable for analyst UX.<br><br>
-        Fixed in v3: One container per task, alive for all rounds. Each round runs its complete sₖ script via docker exec. Because the Coder always generates a full script (not a delta), it re-imports and re-computes everything from scratch — making stale container state a non-issue. Rounds get warm execution with zero cold-start penalty.<br><br>
+        Fixed in v3: One container per task, alive for all rounds. Each round runs its complete sₖ script via docker exec. The Coder builds sₖ incrementally (extending sₖ₋₁) but always outputs a fully self-contained runnable script — it re-imports and re-computes from scratch each round, making stale container state a non-issue. Rounds get warm execution with zero cold-start penalty.<br><br>
         DS-STAR+: one container per sub-question (sub-questions share no state). Max 5 containers concurrent system-wide. Sequential sub-question execution by default; parallel mode available via config flag.
       </div>
       <div class="hi-ok">✅ Container sprawl eliminated · Cold-start overhead eliminated · Predictable resource usage</div>
@@ -966,7 +966,7 @@
   Based on DS-STAR paper: <em>"Data Science Agent for Solving Diverse Tasks across Heterogeneous Formats and Open-Ended Queries"</em>
   &nbsp;·&nbsp; arXiv:2509.21825 &nbsp;·&nbsp; Jaehyun Nam, Jinsung Yoon, Jiefeng Chen, Raj Sinha, Tomas Pfister (Google Cloud) &nbsp;·&nbsp; v4, Feb 2026
   <br><br>
-  CBUAE Financial Crime &amp; Market Conduct &nbsp;&middot;&nbsp; Architecture v3.2 — Production-Grade &nbsp;&middot;&nbsp; Reviewed June 2026
+  CBUAE Financial Crime &amp; Market Conduct &nbsp;&middot;&nbsp; Architecture v3.3 — Production-Grade &nbsp;&middot;&nbsp; Paper-audited June 2026 (Coder incremental, Debugger two-step, Finalyzer runs sandbox code, Verifier Yes/No)
 </div>
 
 </body>

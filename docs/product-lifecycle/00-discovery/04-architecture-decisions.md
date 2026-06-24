@@ -297,7 +297,7 @@ Citations are inline throughout, not in a separate annex.
 |---|----------|----------------|--------------|
 | Q1 | Container lifecycle | Not prescribed (stateless execution implied) | One container per task, rounds use docker exec |
 | Q2 | When does Analyzer run? | Once per task, before Planner | Once per DS-STAR task; D shared across DS-STAR+ sub-questions |
-| Q3 | Why does sₖ include everything from s₀? | Paper's design: complete script each round | Accept — enables stateless reproducibility; OS page cache absorbs re-read cost |
+| Q3 | How does Coder generate sₖ? | Incremental: Coder receives s_{k-1} as base code and extends it (Algorithm 1, line 26; Listing 51 confirmed) | Output sₖ is still a complete executable script, but Coder only implements the new step on top of base code — not a full rewrite |
 | Q4 | DS-STAR+ sub-question parallelism | Not prescribed | Sequential by default; parallel behind config flag |
 | Q5 | LLM context overflow across 20 rounds | 20-round cap + stdout cap | stdout capped at 10KB; Flash LLMs for 7 agents; plan compression as fallback |
 | Q6 | What happens to code when Router backtracks? | Truncate-and-regenerate (not direct edit) | Follow paper exactly; container not reset (complete-script design handles it) |
@@ -306,8 +306,22 @@ Citations are inline throughout, not in a separate annex.
 | Q9 | Does Verifier see the code or just the result? | Full 4-tuple (q, plan, sₖ, rₖ) | Follow paper exactly |
 | Q10 | Does Analyzer re-run per sub-question in DS-STAR+? | Once at outer level; D shared | D shared; re-run only for supplementary data sources |
 | Q11 | Separate Evaluator agent in DS-STAR+? | No — Generator handles refinement (Algorithm 2) | Removed Evaluator; Generator runs in refinement mode receiving current R |
-| Q12 | Debugger input: traceback only or also D? | Receives (s, traceback, D) — paper explicit | Debugger must receive full D; enables fixing semantic data errors not just syntax |
+| Q12 | Debugger input: traceback only or also D? | Two-step: (1) Summarise raw traceback; (2) Fix code using (s, summarised_traceback, D) | Implement both steps — raw tracebacks can be too long; summariser condenses before fix |
 | Q13 | DS-STAR+ report structure: fixed or dynamic? | Dynamic — Writer decides sections from query | Dynamic sections; fixed: header, exec summary, scope, methodology, recommendations |
+| Q14 | Does Coder rewrite script from scratch each round? | No — Listing 51 confirmed: Coder receives base_code=s_k and extends it | Output is still a complete script; Coder implements only the new step on top — corrects Q3 framing |
+| Q15 | Does Debugger have one step or two? | Two steps confirmed (Listings 55+56/57): (1) traceback summariser, (2) code fixer | Two separate LLM calls per debug attempt; summariser reduces traceback length before fixer uses it |
+| Q16 | Does the Finalyzer just reformat text, or does it generate and run code? | Generates a NEW Python script (Listing 54) that is executed to produce formatted output | Finalyzer runs in the sandbox like every other code step — it is not a text-only formatting layer |
+| Q17 | What does the paper say about 5-6 round default vs 20? | Hard tasks need avg 5.6 rounds; accuracy positively correlates with max rounds (Figure 2) | Our 5-6 round first-run default means ~50% of hard queries need extension — acceptable given extension mechanism; must be clearly communicated to analysts |
+| Q18 | What does the Verifier output exactly? | 'Yes' or 'No' (Listing 52) — paper text says "sufficient/insufficient" but prompt uses Yes/No | Implementation must parse 'Yes'/'No'; framing in prompts and code should match paper |
+
+---
+
+## Paper's Own Future Direction — Confirmed Alignment
+
+The paper's Conclusion (page 13) explicitly states:
+> *"A compelling avenue for future research is to extend this framework to a human-in-the-loop setting. Investigating how to synergistically combine the automated capabilities of DS-STAR with the domain knowledge of a human expert presents a promising direction for significantly boosting performance and enhancing the system's practical utility."*
+
+Our CBUAE enhancements — mid-analysis steering, analyst pause/resume, round extension, formatting control, and conversational follow-up — are precisely this. We are building the paper's own stated future direction, not deviating from it.
 
 ---
 
