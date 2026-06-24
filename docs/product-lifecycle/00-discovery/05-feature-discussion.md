@@ -126,11 +126,16 @@
 
 ---
 
+## Topic 6: Department-Specific Features
+
+🔮 **Deferred to V2.** V1 treats all analysts identically regardless of department. No department-specific UI, starter templates, data schemas, regulatory knowledge injection, or output templates in V1. Every analyst sees the same experience. Department-specific customisation is a future scope item to be designed when the core system is proven.
+
+---
+
 ## Topics Not Yet Started
 
 | # | Topic |
 |---|-------|
-| 6 | Department-specific features — what differs per department |
 | 7 | PII handling — what gets masked, for whom, when |
 | 8 | Audit & compliance — what the system must log, for how long |
 | 9 | API & export — REST API consumers, export formats |
