@@ -138,11 +138,23 @@
 
 ---
 
+## Topic 8: Audit & Compliance
+
+### Confirmed decisions
+
+| # | Feature | Decision |
+|---|---------|---------|
+| 1 | Retention period | Forever — records are never deleted in V1. Retention policy configuration (e.g., archive after N years) is deferred to a future version. |
+| 2 | Audit log access | Two tiers: (a) **Admin** — full access to all records across all users; (b) **Analyst** — can view their own query history only, not other analysts' records. No cross-analyst visibility for non-admins. |
+| 3 | Monitoring & alerts | Purely passive. The audit log is a compliance record, not a monitoring tool. No alerting, anomaly detection, or active review in V1. Available on demand for regulatory examination. |
+| 4 | Result data in log | Audit log stores a **reference only** — task ID + storage location. Full result data is stored separately in the task results store and linked by reference. This keeps the audit log lean and queryable without bloating it with large result payloads. |
+
+---
+
 ## Topics Not Yet Started
 
 | # | Topic |
 |---|-------|
-| 8 | Audit & compliance — what the system must log, for how long |
 | 9 | API & export — REST API consumers, export formats |
 | 10 | Frontend — full UI layout, what actions are available |
 
