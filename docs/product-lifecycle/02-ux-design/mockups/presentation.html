@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — CBUAE Financial Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+:root{
+  --bg:#f4f4f5;--bg-card:#ffffff;--border:#e4e4e7;--text:#09090b;
+  --text-muted:#71717a;--text-subtle:#a1a1aa;
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,.07);--blue-bd:rgba(37,99,235,.2);
+  --purple:#9333ea;--purple-bg:rgba(147,51,234,.07);--purple-bd:rgba(147,51,234,.2);
+  --green:#16a34a;--green-bg:rgba(22,163,74,.07);
+  --red:#dc2626;--red-bg:rgba(220,38,38,.07);
+  --amber:#d97706;--amber-bg:rgba(217,119,6,.07);
+  --card-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
+
+/* ─── Deck shell ─── */
+.deck{position:fixed;inset:0;overflow:hidden}
+.slide{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  padding:52px 68px 56px;
+  opacity:0;transition:opacity .35s ease;
+  pointer-events:none;
+}
+.slide.active{opacity:1;pointer-events:auto}
+
+/* ─── Global brand bar ─── */
+.brand-bar{
+  position:fixed;top:0;left:0;right:0;height:44px;
+  background:var(--bg-card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:10px;
+  z-index:200;
+}
+.brand-mark{
+  width:24px;height:24px;background:var(--text);color:var(--bg-card);
+  border-radius:5px;display:flex;align-items:center;justify-content:center;
+  font-size:8.5px;font-weight:800;letter-spacing:-.02em;flex-shrink:0;
+}
+.brand-name{font-size:12px;font-weight:600;color:var(--text-muted)}
+.brand-sep{width:1px;height:14px;background:var(--border)}
+.brand-label{font-size:11px;color:var(--text-subtle)}
+
+/* ─── Navigation ─── */
+.nav{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:16px;z-index:200;
+}
+.dots{display:flex;gap:6px;align-items:center}
+.dot{
+  width:6px;height:6px;border-radius:50%;background:var(--border);
+  cursor:pointer;transition:all .2s;
+}
+.dot.active{background:var(--blue);width:20px;border-radius:3px}
+.nav-btn{
+  width:30px;height:30px;border-radius:50%;background:var(--bg-card);
+  border:1px solid var(--border);display:flex;align-items:center;
+  justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s;
+}
+.nav-btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+.nav-btn svg{width:13px;height:13px}
+.nav-count{font-size:11px;color:var(--text-subtle);font-weight:500;min-width:36px;text-align:center}
+
+/* ─── Section eyebrow + heading ─── */
+.eyebrow{
+  font-size:11px;font-weight:700;color:var(--blue);
+  text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;
+}
+.heading{
+  font-size:32px;font-weight:800;color:var(--text);
+  letter-spacing:-.035em;line-height:1.08;margin-bottom:28px;
+}
+.heading em{color:var(--blue);font-style:normal}
+
+/* ─── SLIDE 1: Title ─── */
+.s1{justify-content:center}
+.s1-body{display:flex;align-items:center;gap:72px}
+.s1-left{flex:1;max-width:560px}
+.s1-tag{
+  display:inline-flex;align-items:center;gap:6px;margin-bottom:22px;
+  padding:4px 12px;border-radius:9999px;
+  background:var(--blue-bg);border:1px solid var(--blue-bd);
+  color:var(--blue);font-size:11px;font-weight:600;
+}
+.s1-tag svg{width:11px;height:11px}
+.s1-title{
+  font-size:52px;font-weight:900;color:var(--text);
+  letter-spacing:-.05em;line-height:1.0;margin-bottom:18px;
+}
+.s1-title span{color:var(--blue)}
+.s1-sub{font-size:15px;color:var(--text-muted);line-height:1.65;max-width:460px;margin-bottom:28px}
+.s1-chips{display:flex;flex-wrap:wrap;gap:8px}
+.s1-chip{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 12px;border-radius:7px;
+  background:var(--bg-card);border:1px solid var(--border);
+  font-size:12px;color:var(--text-muted);font-weight:500;
+}
+.s1-chip svg{width:12px;height:12px}
+.s1-right{flex:0 0 340px;display:flex;align-items:center;justify-content:center}
+.hero{width:300px;height:300px;position:relative;display:flex;align-items:center;justify-content:center}
+.h-ring{position:absolute;border-radius:50%;border:1px solid}
+.hr-1{width:300px;height:300px;border-color:rgba(37,99,235,.1)}
+.hr-2{width:200px;height:200px;border-color:rgba(37,99,235,.18)}
+.hr-3{width:108px;height:108px;border-color:rgba(37,99,235,.26);background:rgba(37,99,235,.04)}
+.h-center{
+  width:68px;height:68px;background:var(--text);border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;font-weight:800;color:var(--bg-card);
+  position:relative;z-index:1;box-shadow:0 8px 32px rgba(0,0,0,.14);
+}
+.h-orb{
+  position:absolute;width:34px;height:34px;border-radius:8px;
+  background:var(--bg-card);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+.h-orb svg{width:14px;height:14px}
+.ho-top{top:10px;left:50%;transform:translateX(-50%)}
+.ho-right{right:8px;top:50%;transform:translateY(-50%)}
+.ho-bottom{bottom:10px;left:50%;transform:translateX(-50%)}
+.ho-left{left:8px;top:50%;transform:translateY(-50%)}
+
+/* ─── SLIDE 2: Problem ─── */
+.prob-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px}
+.prob-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:12px;padding:26px;box-shadow:var(--card-shadow);
+}
+.prob-icon{
+  width:38px;height:38px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+}
+.prob-icon svg{width:18px;height:18px}
+.prob-stat{font-size:38px;font-weight:900;letter-spacing:-.05em;margin-bottom:5px}
+.prob-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:7px}
+.prob-desc{font-size:12px;color:var(--text-muted);line-height:1.6}
+.prob-quote{
+  padding:18px 22px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:10px;border-left:3px solid var(--blue);
+  font-size:13px;color:var(--text-muted);line-height:1.7;
+}
+.prob-quote strong{color:var(--text)}
+
+/* ─── SLIDE 3: Architecture ─── */
+.arch-body{flex:1;display:flex;gap:32px}
+.arch-main{flex:1}
+.arch-side{width:248px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+
+.pipeline-row{display:flex;align-items:center;gap:0;margin-bottom:10px;flex-wrap:nowrap}
+.pnode{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 14px;border-radius:8px;
+  background:var(--bg-card);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);flex-shrink:0;
+}
+.pnode svg{width:12px;height:12px}
+.pnode.b{background:var(--blue-bg);border-color:var(--blue-bd);color:var(--blue)}
+.pnode.g{background:var(--green-bg);border-color:rgba(22,163,74,.25);color:var(--green)}
+.pnode.a{background:var(--amber-bg);border-color:rgba(217,119,6,.25);color:var(--amber)}
+.pnode.r{background:var(--red-bg);border-color:rgba(220,38,38,.25);color:var(--red)}
+.parr{
+  width:20px;height:2px;background:var(--border);flex-shrink:0;
+  position:relative;margin:0 1px;
+}
+.parr::after{
+  content:'';position:absolute;right:-3px;top:-3px;
+  border:4px solid transparent;border-left-color:var(--text-subtle);
+}
+.pipe-spacer{flex:1}
+
+.mech-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.mech-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:8px;padding:11px 13px;
+}
+.mech-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px}
+.mech-desc{font-size:11px;color:var(--text-muted);line-height:1.5}
+
+.kpi-stat{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:9px;padding:12px 15px;
+}
+.kpi-val{font-size:24px;font-weight:800;letter-spacing:-.04em;margin-bottom:2px}
+.kpi-lbl{font-size:11px;color:var(--text-muted);margin-bottom:1px}
+.kpi-sub{font-size:10px;color:var(--text-subtle)}
+
+/* ─── SLIDE 4: Two Modes ─── */
+.modes-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;flex:1}
+.mode-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;padding:26px;box-shadow:var(--card-shadow);
+  display:flex;flex-direction:column;
+}
+.mode-card.ins{border-top:3px solid var(--blue)}
+.mode-card.res{border-top:3px solid var(--purple)}
+.mode-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:9999px;
+  font-size:11px;font-weight:600;margin-bottom:14px;
+}
+.pill-b{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
+.pill-p{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bd)}
+.mode-pill svg{width:11px;height:11px}
+.mode-card h3{font-size:20px;font-weight:800;letter-spacing:-.025em;margin-bottom:8px}
+.mode-card p{font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:14px}
+.mode-eg{
+  padding:10px 14px;border-radius:8px;
+  font-size:12px;color:var(--text-muted);line-height:1.55;
+  font-style:italic;margin-bottom:16px;
+}
+.eg-b{background:var(--blue-bg);border:1px solid var(--blue-bd)}
+.eg-p{background:var(--purple-bg);border:1px solid var(--purple-bd)}
+.feat-list{display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.feat{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--text-muted);line-height:1.4}
+.feat svg{width:13px;height:13px;flex-shrink:0;margin-top:1px}
+.fc-b{color:var(--blue)}
+.fc-p{color:var(--purple)}
+
+/* ─── SLIDE 5: UI Preview ─── */
+.screens-row{flex:1;display:flex;gap:16px;min-height:0}
+.screen-col{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.screen-lbl{
+  display:flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:600;color:var(--text-subtle);
+  text-transform:uppercase;letter-spacing:.06em;
+}
+.step-pip{
+  width:18px;height:18px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.screen-wrap{
+  flex:1;border-radius:10px;overflow:hidden;
+  border:1px solid var(--border);
+  box-shadow:0 4px 24px rgba(0,0,0,.08);
+  position:relative;background:var(--bg);
+}
+.screen-wrap iframe{
+  display:block;border:none;pointer-events:none;
+  transform-origin:top left;
+  position:absolute;top:0;left:0;
+}
+
+/* ─── SLIDE 6: Enhancements ─── */
+.enh-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;flex:1;align-content:start}
+.enh-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:10px;padding:18px;box-shadow:var(--card-shadow);
+}
+.enh-icon{
+  width:32px;height:32px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:10px;
+}
+.enh-icon svg{width:15px;height:15px}
+.enh-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.enh-desc{font-size:12px;color:var(--text-muted);line-height:1.55}
+
+/* ─── SLIDE 7: Deploy ─── */
+.deploy-body{flex:1;display:flex;gap:28px}
+.dept-col{flex:1;display:flex;flex-direction:column;gap:9px}
+.dept-card{
+  display:flex;align-items:flex-start;gap:11px;
+  padding:12px 15px;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:10px;
+}
+.dept-card.primary{border-color:rgba(37,99,235,.35);background:rgba(37,99,235,.03)}
+.d-icon{
+  width:30px;height:30px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.d-icon svg{width:14px;height:14px}
+.d-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
+.d-use{font-size:11px;color:var(--text-muted);line-height:1.45}
+.d-badge{
+  font-size:9px;font-weight:700;color:var(--blue);
+  background:var(--blue-bg);border:1px solid var(--blue-bd);
+  padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle;
+}
+
+.rmap-col{width:270px;flex-shrink:0}
+.rmap-lbl{font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+.rmap-step{display:flex;gap:11px;padding-bottom:18px;position:relative}
+.rmap-step::before{
+  content:'';position:absolute;left:11px;top:22px;
+  width:2px;height:calc(100% - 4px);background:var(--border);
+}
+.rmap-step:last-child::before{display:none}
+.rmap-dot{
+  width:24px;height:24px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;position:relative;z-index:1;
+}
+.rd-done{background:var(--green);color:#fff}
+.rd-next{background:var(--blue);color:#fff}
+.rd-later{background:var(--bg-card);border:2px solid var(--border);color:var(--text-subtle)}
+.rmap-phase{font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.rmap-desc{font-size:12px;color:var(--text-muted);line-height:1.45}
+</style>
+</head>
+<body>
+
+<!-- Brand bar -->
+<div class="brand-bar">
+  <div class="brand-mark">FIP</div>
+  <div class="brand-name">Financial Intelligence Platform</div>
+  <div class="brand-sep"></div>
+  <div class="brand-label">CBUAE · Financial Crime & Market Conduct · Internal</div>
+</div>
+
+<div class="deck">
+
+  <!-- ═══════════════════════════════════════════
+       SLIDE 1 — Title
+  ════════════════════════════════════════════ -->
+  <div class="slide s1 active" data-index="0">
+    <div class="s1-body">
+      <div class="s1-left">
+        <div class="s1-tag"><i data-lucide="shield"></i> CBUAE · Financial Crime &amp; Market Conduct</div>
+        <h1 class="s1-title">Financial<br>Intelligence<br><span>Platform</span></h1>
+        <p class="s1-sub">Natural language intelligence for supervisory data analysis — no code required. Powered by DS-STAR, a self-correcting agent pipeline from Google Research.</p>
+        <div class="s1-chips">
+          <div class="s1-chip"><i data-lucide="cpu"></i> DS-STAR Agent Pipeline</div>
+          <div class="s1-chip"><i data-lucide="lock"></i> Air-gapped · On-premise</div>
+          <div class="s1-chip"><i data-lucide="building-2"></i> 47 UAE LFIs</div>
+          <div class="s1-chip"><i data-lucide="users"></i> 5 Departments</div>
+        </div>
+      </div>
+      <div class="s1-right">
+        <div class="hero">
+          <div class="h-ring hr-1"></div>
+          <div class="h-ring hr-2"></div>
+          <div class="h-ring hr-3"></div>
+          <div class="h-center">FIP</div>
+          <div class="h-orb ho-top" style="color:var(--blue);border-color:var(--blue-bd);background:var(--blue-bg)"><i data-lucide="search"></i></div>
+          <div class="h-orb ho-right" style="color:var(--purple);border-color:var(--purple-bd);background:var(--purple-bg)"><i data-lucide="file-text"></i></div>
+          <div class="h-orb ho-bottom" style="color:var(--green);border-color:rgba(22,163,74,.25);background:var(--green-bg)"><i data-lucide="bar-chart-2"></i></div>
+          <div class="h-orb ho-left" style="color:var(--amber);border-color:rgba(217,119,6,.25);background:var(--amber-bg)"><i data-lucide="shield"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SLIDE 2 — The Problem
+  ════════════════════════════════════════════ -->
+  <div class="slide" data-index="1">
+    <div class="eyebrow">The Problem</div>
+    <h2 class="heading">Supervisory data analysis is <em>slow, manual, and siloed</em></h2>
+    <div class="prob-grid">
+      <div class="prob-card">
+        <div class="prob-icon" style="background:var(--red-bg)"><i data-lucide="clock" style="color:var(--red)"></i></div>
+        <div class="prob-stat" style="color:var(--red)">3–5</div>
+        <div class="prob-title">Days to answer a complex data question</div>
+        <div class="prob-desc">Analysts submit data requests to IT or engineering teams. By the time results arrive, the regulatory moment has often passed.</div>
+      </div>
+      <div class="prob-card">
+        <div class="prob-icon" style="background:var(--amber-bg)"><i data-lucide="code-2" style="color:var(--amber)"></i></div>
+        <div class="prob-stat" style="color:var(--amber)">0%</div>
+        <div class="prob-title">Of compliance analysts can write SQL or Python</div>
+        <div class="prob-desc">Complex multi-file data analysis requires technical skills that supervisory staff don't have — creating a permanent bottleneck on scarce IT resources.</div>
+      </div>
+      <div class="prob-card">
+        <div class="prob-icon" style="background:var(--blue-bg)"><i data-lucide="file-x" style="color:var(--blue)"></i></div>
+        <div class="prob-stat" style="color:var(--blue)">∅</div>
+        <div class="prob-title">Reproducible audit trail for ad-hoc analysis</div>
+        <div class="prob-desc">Spreadsheet-based outputs can't be verified, reproduced, or cited — a critical gap when regulators must evidence their supervisory conclusions.</div>
+      </div>
+    </div>
+    <div class="prob-quote">
+      "Which LFIs have the highest card fraud rate this quarter vs. the peer median?" — a question every fraud supervisor asks every week. <strong>Today it takes days and a data engineer. FIP answers it in under 30 seconds.</strong>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SLIDE 3 — Architecture
+  ════════════════════════════════════════════ -->
+  <div class="slide" data-index="2">
+    <div class="eyebrow">The Technology</div>
+    <h2 class="heading">DS-STAR: an <em>iterative, self-correcting</em> agent pipeline</h2>
+    <div class="arch-body">
+      <div class="arch-main">
+        <!-- Row 1 -->
+        <div class="pipeline-row">
+          <div class="pnode b"><i data-lucide="scan-search"></i> Analyzer</div>
+          <div class="parr"></div>
+          <div class="pnode b"><i data-lucide="list-checks"></i> Planner</div>
+          <div class="parr"></div>
+          <div class="pnode b"><i data-lucide="code-2"></i> Coder</div>
+          <div class="parr"></div>
+          <div class="pnode b"><i data-lucide="play"></i> Executor</div>
+          <div class="parr"></div>
+          <div class="pnode a"><i data-lucide="bug"></i> Debugger</div>
+        </div>
+        <!-- Row 2 (reversed direction) -->
+        <div class="pipeline-row" style="padding-left:8px">
+          <div class="pnode g"><i data-lucide="sparkles"></i> Finalizer</div>
+          <div class="parr" style="transform:scaleX(-1)"></div>
+          <div class="pnode b"><i data-lucide="check-circle"></i> Verifier</div>
+          <div class="parr" style="transform:scaleX(-1)"></div>
+          <div class="pnode a"><i data-lucide="git-branch"></i> Router</div>
+          <div style="flex:1;display:flex;align-items:center;gap:12px;padding-left:20px">
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-subtle)"><div style="width:12px;height:2px;background:var(--blue);border-radius:1px"></div>Core loop</div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-subtle)"><div style="width:12px;height:2px;background:var(--amber);border-radius:1px"></div>Error recovery</div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-subtle)"><div style="width:12px;height:2px;background:var(--green);border-radius:1px"></div>Output</div>
+          </div>
+        </div>
+        <div class="mech-grid">
+          <div class="mech-card">
+            <div class="mech-title">One step at a time</div>
+            <div class="mech-desc">Planner generates one plan step per round, conditioned on the previous execution result. Mirrors how a data scientist explores data iteratively.</div>
+          </div>
+          <div class="mech-card">
+            <div class="mech-title">Backtracking Router</div>
+            <div class="mech-desc">If a plan step is wrong, Router identifies which one and truncates the plan. Planner regenerates from that point — not just appending a new step.</div>
+          </div>
+          <div class="mech-card">
+            <div class="mech-title">LLM-as-judge Verifier</div>
+            <div class="mech-desc">Verifier checks if the result actually answers the original query — not just whether the code ran. Drives iteration or terminates the pipeline.</div>
+          </div>
+          <div class="mech-card">
+            <div class="mech-title">Isolated Docker sandbox</div>
+            <div class="mech-desc">Every generated Python script runs in a container — no network, read-only data mount, 2 GB memory cap. Data never leaves CBUAE infrastructure.</div>
+          </div>
+        </div>
+      </div>
+      <div class="arch-side">
+        <div style="font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Benchmark Results</div>
+        <div class="kpi-stat">
+          <div class="kpi-val" style="color:var(--blue)">45.2%</div>
+          <div class="kpi-lbl">DS-STAR on DABStep (overall)</div>
+          <div class="kpi-sub">vs 41.0% for LLM alone (+4pp)</div>
+        </div>
+        <div class="kpi-stat">
+          <div class="kpi-val" style="color:var(--blue)">+32pp</div>
+          <div class="kpi-lbl">Hard task improvement</div>
+          <div class="kpi-sub">12.7% → 45.2% on hardest tasks</div>
+        </div>
+        <div class="kpi-stat">
+          <div class="kpi-val" style="color:var(--purple)">88%+</div>
+          <div class="kpi-lbl">DS-STAR+ win rate (Research)</div>
+          <div class="kpi-sub">vs best baseline on open-ended reports</div>
+        </div>
+        <div class="kpi-stat">
+          <div class="kpi-val">−18pp</div>
+          <div class="kpi-lbl">Accuracy loss without Analyzer</div>
+          <div class="kpi-sub">Single most critical component in pipeline</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SLIDE 4 — Two Modes
+  ════════════════════════════════════════════ -->
+  <div class="slide" data-index="3">
+    <div class="eyebrow">Platform Modes</div>
+    <h2 class="heading">Two modes for every <em>supervisory workflow</em></h2>
+    <div class="modes-row">
+      <div class="mode-card ins">
+        <div class="mode-pill pill-b"><i data-lucide="zap"></i> FIP-Insight</div>
+        <h3>Specific Analysis</h3>
+        <p>For targeted questions that need a precise, verified, data-backed answer. DS-STAR iterates through files to produce a result with charts, tables, and a plain-English narrative.</p>
+        <div class="mode-eg eg-b">"Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025, and how does each compare to the peer median?"</div>
+        <div class="feat-list">
+          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Returns tables, charts, and plain-English narrative</div>
+          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Self-corrects via Verifier + Router loop (up to 20 rounds)</div>
+          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Typically 3–5 rounds · under 30 seconds end-to-end</div>
+          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Export to Excel or PDF · full audit trail</div>
+        </div>
+      </div>
+      <div class="mode-card res">
+        <div class="mode-pill pill-p"><i data-lucide="file-text"></i> FIP-Research</div>
+        <h3>Thematic Reports</h3>
+        <p>For open-ended research queries. Decomposes the question into sub-questions, runs DS-STAR on each, then synthesises a leadership-ready report where every claim is cited.</p>
+        <div class="mode-eg eg-p">"Generate a thematic analysis of APP fraud growth across UAE banks in 2024 — include typology breakdown, channel analysis, YoY trends, and LFI outliers."</div>
+        <div class="feat-list">
+          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Structured report with sections, tables, and findings</div>
+          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Every claim cited to the sub-question and code that proved it</div>
+          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Evaluator refinement loop checks completeness before delivery</div>
+          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Export to Word or PDF · examination-ready evidence package</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SLIDE 5 — UI Preview (iframes)
+  ════════════════════════════════════════════ -->
+  <div class="slide" data-index="4">
+    <div class="eyebrow">Platform Preview</div>
+    <h2 class="heading" style="margin-bottom:16px">From question to insight — <em>in seconds</em></h2>
+    <div class="screens-row">
+      <div class="screen-col">
+        <div class="screen-lbl">
+          <div class="step-pip" style="background:var(--blue)">1</div>
+          Ask in plain English · select data
+        </div>
+        <div class="screen-wrap" id="sw1">
+          <iframe src="01-chat.html" id="if1" scrolling="no"></iframe>
+        </div>
+      </div>
+      <div class="screen-col">
+        <div class="screen-lbl">
+          <div class="step-pip" style="background:var(--text-muted)">2</div>
+          Pipeline runs · live agent steps
+        </div>
+        <div class="screen-wrap" id="sw2">
+          <iframe src="02-dashboard-insight.html" id="if2" scrolling="no"></iframe>
+        </div>
+      </div>
+      <div class="screen-col">
+        <div class="screen-lbl">
+          <div class="step-pip" style="background:var(--green)">3</div>
+          Consulting dashboard · export ready
+        </div>
+        <div class="screen-wrap" id="sw3">
+          <iframe src="04-result-insight.html" id="if3" scrolling="no"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SLIDE 6 — CBUAE Enhancements
+  ════════════════════════════════════════════ -->
+  <div class="slide" data-index="5">
+    <div class="eyebrow">CBUAE-Native Intelligence</div>
+    <h2 class="heading">DS-STAR enhanced for <em>UAE financial supervision</em></h2>
+    <div class="enh-grid">
+      <div class="enh-card">
+        <div class="enh-icon" style="background:var(--blue-bg)"><i data-lucide="message-circle" style="color:var(--blue)"></i></div>
+        <div class="enh-title">Query Clarity Agent</div>
+        <div class="enh-desc">Validates queries before planning. Maps business language to data columns ("high-risk customers" → risk_band = 'High'). Flags ambiguous queries upfront.</div>
+      </div>
+      <div class="enh-card">
+        <div class="enh-icon" style="background:var(--purple-bg)"><i data-lucide="database" style="color:var(--purple)"></i></div>
+        <div class="enh-title">Domain-Aware Analyzer</div>
+        <div class="enh-desc">Recognises CBUAE schemas — LFI fraud reports, SAR/STR filings, KYC data, complaint registers — without being told. Produces richer data descriptions per department.</div>
+      </div>
+      <div class="enh-card">
+        <div class="enh-icon" style="background:var(--green-bg)"><i data-lucide="book-open" style="color:var(--green)"></i></div>
+        <div class="enh-title">Regulatory Knowledge Injection</div>
+        <div class="enh-desc">UAE AML law, FATF 40 Recommendations, CTR threshold (AED 40,000), fraud typology definitions — injected into Planner and Coder prompts. Correct analysis by default.</div>
+      </div>
+      <div class="enh-card">
+        <div class="enh-icon" style="background:var(--blue-bg)"><i data-lucide="message-square" style="color:var(--blue)"></i></div>
+        <div class="enh-title">Plain English Explainer</div>
+        <div class="enh-desc">Converts DataFrames, statistics, and charts into plain-language narratives tailored to each department's regulatory role and terminology — no data literacy needed.</div>
+      </div>
+      <div class="enh-card">
+        <div class="enh-icon" style="background:var(--red-bg)"><i data-lucide="eye-off" style="color:var(--red)"></i></div>
+        <div class="enh-title">PII Masking Layer</div>
+        <div class="enh-desc">Account numbers, national IDs, and names are automatically masked before delivery. Raw PII accessible only to authorised roles. Masking happens before the analyst sees output.</div>
+      </div>
+      <div class="enh-card">
+        <div class="enh-icon" style="background:var(--amber-bg)"><i data-lucide="scroll-text" style="color:var(--amber)"></i></div>
+        <div class="enh-title">Immutable Audit Log</div>
+        <div class="enh-desc">Every query, plan step, code version, execution result, and output is timestamped and logged. Tamper-evident, user-attributed, and examination-ready.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SLIDE 7 — Departments & Roadmap
+  ════════════════════════════════════════════ -->
+  <div class="slide" data-index="6">
+    <div class="eyebrow">Deployment</div>
+    <h2 class="heading">Five departments. <em>One platform.</em></h2>
+    <div class="deploy-body">
+      <div class="dept-col">
+        <div class="dept-card primary">
+          <div class="d-icon" style="background:var(--blue-bg)"><i data-lucide="shield" style="color:var(--blue)"></i></div>
+          <div>
+            <div class="d-name">Fraud Prevention Supervision <span class="d-badge">★ Primary</span></div>
+            <div class="d-use">LFI benchmarking, outlier detection, fraud typology trends, peer median comparisons, supervisory letter data annexes</div>
+          </div>
+        </div>
+        <div class="dept-card">
+          <div class="d-icon" style="background:var(--red-bg)"><i data-lucide="alert-triangle" style="color:var(--red)"></i></div>
+          <div>
+            <div class="d-name">AML / CFT Supervision</div>
+            <div class="d-use">SAR filing trend analysis, FATF benchmark comparisons, structuring pattern detection, beneficial ownership gap analysis</div>
+          </div>
+        </div>
+        <div class="dept-card">
+          <div class="d-icon" style="background:var(--purple-bg)"><i data-lucide="users" style="color:var(--purple)"></i></div>
+          <div>
+            <div class="d-name">Market Conduct & Consumer Protection</div>
+            <div class="d-use">Complaint volume trends by LFI and product, mis-selling pattern identification, peer complaint scorecards</div>
+          </div>
+        </div>
+        <div class="dept-card">
+          <div class="d-icon" style="background:var(--amber-bg)"><i data-lucide="scale" style="color:var(--amber)"></i></div>
+          <div>
+            <div class="d-name">Enforcement</div>
+            <div class="d-use">Case evidence summaries, historical compliance pattern analysis, penalty calculation data packages</div>
+          </div>
+        </div>
+        <div class="dept-card">
+          <div class="d-icon" style="background:var(--green-bg)"><i data-lucide="bar-chart-2" style="color:var(--green)"></i></div>
+          <div>
+            <div class="d-name">Policy & Research</div>
+            <div class="d-use">Annual sector reports, GCC/MENA benchmarking, regulatory impact assessments, FATF mutual evaluation preparation</div>
+          </div>
+        </div>
+      </div>
+      <div class="rmap-col">
+        <div class="rmap-lbl">Build Roadmap</div>
+        <div class="rmap-step">
+          <div class="rmap-dot rd-done"><i data-lucide="check" style="width:11px;height:11px"></i></div>
+          <div>
+            <div class="rmap-phase">Phase 0 — Complete</div>
+            <div class="rmap-desc">Product discovery, PRD, UX design, TDD, security review, test strategy. Full product lifecycle documentation.</div>
+          </div>
+        </div>
+        <div class="rmap-step">
+          <div class="rmap-dot rd-next">2</div>
+          <div>
+            <div class="rmap-phase">Phase 1 — Core Pipeline</div>
+            <div class="rmap-desc">DS-STAR engine (8 agents), Ollama LLM, Docker sandbox, PostgreSQL + Redis, REST API + WebSocket streaming.</div>
+          </div>
+        </div>
+        <div class="rmap-step">
+          <div class="rmap-dot rd-later">3</div>
+          <div>
+            <div class="rmap-phase">Phase 2 — CBUAE Intelligence Layer</div>
+            <div class="rmap-desc">Schema recognition, regulatory knowledge injection, PII masking, audit log, department-level access controls.</div>
+          </div>
+        </div>
+        <div class="rmap-step">
+          <div class="rmap-dot rd-later">4</div>
+          <div>
+            <div class="rmap-phase">Phase 3 — Research Mode & Frontend</div>
+            <div class="rmap-desc">FIP-Research (DS-STAR+), React frontend, report templates, admin panel. UAT with Fraud Prevention Supervision team.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- Nav controls -->
+<div class="nav">
+  <button class="nav-btn" onclick="go(cur-1)"><i data-lucide="chevron-left"></i></button>
+  <div class="dots" id="dots"></div>
+  <button class="nav-btn" onclick="go(cur+1)"><i data-lucide="chevron-right"></i></button>
+  <div class="nav-count" id="nav-count"></div>
+</div>
+
+<script>
+lucide.createIcons();
+
+const slides = Array.from(document.querySelectorAll('.slide'));
+const TOTAL = slides.length;
+let cur = 0;
+
+// Build dots
+const dotsEl = document.getElementById('dots');
+slides.forEach((_,i)=>{
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' active':'');
+  d.onclick = ()=>go(i);
+  dotsEl.appendChild(d);
+});
+
+function go(n){
+  if(n<0||n>=TOTAL) return;
+  slides[cur].classList.remove('active');
+  cur = n;
+  slides[cur].classList.add('active');
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
+  document.getElementById('nav-count').textContent = (cur+1)+' / '+TOTAL;
+  if(cur===4) setTimeout(sizeFrames,60);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='ArrowDown') go(cur+1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(cur-1);
+});
+
+document.getElementById('nav-count').textContent = '1 / '+TOTAL;
+
+// Scale iframes to fill their wrapper
+function sizeFrames(){
+  [['sw1','if1'],['sw2','if2'],['sw3','if3']].forEach(([wId,fId])=>{
+    const wrap = document.getElementById(wId);
+    const frame = document.getElementById(fId);
+    if(!wrap||!frame) return;
+    const W = wrap.clientWidth;
+    const H = wrap.clientHeight;
+    const scale = W / 1280;
+    frame.style.width = '1280px';
+    frame.style.height = Math.round(H/scale)+'px';
+    frame.style.transform = `scale(${scale})`;
+  });
+}
+
+window.addEventListener('resize', sizeFrames);
+// Pre-size on load in case user jumps to slide 5
+window.addEventListener('load', sizeFrames);
+</script>
+</body>
+</html>
