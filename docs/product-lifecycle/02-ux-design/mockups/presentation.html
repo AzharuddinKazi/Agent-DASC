@@ -11,299 +11,305 @@
 html,body{height:100%;overflow:hidden}
 :root{
   --bg:#f4f4f5;--bg-card:#ffffff;--border:#e4e4e7;--text:#09090b;
-  --text-muted:#71717a;--text-subtle:#a1a1aa;
+  --text-muted:#52525b;--text-subtle:#a1a1aa;
   --blue:#2563eb;--blue-bg:rgba(37,99,235,.07);--blue-bd:rgba(37,99,235,.2);
   --purple:#9333ea;--purple-bg:rgba(147,51,234,.07);--purple-bd:rgba(147,51,234,.2);
-  --green:#16a34a;--green-bg:rgba(22,163,74,.07);
-  --red:#dc2626;--red-bg:rgba(220,38,38,.07);
-  --amber:#d97706;--amber-bg:rgba(217,119,6,.07);
-  --card-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+  --green:#16a34a;--green-bg:rgba(22,163,74,.08);--green-bd:rgba(22,163,74,.25);
+  --red:#dc2626;--red-bg:rgba(220,38,38,.07);--red-bd:rgba(220,38,38,.2);
+  --amber:#d97706;--amber-bg:rgba(217,119,6,.07);--amber-bd:rgba(217,119,6,.22);
+  --navy:#1e293b;
 }
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
 
-/* ─── Deck shell ─── */
+/* ─── Brand bar ─── */
+.brand-bar{
+  position:fixed;top:0;left:0;right:0;height:38px;
+  background:#fff;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 18px;gap:9px;z-index:300;
+}
+.brand-mark{
+  width:21px;height:21px;background:var(--text);color:#fff;
+  border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:7.5px;font-weight:800;flex-shrink:0;
+}
+.brand-name{font-size:11px;font-weight:600;color:var(--text-muted)}
+.brand-sep{width:1px;height:12px;background:var(--border)}
+.brand-label{font-size:10.5px;color:var(--text-subtle)}
+.brand-r{margin-left:auto;display:flex;align-items:center;gap:14px}
+.brand-class{font-size:9.5px;font-weight:700;color:var(--red);background:var(--red-bg);border:1px solid var(--red-bd);padding:2px 7px;border-radius:3px;letter-spacing:.04em}
+.brand-date{font-size:10px;color:var(--text-subtle)}
+
+/* ─── Nav ─── */
+.nav{
+  position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:12px;z-index:300;
+}
+.dots{display:flex;gap:5px;align-items:center}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .2s}
+.dot.active{background:var(--blue);width:18px;border-radius:2.5px}
+.nav-btn{
+  width:27px;height:27px;border-radius:50%;background:#fff;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s;
+}
+.nav-btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+.nav-btn svg{width:11px;height:11px}
+.nav-count{font-size:10px;color:var(--text-subtle);font-weight:500;min-width:30px;text-align:center}
+
+/* ─── Deck / Slide shell ─── */
 .deck{position:fixed;inset:0;overflow:hidden}
 .slide{
-  position:absolute;inset:0;
+  position:absolute;left:0;right:0;top:38px;bottom:48px;
+  opacity:0;transition:opacity .28s ease;pointer-events:none;overflow:hidden;
   display:flex;flex-direction:column;
-  padding:52px 68px 56px;
-  opacity:0;transition:opacity .35s ease;
-  pointer-events:none;
 }
 .slide.active{opacity:1;pointer-events:auto}
 
-/* ─── Global brand bar ─── */
-.brand-bar{
-  position:fixed;top:0;left:0;right:0;height:44px;
-  background:var(--bg-card);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 24px;gap:10px;
-  z-index:200;
+/* ─── Slide header bar ─── */
+.sh{
+  flex-shrink:0;display:flex;align-items:stretch;gap:0;
+  background:#fff;border-bottom:1px solid var(--border);padding:13px 32px 13px 28px;gap:20px;
 }
-.brand-mark{
-  width:24px;height:24px;background:var(--text);color:var(--bg-card);
-  border-radius:5px;display:flex;align-items:center;justify-content:center;
-  font-size:8.5px;font-weight:800;letter-spacing:-.02em;flex-shrink:0;
+.sh-left{flex:1}
+.sh-ey{font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.13em;margin-bottom:3px}
+.sh-title{font-size:18px;font-weight:800;color:var(--text);letter-spacing:-.025em;line-height:1.2}
+.sh-title em{color:var(--blue);font-style:normal}
+.sh-msg{
+  flex:0 0 330px;background:var(--navy);color:#fff;
+  border-radius:7px;padding:9px 14px;font-size:10.5px;line-height:1.55;font-weight:400;
+  display:flex;flex-direction:column;justify-content:center;
 }
-.brand-name{font-size:12px;font-weight:600;color:var(--text-muted)}
-.brand-sep{width:1px;height:14px;background:var(--border)}
-.brand-label{font-size:11px;color:var(--text-subtle)}
+.sh-msg strong{font-size:11px;font-weight:700;display:block;margin-bottom:2px;color:#e2e8f0}
 
-/* ─── Navigation ─── */
-.nav{
-  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
-  display:flex;align-items:center;gap:16px;z-index:200;
+/* ─── Content area ─── */
+.sc{
+  flex:1;overflow:hidden;padding:14px 28px 10px;
+  display:flex;flex-direction:column;gap:11px;
 }
-.dots{display:flex;gap:6px;align-items:center}
-.dot{
-  width:6px;height:6px;border-radius:50%;background:var(--border);
-  cursor:pointer;transition:all .2s;
-}
-.dot.active{background:var(--blue);width:20px;border-radius:3px}
-.nav-btn{
-  width:30px;height:30px;border-radius:50%;background:var(--bg-card);
-  border:1px solid var(--border);display:flex;align-items:center;
-  justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s;
-}
-.nav-btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
-.nav-btn svg{width:13px;height:13px}
-.nav-count{font-size:11px;color:var(--text-subtle);font-weight:500;min-width:36px;text-align:center}
 
-/* ─── Section eyebrow + heading ─── */
-.eyebrow{
-  font-size:11px;font-weight:700;color:var(--blue);
-  text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;
-}
-.heading{
-  font-size:32px;font-weight:800;color:var(--text);
-  letter-spacing:-.035em;line-height:1.08;margin-bottom:28px;
-}
-.heading em{color:var(--blue);font-style:normal}
+/* ─── Primitives ─── */
+.row{display:flex;gap:11px;align-items:stretch}
+.col{display:flex;flex-direction:column;gap:9px}
+.card{background:#fff;border:1px solid var(--border);border-radius:7px;padding:11px 13px}
+.card-xs{background:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px}
+.divider{width:100%;height:1px;background:var(--border);flex-shrink:0;margin:2px 0}
+.lbl{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.09em;margin-bottom:5px}
+.num-xl{font-size:30px;font-weight:900;letter-spacing:-.05em;line-height:1}
+.num-lg{font-size:22px;font-weight:800;letter-spacing:-.04em}
+.num-md{font-size:16px;font-weight:800;letter-spacing:-.03em}
+.body-sm{font-size:11px;color:var(--text-muted);line-height:1.55}
+.body-xs{font-size:10.5px;color:var(--text-muted);line-height:1.5}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
+.bb{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
+.bp{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bd)}
+.bg{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.br{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.ba{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)}
+.bk{background:#f1f5f9;color:var(--text-muted);border:1px solid var(--border)}
 
-/* ─── SLIDE 1: Title ─── */
-.s1{justify-content:center}
-.s1-body{display:flex;align-items:center;gap:72px}
-.s1-left{flex:1;max-width:560px}
-.s1-tag{
-  display:inline-flex;align-items:center;gap:6px;margin-bottom:22px;
-  padding:4px 12px;border-radius:9999px;
-  background:var(--blue-bg);border:1px solid var(--blue-bd);
-  color:var(--blue);font-size:11px;font-weight:600;
-}
-.s1-tag svg{width:11px;height:11px}
-.s1-title{
-  font-size:52px;font-weight:900;color:var(--text);
-  letter-spacing:-.05em;line-height:1.0;margin-bottom:18px;
-}
-.s1-title span{color:var(--blue)}
-.s1-sub{font-size:15px;color:var(--text-muted);line-height:1.65;max-width:460px;margin-bottom:28px}
-.s1-chips{display:flex;flex-wrap:wrap;gap:8px}
-.s1-chip{
-  display:flex;align-items:center;gap:6px;
-  padding:5px 12px;border-radius:7px;
-  background:var(--bg-card);border:1px solid var(--border);
-  font-size:12px;color:var(--text-muted);font-weight:500;
-}
-.s1-chip svg{width:12px;height:12px}
-.s1-right{flex:0 0 340px;display:flex;align-items:center;justify-content:center}
-.hero{width:300px;height:300px;position:relative;display:flex;align-items:center;justify-content:center}
-.h-ring{position:absolute;border-radius:50%;border:1px solid}
-.hr-1{width:300px;height:300px;border-color:rgba(37,99,235,.1)}
-.hr-2{width:200px;height:200px;border-color:rgba(37,99,235,.18)}
-.hr-3{width:108px;height:108px;border-color:rgba(37,99,235,.26);background:rgba(37,99,235,.04)}
-.h-center{
-  width:68px;height:68px;background:var(--text);border-radius:16px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:17px;font-weight:800;color:var(--bg-card);
-  position:relative;z-index:1;box-shadow:0 8px 32px rgba(0,0,0,.14);
-}
-.h-orb{
-  position:absolute;width:34px;height:34px;border-radius:8px;
-  background:var(--bg-card);border:1px solid var(--border);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 8px rgba(0,0,0,.06);
-}
-.h-orb svg{width:14px;height:14px}
-.ho-top{top:10px;left:50%;transform:translateX(-50%)}
-.ho-right{right:8px;top:50%;transform:translateY(-50%)}
-.ho-bottom{bottom:10px;left:50%;transform:translateX(-50%)}
-.ho-left{left:8px;top:50%;transform:translateY(-50%)}
+/* Table primitives */
+.tbl{width:100%;border-collapse:collapse;font-size:10.5px}
+.tbl th{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.07em;padding:5px 9px;border-bottom:1px solid var(--border);text-align:left;background:#fafafa;white-space:nowrap}
+.tbl td{padding:5.5px 9px;border-bottom:1px solid #f0f0f1;color:var(--text-muted);vertical-align:top;line-height:1.4}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#fafafa}
+.tbl td strong{color:var(--text);font-weight:600}
+.tbl-wrap{background:#fff;border:1px solid var(--border);border-radius:7px;overflow:hidden}
 
-/* ─── SLIDE 2: Problem ─── */
-.prob-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px}
-.prob-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:12px;padding:26px;box-shadow:var(--card-shadow);
+/* Pipeline nodes */
+.pipe{display:flex;align-items:center;flex-wrap:nowrap;gap:0}
+.pn{
+  display:flex;align-items:center;gap:5px;padding:6px 11px;
+  border-radius:6px;border:1px solid;font-size:10.5px;font-weight:600;
+  white-space:nowrap;flex-shrink:0;
 }
-.prob-icon{
-  width:38px;height:38px;border-radius:9px;
-  display:flex;align-items:center;justify-content:center;margin-bottom:14px;
-}
-.prob-icon svg{width:18px;height:18px}
-.prob-stat{font-size:38px;font-weight:900;letter-spacing:-.05em;margin-bottom:5px}
-.prob-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:7px}
-.prob-desc{font-size:12px;color:var(--text-muted);line-height:1.6}
-.prob-quote{
-  padding:18px 22px;background:var(--bg-card);border:1px solid var(--border);
-  border-radius:10px;border-left:3px solid var(--blue);
-  font-size:13px;color:var(--text-muted);line-height:1.7;
-}
-.prob-quote strong{color:var(--text)}
+.pn svg{width:11px;height:11px}
+.pn-b{background:var(--blue-bg);border-color:var(--blue-bd);color:var(--blue)}
+.pn-g{background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+.pn-a{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+.pn-r{background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+.pn-k{background:#f1f5f9;border-color:var(--border);color:var(--text-muted)}
+.arr{width:16px;height:1.5px;background:var(--text-subtle);flex-shrink:0;position:relative;margin:0 1px}
+.arr::after{content:'';position:absolute;right:-4px;top:-3px;border:4px solid transparent;border-left-color:var(--text-subtle)}
+.arr-back{width:16px;height:1.5px;background:var(--amber);flex-shrink:0;position:relative;margin:0 1px}
+.arr-back::before{content:'';position:absolute;left:-4px;top:-3px;border:4px solid transparent;border-right-color:var(--amber)}
 
-/* ─── SLIDE 3: Architecture ─── */
-.arch-body{flex:1;display:flex;gap:32px}
-.arch-main{flex:1}
-.arch-side{width:248px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
-
-.pipeline-row{display:flex;align-items:center;gap:0;margin-bottom:10px;flex-wrap:nowrap}
-.pnode{
-  display:flex;align-items:center;gap:7px;
-  padding:9px 14px;border-radius:8px;
-  background:var(--bg-card);border:1px solid var(--border);
-  font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;
-  box-shadow:0 1px 3px rgba(0,0,0,.05);flex-shrink:0;
+/* ─── S1 Cover ─── */
+.s1-body{flex:1;display:flex;overflow:hidden}
+.s1-dark{
+  flex:0 0 38%;background:var(--navy);color:#fff;
+  padding:28px 28px 24px;display:flex;flex-direction:column;
 }
-.pnode svg{width:12px;height:12px}
-.pnode.b{background:var(--blue-bg);border-color:var(--blue-bd);color:var(--blue)}
-.pnode.g{background:var(--green-bg);border-color:rgba(22,163,74,.25);color:var(--green)}
-.pnode.a{background:var(--amber-bg);border-color:rgba(217,119,6,.25);color:var(--amber)}
-.pnode.r{background:var(--red-bg);border-color:rgba(220,38,38,.25);color:var(--red)}
-.parr{
-  width:20px;height:2px;background:var(--border);flex-shrink:0;
-  position:relative;margin:0 1px;
+.s1-logo{
+  width:42px;height:42px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom:20px;
 }
-.parr::after{
-  content:'';position:absolute;right:-3px;top:-3px;
-  border:4px solid transparent;border-left-color:var(--text-subtle);
-}
-.pipe-spacer{flex:1}
-
-.mech-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
-.mech-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:8px;padding:11px 13px;
-}
-.mech-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px}
-.mech-desc{font-size:11px;color:var(--text-muted);line-height:1.5}
-
-.kpi-stat{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:9px;padding:12px 15px;
-}
-.kpi-val{font-size:24px;font-weight:800;letter-spacing:-.04em;margin-bottom:2px}
-.kpi-lbl{font-size:11px;color:var(--text-muted);margin-bottom:1px}
-.kpi-sub{font-size:10px;color:var(--text-subtle)}
-
-/* ─── SLIDE 4: Two Modes ─── */
-.modes-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;flex:1}
-.mode-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:14px;padding:26px;box-shadow:var(--card-shadow);
-  display:flex;flex-direction:column;
-}
-.mode-card.ins{border-top:3px solid var(--blue)}
-.mode-card.res{border-top:3px solid var(--purple)}
-.mode-pill{
+.s1-badge{
   display:inline-flex;align-items:center;gap:5px;
-  padding:3px 10px;border-radius:9999px;
-  font-size:11px;font-weight:600;margin-bottom:14px;
+  background:rgba(37,99,235,.25);border:1px solid rgba(37,99,235,.4);
+  color:#93c5fd;padding:3px 9px;border-radius:9999px;font-size:9.5px;font-weight:600;
+  margin-bottom:14px;width:fit-content;
 }
-.pill-b{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
-.pill-p{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bd)}
-.mode-pill svg{width:11px;height:11px}
-.mode-card h3{font-size:20px;font-weight:800;letter-spacing:-.025em;margin-bottom:8px}
-.mode-card p{font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:14px}
-.mode-eg{
-  padding:10px 14px;border-radius:8px;
-  font-size:12px;color:var(--text-muted);line-height:1.55;
-  font-style:italic;margin-bottom:16px;
+.s1-badge svg{width:10px;height:10px}
+.s1-title{font-size:34px;font-weight:900;letter-spacing:-.045em;line-height:1.05;margin-bottom:10px;color:#fff}
+.s1-title span{color:#60a5fa}
+.s1-sub{font-size:11.5px;color:#94a3b8;line-height:1.6;margin-bottom:22px}
+.s1-chips{display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.s1-chip{
+  display:flex;align-items:center;gap:7px;padding:6px 10px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:6px;font-size:10.5px;color:#cbd5e1;
 }
-.eg-b{background:var(--blue-bg);border:1px solid var(--blue-bd)}
-.eg-p{background:var(--purple-bg);border:1px solid var(--purple-bd)}
-.feat-list{display:flex;flex-direction:column;gap:6px;margin-top:auto}
-.feat{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--text-muted);line-height:1.4}
-.feat svg{width:13px;height:13px;flex-shrink:0;margin-top:1px}
-.fc-b{color:var(--blue)}
-.fc-p{color:var(--purple)}
+.s1-chip svg{width:12px;height:12px;color:#60a5fa;flex-shrink:0}
+.s1-chip strong{color:#fff;font-weight:600;min-width:38px}
 
-/* ─── SLIDE 5: UI Preview ─── */
-.screens-row{flex:1;display:flex;gap:16px;min-height:0}
-.screen-col{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
-.screen-lbl{
-  display:flex;align-items:center;gap:7px;
-  font-size:11px;font-weight:600;color:var(--text-subtle);
-  text-transform:uppercase;letter-spacing:.06em;
+.s1-light{flex:1;background:#fff;padding:24px 28px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.s1-sec-lbl{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.s1-summary{font-size:11px;color:var(--text-muted);line-height:1.65;padding:13px 15px;background:#f8fafc;border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:0 6px 6px 0}
+.s1-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.s1-kpi{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;text-align:center}
+.s1-kpi-val{font-size:22px;font-weight:900;letter-spacing:-.04em;line-height:1}
+.s1-kpi-lbl{font-size:9px;color:var(--text-subtle);margin-top:2px;line-height:1.3}
+.s1-scope{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.s1-scope-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+.s1-scope-title{font-size:9.5px;font-weight:700;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.s1-scope-title svg{width:11px;height:11px;color:var(--blue)}
+.s1-scope-items{display:flex;flex-direction:column;gap:4px}
+.s1-scope-item{font-size:10.5px;color:var(--text-muted);display:flex;align-items:flex-start;gap:5px;line-height:1.4}
+.s1-scope-item::before{content:'·';color:var(--blue);font-weight:700;flex-shrink:0;margin-top:.5px}
+
+/* ─── S2 Problem ─── */
+.prob-flow{display:flex;align-items:stretch;gap:0;background:#fff;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.prob-step{flex:1;padding:10px 12px;border-right:1px solid var(--border);position:relative}
+.prob-step:last-child{border-right:none}
+.ps-num{font-size:9px;font-weight:700;color:var(--text-subtle);margin-bottom:3px}
+.ps-action{font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3}
+.ps-pain{font-size:9.5px;color:var(--red);background:var(--red-bg);padding:3px 7px;border-radius:4px;display:inline-block;font-weight:600}
+.ps-time{font-size:10.5px;color:var(--text-subtle);margin-top:4px}
+.ps-arr{position:absolute;right:-9px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:#fff;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:1;font-size:8px;color:var(--text-subtle)}
+
+.impact-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.impact-card{background:#fff;border:1px solid var(--border);border-radius:7px;padding:12px 14px}
+.ic-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.ic-icon svg{width:13px;height:13px}
+.ic-stat{font-size:28px;font-weight:900;letter-spacing:-.05em;line-height:1;margin-bottom:3px}
+.ic-title{font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px}
+.ic-desc{font-size:10px;color:var(--text-muted);line-height:1.5}
+
+.inaction-tbl th{background:#fff9f9}
+.inaction-tbl .cat{font-size:9.5px;font-weight:700;color:var(--text);padding-left:0}
+.quote-bar{
+  background:#fff;border:1px solid var(--border);border-left:3px solid var(--blue);
+  border-radius:0 6px 6px 0;padding:10px 14px;font-size:11px;color:var(--text-muted);
+  line-height:1.6;font-style:italic;
 }
-.step-pip{
-  width:18px;height:18px;border-radius:4px;
+.quote-bar strong{color:var(--text);font-style:normal;font-weight:600}
+
+/* ─── S3 Architecture ─── */
+.arch-legend{display:flex;gap:16px;align-items:center}
+.arch-leg-item{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--text-subtle)}
+.arch-leg-dot{width:8px;height:8px;border-radius:2px}
+.bench-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.bench-card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 11px}
+.bench-val{font-size:20px;font-weight:900;letter-spacing:-.04em;margin-bottom:1px}
+.bench-lbl{font-size:9.5px;color:var(--text-muted);line-height:1.35}
+.bench-sub{font-size:9px;color:var(--text-subtle);margin-top:1px}
+.mech-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mech-card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:9px 11px}
+.mech-title{font-size:10.5px;font-weight:700;color:var(--text);margin-bottom:3px}
+.mech-desc{font-size:9.5px;color:var(--text-muted);line-height:1.5}
+.ablation-note{font-size:9.5px;color:var(--red);font-weight:600;background:var(--red-bg);border:1px solid var(--red-bd);border-radius:5px;padding:5px 9px;display:flex;align-items:flex-start;gap:6px}
+.ablation-note svg{width:12px;height:12px;flex-shrink:0;margin-top:1px}
+.round-note{font-size:9.5px;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 9px}
+.agent-detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.agent-card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.agent-name{font-size:10.5px;font-weight:700;color:var(--text);margin-bottom:3px;display:flex;align-items:center;gap:5px}
+.agent-name svg{width:11px;height:11px}
+.agent-role{font-size:9.5px;color:var(--text-muted);line-height:1.45}
+.sandbox-row{display:flex;gap:8px;flex-wrap:wrap}
+.sandbox-chip{display:flex;align-items:center;gap:5px;padding:4px 9px;background:#fff;border:1px solid var(--border);border-radius:5px;font-size:9.5px;color:var(--text-muted)}
+.sandbox-chip svg{width:10px;height:10px;color:var(--text-subtle)}
+
+/* ─── S4 Two Modes ─── */
+.modes-cmp{display:grid;grid-template-columns:180px 1fr 1fr;gap:0;background:#fff;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.mc-hdr{background:#fafafa;padding:8px 12px;font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.mc-hdr.ins{background:var(--blue-bg);color:var(--blue);border-right:1px solid var(--blue-bd)}
+.mc-hdr.res{background:var(--purple-bg);color:var(--purple)}
+.mc-row{display:contents}
+.mc-label{padding:7px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text);background:#fafafa;display:flex;align-items:center}
+.mc-val{padding:7px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:10px;color:var(--text-muted);line-height:1.45}
+.mc-val:last-child,.mc-label:last-child{border-right:none}
+.mc-row:last-child .mc-label,.mc-row:last-child .mc-val{border-bottom:none}
+
+.mode-pipes{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.mode-pipe-box{background:#fff;border:1px solid var(--border);border-radius:7px;padding:10px 13px}
+.mode-pipe-title{font-size:10px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.mode-pipe-flow{display:flex;align-items:center;flex-wrap:wrap;gap:3px}
+
+.dept-mode-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.dm-card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.dm-name{font-size:9px;font-weight:700;color:var(--text);margin-bottom:5px;line-height:1.3}
+.dm-badges{display:flex;flex-direction:column;gap:3px;align-items:center}
+
+/* ─── S5 UI ─── */
+.ui-flow{display:flex;align-items:center;gap:0;background:#fff;border:1px solid var(--border);border-radius:7px;overflow:hidden;flex-shrink:0}
+.ui-step{flex:1;padding:8px 12px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.ui-step:last-child{border-right:none}
+.ui-step-num{
+  width:20px;height:20px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  font-size:9px;font-weight:800;color:#fff;flex-shrink:0;
+  font-size:9.5px;font-weight:800;color:#fff;flex-shrink:0;
 }
-.screen-wrap{
-  flex:1;border-radius:10px;overflow:hidden;
-  border:1px solid var(--border);
-  box-shadow:0 4px 24px rgba(0,0,0,.08);
-  position:relative;background:var(--bg);
-}
-.screen-wrap iframe{
-  display:block;border:none;pointer-events:none;
-  transform-origin:top left;
-  position:absolute;top:0;left:0;
-}
+.ui-step-text{font-size:10px;color:var(--text-muted);line-height:1.35}
+.ui-step-text strong{display:block;font-size:10.5px;font-weight:700;color:var(--text);margin-bottom:1px}
+.screens-row{flex:1;display:flex;gap:12px;min-height:0}
+.screen-col{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
+.screen-lbl{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:600;color:var(--text-subtle)}
+.screen-lbl svg{width:11px;height:11px}
+.screen-wrap{flex:1;border-radius:8px;overflow:hidden;border:1px solid var(--border);box-shadow:0 3px 16px rgba(0,0,0,.08);position:relative;background:var(--bg)}
+.screen-wrap iframe{display:block;border:none;pointer-events:none;transform-origin:top left;position:absolute;top:0;left:0}
+.screen-note{font-size:9.5px;color:var(--text-subtle);display:flex;flex-wrap:wrap;gap:4px}
+.screen-note span{background:#fff;border:1px solid var(--border);border-radius:3px;padding:2px 6px}
 
-/* ─── SLIDE 6: Enhancements ─── */
-.enh-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;flex:1;align-content:start}
-.enh-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:10px;padding:18px;box-shadow:var(--card-shadow);
-}
-.enh-icon{
-  width:32px;height:32px;border-radius:8px;
-  display:flex;align-items:center;justify-content:center;margin-bottom:10px;
-}
-.enh-icon svg{width:15px;height:15px}
-.enh-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
-.enh-desc{font-size:12px;color:var(--text-muted);line-height:1.55}
+/* ─── S6 Enhancements ─── */
+.enh-split{flex:1;display:grid;grid-template-columns:1fr 320px;gap:11px;overflow:hidden}
+.enh-tbl td:first-child{font-size:10px;font-weight:700;color:var(--text);white-space:nowrap}
+.enh-tbl td:nth-child(2){width:36%}
+.enh-tbl td:last-child{width:26%;font-size:9.5px}
+.enh-tbl .enh-num{display:inline-flex;width:16px;height:16px;border-radius:50%;background:var(--blue);color:#fff;font-size:8px;font-weight:800;align-items:center;justify-content:center;margin-right:4px}
+.stack-box{background:#fff;border:1px solid var(--border);border-radius:7px;padding:11px 13px;display:flex;flex-direction:column;gap:8px}
+.stack-row{display:flex;align-items:flex-start;gap:8px}
+.stack-icon{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stack-icon svg{width:12px;height:12px}
+.stack-name{font-size:10.5px;font-weight:700;color:var(--text);margin-bottom:1px}
+.stack-spec{font-size:9.5px;color:var(--text-muted)}
+.reg-note{background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:6px;padding:8px 11px}
+.reg-note-title{font-size:9.5px;font-weight:700;color:var(--amber);margin-bottom:4px}
+.reg-note-item{font-size:9.5px;color:var(--text-muted);padding:2px 0;border-bottom:1px solid rgba(217,119,6,.12);line-height:1.4}
+.reg-note-item:last-child{border-bottom:none}
 
-/* ─── SLIDE 7: Deploy ─── */
-.deploy-body{flex:1;display:flex;gap:28px}
-.dept-col{flex:1;display:flex;flex-direction:column;gap:9px}
-.dept-card{
-  display:flex;align-items:flex-start;gap:11px;
-  padding:12px 15px;background:var(--bg-card);
-  border:1px solid var(--border);border-radius:10px;
-}
-.dept-card.primary{border-color:rgba(37,99,235,.35);background:rgba(37,99,235,.03)}
-.d-icon{
-  width:30px;height:30px;border-radius:7px;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.d-icon svg{width:14px;height:14px}
-.d-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
-.d-use{font-size:11px;color:var(--text-muted);line-height:1.45}
-.d-badge{
-  font-size:9px;font-weight:700;color:var(--blue);
-  background:var(--blue-bg);border:1px solid var(--blue-bd);
-  padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle;
-}
-
-.rmap-col{width:270px;flex-shrink:0}
-.rmap-lbl{font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
-.rmap-step{display:flex;gap:11px;padding-bottom:18px;position:relative}
-.rmap-step::before{
-  content:'';position:absolute;left:11px;top:22px;
-  width:2px;height:calc(100% - 4px);background:var(--border);
-}
+/* ─── S7 Deployment ─── */
+.deploy-split{flex:1;display:grid;grid-template-columns:1fr 280px;gap:11px;overflow:hidden}
+.dept-tbl td:first-child{font-size:10px;font-weight:700;color:var(--text);white-space:nowrap}
+.dept-tbl .primary-row td{background:rgba(37,99,235,.03)}
+.dept-tbl .primary-row td:first-child{border-left:3px solid var(--blue)}
+.rmap{display:flex;flex-direction:column;gap:0}
+.rmap-step{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);position:relative}
+.rmap-step:last-child{border-bottom:none}
+.rmap-step::before{content:'';position:absolute;left:11px;top:34px;bottom:-1px;width:2px;background:var(--border)}
 .rmap-step:last-child::before{display:none}
-.rmap-dot{
-  width:24px;height:24px;border-radius:50%;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  font-size:10px;font-weight:700;position:relative;z-index:1;
-}
-.rd-done{background:var(--green);color:#fff}
-.rd-next{background:var(--blue);color:#fff}
-.rd-later{background:var(--bg-card);border:2px solid var(--border);color:var(--text-subtle)}
-.rmap-phase{font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
-.rmap-desc{font-size:12px;color:var(--text-muted);line-height:1.45}
+.rm-dot{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;position:relative;z-index:1}
+.rm-done{background:var(--green);color:#fff}
+.rm-next{background:var(--blue);color:#fff}
+.rm-later{background:#fff;border:2px solid var(--border);color:var(--text-subtle)}
+.rm-phase{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.rm-title{font-size:10.5px;font-weight:700;color:var(--text);margin-bottom:3px;line-height:1.3}
+.rm-items{font-size:9.5px;color:var(--text-muted);line-height:1.5}
+.kpi-box{background:#fff;border:1px solid var(--border);border-radius:7px;padding:10px 13px;margin-top:8px}
+.kpi-box-title{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.kpi-items{display:flex;flex-direction:column;gap:5px}
+.kpi-item{display:flex;align-items:baseline;justify-content:space-between;font-size:10px;color:var(--text-muted)}
+.kpi-item strong{color:var(--text);font-weight:700;font-size:10.5px}
 </style>
 </head>
 <body>
@@ -313,343 +319,731 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
   <div class="brand-mark">FIP</div>
   <div class="brand-name">Financial Intelligence Platform</div>
   <div class="brand-sep"></div>
-  <div class="brand-label">CBUAE · Financial Crime & Market Conduct · Internal</div>
+  <div class="brand-label">CBUAE · Financial Crime &amp; Market Conduct Supervision</div>
+  <div class="brand-r">
+    <span class="brand-class">CONFIDENTIAL</span>
+    <span class="brand-date">June 2026 · Internal</span>
+  </div>
 </div>
 
 <div class="deck">
 
-  <!-- ═══════════════════════════════════════════
-       SLIDE 1 — Title
-  ════════════════════════════════════════════ -->
-  <div class="slide s1 active" data-index="0">
-    <div class="s1-body">
-      <div class="s1-left">
-        <div class="s1-tag"><i data-lucide="shield"></i> CBUAE · Financial Crime &amp; Market Conduct</div>
-        <h1 class="s1-title">Financial<br>Intelligence<br><span>Platform</span></h1>
-        <p class="s1-sub">Natural language intelligence for supervisory data analysis — no code required. Powered by DS-STAR, a self-correcting agent pipeline from Google Research.</p>
-        <div class="s1-chips">
-          <div class="s1-chip"><i data-lucide="cpu"></i> DS-STAR Agent Pipeline</div>
-          <div class="s1-chip"><i data-lucide="lock"></i> Air-gapped · On-premise</div>
-          <div class="s1-chip"><i data-lucide="building-2"></i> 47 UAE LFIs</div>
-          <div class="s1-chip"><i data-lucide="users"></i> 5 Departments</div>
+<!-- ═══════════════ SLIDE 1 — COVER ═══════════════ -->
+<div class="slide active" data-index="0">
+  <div class="s1-body">
+    <!-- Dark left panel -->
+    <div class="s1-dark">
+      <div class="s1-logo">FIP</div>
+      <div class="s1-badge"><i data-lucide="shield"></i> CBUAE · Financial Crime &amp; Market Conduct</div>
+      <h1 class="s1-title">Financial<br>Intelligence<br><span>Platform</span></h1>
+      <p class="s1-sub">Natural language intelligence for supervisory data analysis. Powered by DS-STAR (Google Research, arXiv:2509.21825) — the first self-correcting multi-agent pipeline purpose-built for heterogeneous data analysis.</p>
+      <div class="s1-chips">
+        <div class="s1-chip"><i data-lucide="cpu"></i><strong>Engine</strong> DS-STAR 8-Agent Self-Correcting Pipeline</div>
+        <div class="s1-chip"><i data-lucide="lock"></i><strong>Deploy</strong> Air-gapped · On-premise · Ollama LLM</div>
+        <div class="s1-chip"><i data-lucide="building-2"></i><strong>Scope</strong> 47 UAE LFIs · 4 data source types</div>
+        <div class="s1-chip"><i data-lucide="users"></i><strong>Users</strong> 5 CBUAE departments · No coding required</div>
+        <div class="s1-chip"><i data-lucide="clock"></i><strong>Speed</strong> &lt;30 seconds for targeted queries</div>
+      </div>
+    </div>
+
+    <!-- Light right panel -->
+    <div class="s1-light">
+      <div>
+        <div class="s1-sec-lbl">Executive Summary</div>
+        <div class="s1-summary">
+          FIP enables non-technical CBUAE analysts — AML investigators, fraud supervisors, market conduct officers — to query complex multi-file financial data using plain English and receive <strong>verified, explainable, audit-ready answers in under 30 seconds</strong>. The platform adapts Google Research's DS-STAR agent pipeline for UAE regulatory supervision, adding domain-aware schema recognition, regulatory knowledge injection, PII masking, and immutable audit logging — capabilities absent from any commercial off-the-shelf analytics tool.
         </div>
       </div>
-      <div class="s1-right">
-        <div class="hero">
-          <div class="h-ring hr-1"></div>
-          <div class="h-ring hr-2"></div>
-          <div class="h-ring hr-3"></div>
-          <div class="h-center">FIP</div>
-          <div class="h-orb ho-top" style="color:var(--blue);border-color:var(--blue-bd);background:var(--blue-bg)"><i data-lucide="search"></i></div>
-          <div class="h-orb ho-right" style="color:var(--purple);border-color:var(--purple-bd);background:var(--purple-bg)"><i data-lucide="file-text"></i></div>
-          <div class="h-orb ho-bottom" style="color:var(--green);border-color:rgba(22,163,74,.25);background:var(--green-bg)"><i data-lucide="bar-chart-2"></i></div>
-          <div class="h-orb ho-left" style="color:var(--amber);border-color:rgba(217,119,6,.25);background:var(--amber-bg)"><i data-lucide="shield"></i></div>
+      <div>
+        <div class="s1-sec-lbl">Platform KPIs</div>
+        <div class="s1-kpis">
+          <div class="s1-kpi"><div class="s1-kpi-val" style="color:var(--blue)">&lt;30s</div><div class="s1-kpi-lbl">Response time for targeted queries</div></div>
+          <div class="s1-kpi"><div class="s1-kpi-val" style="color:var(--blue)">+32pp</div><div class="s1-kpi-lbl">Accuracy lift on hard analytical tasks</div></div>
+          <div class="s1-kpi"><div class="s1-kpi-val" style="color:var(--purple)">88%+</div><div class="s1-kpi-lbl">Win rate on open-ended research reports</div></div>
+          <div class="s1-kpi"><div class="s1-kpi-val">20</div><div class="s1-kpi-lbl">Max reasoning rounds per query</div></div>
+        </div>
+      </div>
+      <div class="s1-scope">
+        <div class="s1-scope-box">
+          <div class="s1-scope-title"><i data-lucide="database"></i> Data Sources Covered</div>
+          <div class="s1-scope-items">
+            <div class="s1-scope-item">Transaction monitoring alerts &amp; STR exports</div>
+            <div class="s1-scope-item">SAR/STR filing records by LFI and typology</div>
+            <div class="s1-scope-item">KYC/CDD data and beneficial ownership files</div>
+            <div class="s1-scope-item">Market surveillance trade records</div>
+            <div class="s1-scope-item">Consumer complaint registers (CPR data)</div>
+          </div>
+        </div>
+        <div class="s1-scope-box">
+          <div class="s1-scope-title"><i data-lucide="layers"></i> Technology Foundation</div>
+          <div class="s1-scope-items">
+            <div class="s1-scope-item">DS-STAR (Google Research, Sept 2025) core engine</div>
+            <div class="s1-scope-item">LangGraph orchestration · Celery + Redis queue</div>
+            <div class="s1-scope-item">Docker sandbox: no network, 2 GB RAM, read-only data</div>
+            <div class="s1-scope-item">Ollama (llama3.3:70b-q4) · provider-agnostic adapter</div>
+            <div class="s1-scope-item">FastAPI REST + WebSocket · React frontend</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ═══════════════════════════════════════════
-       SLIDE 2 — The Problem
-  ════════════════════════════════════════════ -->
-  <div class="slide" data-index="1">
-    <div class="eyebrow">The Problem</div>
-    <h2 class="heading">Supervisory data analysis is <em>slow, manual, and siloed</em></h2>
-    <div class="prob-grid">
-      <div class="prob-card">
-        <div class="prob-icon" style="background:var(--red-bg)"><i data-lucide="clock" style="color:var(--red)"></i></div>
-        <div class="prob-stat" style="color:var(--red)">3–5</div>
-        <div class="prob-title">Days to answer a complex data question</div>
-        <div class="prob-desc">Analysts submit data requests to IT or engineering teams. By the time results arrive, the regulatory moment has often passed.</div>
-      </div>
-      <div class="prob-card">
-        <div class="prob-icon" style="background:var(--amber-bg)"><i data-lucide="code-2" style="color:var(--amber)"></i></div>
-        <div class="prob-stat" style="color:var(--amber)">0%</div>
-        <div class="prob-title">Of compliance analysts can write SQL or Python</div>
-        <div class="prob-desc">Complex multi-file data analysis requires technical skills that supervisory staff don't have — creating a permanent bottleneck on scarce IT resources.</div>
-      </div>
-      <div class="prob-card">
-        <div class="prob-icon" style="background:var(--blue-bg)"><i data-lucide="file-x" style="color:var(--blue)"></i></div>
-        <div class="prob-stat" style="color:var(--blue)">∅</div>
-        <div class="prob-title">Reproducible audit trail for ad-hoc analysis</div>
-        <div class="prob-desc">Spreadsheet-based outputs can't be verified, reproduced, or cited — a critical gap when regulators must evidence their supervisory conclusions.</div>
-      </div>
+<!-- ═══════════════ SLIDE 2 — PROBLEM ═══════════════ -->
+<div class="slide" data-index="1">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sh-ey">The Problem</div>
+      <div class="sh-title">Supervisory data analysis is <em>slow, manual, and non-reproducible</em> — creating regulatory lag and audit risk</div>
     </div>
-    <div class="prob-quote">
-      "Which LFIs have the highest card fraud rate this quarter vs. the peer median?" — a question every fraud supervisor asks every week. <strong>Today it takes days and a data engineer. FIP answers it in under 30 seconds.</strong>
+    <div class="sh-msg">
+      <strong>Key Finding</strong>
+      Analysts lose 3–5 working days per data request waiting on IT. FIP reduces this to &lt;30 seconds — eliminating the bottleneck and enabling supervisory action while the regulatory moment is still relevant.
     </div>
   </div>
-
-  <!-- ═══════════════════════════════════════════
-       SLIDE 3 — Architecture
-  ════════════════════════════════════════════ -->
-  <div class="slide" data-index="2">
-    <div class="eyebrow">The Technology</div>
-    <h2 class="heading">DS-STAR: an <em>iterative, self-correcting</em> agent pipeline</h2>
-    <div class="arch-body">
-      <div class="arch-main">
-        <!-- Row 1 -->
-        <div class="pipeline-row">
-          <div class="pnode b"><i data-lucide="scan-search"></i> Analyzer</div>
-          <div class="parr"></div>
-          <div class="pnode b"><i data-lucide="list-checks"></i> Planner</div>
-          <div class="parr"></div>
-          <div class="pnode b"><i data-lucide="code-2"></i> Coder</div>
-          <div class="parr"></div>
-          <div class="pnode b"><i data-lucide="play"></i> Executor</div>
-          <div class="parr"></div>
-          <div class="pnode a"><i data-lucide="bug"></i> Debugger</div>
+  <div class="sc">
+    <!-- Current state process flow -->
+    <div>
+      <div class="lbl">Current State — How a Supervisor Gets a Data Answer Today</div>
+      <div class="prob-flow">
+        <div class="prob-step">
+          <div class="ps-num">Step 1</div>
+          <div class="ps-action">Analyst identifies data question</div>
+          <div class="body-xs" style="margin:3px 0 5px">Drafts informal request in Word or email. Manually selects which files to request from IT.</div>
+          <div class="ps-pain">Ambiguous scope → rework</div>
         </div>
-        <!-- Row 2 (reversed direction) -->
-        <div class="pipeline-row" style="padding-left:8px">
-          <div class="pnode g"><i data-lucide="sparkles"></i> Finalizer</div>
-          <div class="parr" style="transform:scaleX(-1)"></div>
-          <div class="pnode b"><i data-lucide="check-circle"></i> Verifier</div>
-          <div class="parr" style="transform:scaleX(-1)"></div>
-          <div class="pnode a"><i data-lucide="git-branch"></i> Router</div>
-          <div style="flex:1;display:flex;align-items:center;gap:12px;padding-left:20px">
-            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-subtle)"><div style="width:12px;height:2px;background:var(--blue);border-radius:1px"></div>Core loop</div>
-            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-subtle)"><div style="width:12px;height:2px;background:var(--amber);border-radius:1px"></div>Error recovery</div>
-            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-subtle)"><div style="width:12px;height:2px;background:var(--green);border-radius:1px"></div>Output</div>
-          </div>
+        <div class="ps-arr">›</div>
+        <div class="prob-step">
+          <div class="ps-num">Step 2</div>
+          <div class="ps-action">IT ticket raised</div>
+          <div class="body-xs" style="margin:3px 0 5px">Request queued behind competing IT workload. No SLA. Priority depends on who asks, not what's needed.</div>
+          <div class="ps-time">Wait: 1–2 days</div>
         </div>
-        <div class="mech-grid">
-          <div class="mech-card">
-            <div class="mech-title">One step at a time</div>
-            <div class="mech-desc">Planner generates one plan step per round, conditioned on the previous execution result. Mirrors how a data scientist explores data iteratively.</div>
+        <div class="ps-arr">›</div>
+        <div class="prob-step">
+          <div class="ps-num">Step 3</div>
+          <div class="ps-action">Engineer writes SQL/Python</div>
+          <div class="body-xs" style="margin:3px 0 5px">Developer interprets requirements, writes queries, runs extracts. Analyst unavailable to clarify in real time.</div>
+          <div class="ps-time">Wait: 1–3 days</div>
+        </div>
+        <div class="ps-arr">›</div>
+        <div class="prob-step">
+          <div class="ps-num">Step 4</div>
+          <div class="ps-action">Results delivered (often wrong)</div>
+          <div class="body-xs" style="margin:3px 0 5px">Excel file emailed. Analyst reviews — frequently mismatches original intent. Cycle repeats 1–3 times.</div>
+          <div class="ps-pain">Iteration adds 1–3 days</div>
+        </div>
+        <div class="ps-arr">›</div>
+        <div class="prob-step">
+          <div class="ps-num">Step 5</div>
+          <div class="ps-action">Manual write-up &amp; submission</div>
+          <div class="body-xs" style="margin:3px 0 5px">Analyst formats output manually. No code audit trail. No reproducibility. Supervisor cannot verify methodology.</div>
+          <div class="ps-pain">∅ audit trail</div>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="align-items:flex-start">
+      <!-- Impact cards -->
+      <div style="flex:1.1;display:flex;flex-direction:column;gap:10px">
+        <div class="lbl">Quantified Impact of Current Process</div>
+        <div class="impact-row">
+          <div class="impact-card">
+            <div class="ic-icon" style="background:var(--red-bg)"><i data-lucide="clock" style="color:var(--red)"></i></div>
+            <div class="ic-stat" style="color:var(--red)">3–5</div>
+            <div class="ic-title">Days per complex data question</div>
+            <div class="ic-desc">Total elapsed time from analyst question to verified answer. During this window, supervisory action is impossible — LFIs under examination can change behavior undetected.</div>
           </div>
-          <div class="mech-card">
-            <div class="mech-title">Backtracking Router</div>
-            <div class="mech-desc">If a plan step is wrong, Router identifies which one and truncates the plan. Planner regenerates from that point — not just appending a new step.</div>
+          <div class="impact-card">
+            <div class="ic-icon" style="background:var(--amber-bg)"><i data-lucide="code-2" style="color:var(--amber)"></i></div>
+            <div class="ic-stat" style="color:var(--amber)">0%</div>
+            <div class="ic-title">Analysts with SQL or Python skills</div>
+            <div class="ic-desc">Every data query creates a hard dependency on scarce IT/engineering resource. Supervisory capacity is structurally bottlenecked by technical headcount — not analytical talent.</div>
           </div>
-          <div class="mech-card">
-            <div class="mech-title">LLM-as-judge Verifier</div>
-            <div class="mech-desc">Verifier checks if the result actually answers the original query — not just whether the code ran. Drives iteration or terminates the pipeline.</div>
-          </div>
-          <div class="mech-card">
-            <div class="mech-title">Isolated Docker sandbox</div>
-            <div class="mech-desc">Every generated Python script runs in a container — no network, read-only data mount, 2 GB memory cap. Data never leaves CBUAE infrastructure.</div>
+          <div class="impact-card">
+            <div class="ic-icon" style="background:var(--blue-bg)"><i data-lucide="file-x" style="color:var(--blue)"></i></div>
+            <div class="ic-stat" style="color:var(--blue)">∅</div>
+            <div class="ic-title">Reproducible audit trail</div>
+            <div class="ic-desc">Spreadsheet outputs can't be verified or re-run. When CBUAE supervisory findings are challenged, there is no evidence trail linking output to the underlying data and methodology.</div>
           </div>
         </div>
       </div>
-      <div class="arch-side">
-        <div style="font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Benchmark Results</div>
-        <div class="kpi-stat">
-          <div class="kpi-val" style="color:var(--blue)">45.2%</div>
-          <div class="kpi-lbl">DS-STAR on DABStep (overall)</div>
-          <div class="kpi-sub">vs 41.0% for LLM alone (+4pp)</div>
+      <!-- Cost of inaction -->
+      <div style="flex:.85;display:flex;flex-direction:column;gap:10px">
+        <div class="lbl">Cost of Inaction by Risk Category</div>
+        <div class="tbl-wrap">
+          <table class="tbl inaction-tbl">
+            <thead><tr><th>Risk Category</th><th>Consequence</th><th>Severity</th></tr></thead>
+            <tbody>
+              <tr><td class="cat">Supervisory lag</td><td>LFI fraud patterns undetected for weeks. Regulatory opportunity window missed.</td><td><span class="badge br">High</span></td></tr>
+              <tr><td class="cat">Examination quality</td><td>Analysts rely on anecdote, not data. Findings challenged under peer review or legal scrutiny.</td><td><span class="badge br">High</span></td></tr>
+              <tr><td class="cat">Audit readiness</td><td>CBUAE cannot evidence methodology to external auditors or IMF/FATF assessors.</td><td><span class="badge ba">Medium</span></td></tr>
+              <tr><td class="cat">Analyst morale</td><td">Senior supervisors spend time on data plumbing, not analysis. Retention risk.</td><td><span class="badge ba">Medium</span></td></tr>
+              <tr><td class="cat">FATF compliance</td><td>Mutual evaluation requires demonstrated analytical capability on financial crime data.</td><td><span class="badge br">High</span></td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="kpi-stat">
-          <div class="kpi-val" style="color:var(--blue)">+32pp</div>
-          <div class="kpi-lbl">Hard task improvement</div>
-          <div class="kpi-sub">12.7% → 45.2% on hardest tasks</div>
+      </div>
+    </div>
+    <div class="quote-bar">
+      "Which LFIs have the highest card fraud rate this quarter vs. the peer median?" — a question every fraud supervisor asks every week.
+      <strong>Today it takes 3–5 days and a data engineer. FIP answers it in under 30 seconds, with a full audit trail, in plain English.</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 3 — ARCHITECTURE ═══════════════ -->
+<div class="slide" data-index="2">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sh-ey">The Technology</div>
+      <div class="sh-title">DS-STAR: <em>8-agent self-correcting pipeline</em> achieves +32pp accuracy lift on hard tasks through iterative reasoning</div>
+    </div>
+    <div class="sh-msg">
+      <strong>Key Finding</strong>
+      A single LLM call achieves 12.7% on hard analytical tasks. DS-STAR's iterative pipeline — with backtracking, verification, and up to 20 reasoning rounds — achieves 45.2% (+32pp). The Analyzer alone accounts for −18pp of accuracy if removed.
+    </div>
+  </div>
+  <div class="sc">
+    <!-- Pipeline diagram -->
+    <div class="card" style="padding:13px 16px">
+      <div class="row" style="align-items:center;margin-bottom:8px">
+        <div class="lbl" style="margin:0;flex:1">Core Pipeline — One Step Per Round, Up To 20 Rounds</div>
+        <div class="arch-legend">
+          <div class="arch-leg-item"><div class="arch-leg-dot" style="background:var(--blue)"></div>Core agents</div>
+          <div class="arch-leg-item"><div class="arch-leg-dot" style="background:var(--amber)"></div>Error recovery</div>
+          <div class="arch-leg-item"><div class="arch-leg-dot" style="background:var(--green)"></div>Output</div>
         </div>
-        <div class="kpi-stat">
-          <div class="kpi-val" style="color:var(--purple)">88%+</div>
-          <div class="kpi-lbl">DS-STAR+ win rate (Research)</div>
-          <div class="kpi-sub">vs best baseline on open-ended reports</div>
+      </div>
+      <div class="pipe" style="gap:2px;margin-bottom:7px">
+        <div class="pn pn-k"><i data-lucide="database"></i> Data Files</div>
+        <div class="arr"></div>
+        <div class="pn pn-b"><i data-lucide="scan-search"></i> Analyzer</div>
+        <div class="arr"></div>
+        <div class="pn pn-b"><i data-lucide="list-checks"></i> Planner</div>
+        <span style="font-size:9px;color:var(--text-subtle);padding:0 3px">+1 step/round</span>
+        <div class="arr"></div>
+        <div class="pn pn-b"><i data-lucide="code-2"></i> Coder</div>
+        <span style="font-size:9px;color:var(--text-subtle);padding:0 3px">extends sₖ</span>
+        <div class="arr"></div>
+        <div class="pn pn-b"><i data-lucide="play"></i> Executor</div>
+        <span style="font-size:9px;color:var(--text-subtle);padding:0 3px">Docker sandbox</span>
+        <div class="arr"></div>
+        <div class="pn pn-a"><i data-lucide="bug"></i> Debugger</div>
+        <span style="font-size:9px;color:var(--amber);padding:0 3px">max 3 retries</span>
+        <div class="arr"></div>
+        <div class="pn pn-b"><i data-lucide="check-circle"></i> Verifier</div>
+        <div class="arr"></div>
+        <div class="pn pn-a"><i data-lucide="git-branch"></i> Router</div>
+        <div class="arr"></div>
+        <div class="pn pn-g"><i data-lucide="sparkles"></i> Finalizer</div>
+      </div>
+      <div style="display:flex;gap:24px;font-size:9.5px;color:var(--text-subtle)">
+        <span>→ Verifier returns "sufficient" → Finalizer</span>
+        <span>→ Verifier "insufficient" + rounds left → Router: "Add Step" or truncate to index <em>l</em> → Planner regenerates</span>
+        <span>→ k = 20 → Finalizer (best-effort)</span>
+      </div>
+    </div>
+    <div class="row" style="flex:1;align-items:flex-start">
+      <!-- Agent detail cards -->
+      <div style="flex:1;display:flex;flex-direction:column;gap:9px">
+        <div class="lbl">Agent Roles &amp; Mechanism</div>
+        <div class="agent-detail-grid">
+          <div class="agent-card"><div class="agent-name"><i data-lucide="scan-search" style="color:var(--blue)"></i> Analyzer</div><div class="agent-role">Profiles every file before planning begins. Detects CSV/JSON/Excel/unstructured. Produces D: per-file description with columns, dtypes, null rates, sample rows. Critical: ablation −18pp without it.</div></div>
+          <div class="agent-card"><div class="agent-name"><i data-lucide="list-checks" style="color:var(--blue)"></i> Planner</div><div class="agent-role">Generates exactly one plan step pₖ per round, conditioned on (q, D, p₀..pₖ₋₁, rₖ₋₁). Mirrors iterative notebook exploration. Accumulates plan across rounds.</div></div>
+          <div class="agent-card"><div class="agent-name"><i data-lucide="code-2" style="color:var(--blue)"></i> Coder</div><div class="agent-role">Extends prior script sₖ₋₁ with new plan step. Uses absolute paths, memory-safe row limits, multi-delimiter CSV detection. Pure Python only.</div></div>
+          <div class="agent-card"><div class="agent-name"><i data-lucide="play" style="color:var(--blue)"></i> Executor</div><div class="agent-role">Runs sₖ in isolated Docker container. Returns stdout rₖ, stderr, exit code. Per-execution timeout. Output capped to prevent context overflow.</div></div>
+          <div class="agent-card"><div class="agent-name"><i data-lucide="bug" style="color:var(--amber)"></i> Debugger</div><div class="agent-role">Activated only on exit_code ≠ 0. Receives (sₖ, stderr, traceback). Fixes code errors only — never creates new plan steps. Max 3 attempts per round.</div></div>
+          <div class="agent-card"><div class="agent-name"><i data-lucide="check-circle" style="color:var(--blue)"></i> Verifier</div><div class="agent-role">LLM-as-judge. Receives full context (q, p₀..pₖ, sₖ, rₖ). Returns "sufficient" or "insufficient". Checks semantic answer quality, not just execution success.</div></div>
+          <div class="agent-card"><div class="agent-name"><i data-lucide="git-branch" style="color:var(--amber)"></i> Router</div><div class="agent-role">On "insufficient": returns "Add Step" (append) or index l (truncate plan to p₀..pₗ₋₁). Truncate-and-regenerate — not direct correction — exploits LLM sampling diversity.</div></div>
+          <div class="agent-card"><div class="agent-name"><i data-lucide="sparkles" style="color:var(--green)"></i> Finalizer</div><div class="agent-role">Receives (sₖ, rₖ, formatting_guidelines). Generates short formatting script if needed. Applies rounding, chart formatting, output structure. Delivers clean final answer.</div></div>
         </div>
-        <div class="kpi-stat">
-          <div class="kpi-val">−18pp</div>
-          <div class="kpi-lbl">Accuracy loss without Analyzer</div>
-          <div class="kpi-sub">Single most critical component in pipeline</div>
+        <div style="display:flex;gap:7px">
+          <div class="ablation-note" style="flex:1"><i data-lucide="alert-triangle"></i> <strong>Critical:</strong> Removing the Analyzer alone drops hard-task accuracy 45.2% → 26.98% (−18pp). It is the single most impactful component in the entire pipeline.</div>
+          <div class="round-note" style="flex:1"><strong>Docker sandbox constraints:</strong> No network access · 2 GB memory cap · Read-only data mount · Non-root user · Per-execution timeout · stdout capped at 16 KB</div>
+        </div>
+      </div>
+      <!-- Benchmarks -->
+      <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:9px">
+        <div class="lbl">Benchmark Performance</div>
+        <div class="bench-grid">
+          <div class="bench-card"><div class="bench-val" style="color:var(--blue)">45.2%</div><div class="bench-lbl">DABStep overall</div><div class="bench-sub">vs 41.0% LLM alone</div></div>
+          <div class="bench-card"><div class="bench-val" style="color:var(--blue)">+32pp</div><div class="bench-lbl">Hard tasks only</div><div class="bench-sub">12.7% → 45.2%</div></div>
+          <div class="bench-card"><div class="bench-val" style="color:var(--blue)">44.7%</div><div class="bench-lbl">KramaBench</div><div class="bench-sub">vs 39.8% LLM alone</div></div>
+          <div class="bench-card"><div class="bench-val" style="color:var(--purple)">88%+</div><div class="bench-lbl">DS-STAR+ win rate</div><div class="bench-sub">vs best baseline</div></div>
+          <div class="bench-card" style="grid-column:span 2"><div class="bench-val">−18pp</div><div class="bench-lbl">Accuracy loss if Analyzer removed (ablation study)</div></div>
+        </div>
+        <div class="card-xs">
+          <div class="lbl">File Formats Handled</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+            <span class="badge bb">CSV</span><span class="badge bb">JSON</span><span class="badge bb">Excel</span>
+            <span class="badge bb">Markdown</span><span class="badge bb">Unstructured Text</span>
+            <span class="badge bk">Multi-delimiter</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ═══════════════════════════════════════════
-       SLIDE 4 — Two Modes
-  ════════════════════════════════════════════ -->
-  <div class="slide" data-index="3">
-    <div class="eyebrow">Platform Modes</div>
-    <h2 class="heading">Two modes for every <em>supervisory workflow</em></h2>
-    <div class="modes-row">
-      <div class="mode-card ins">
-        <div class="mode-pill pill-b"><i data-lucide="zap"></i> FIP-Insight</div>
-        <h3>Specific Analysis</h3>
-        <p>For targeted questions that need a precise, verified, data-backed answer. DS-STAR iterates through files to produce a result with charts, tables, and a plain-English narrative.</p>
-        <div class="mode-eg eg-b">"Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025, and how does each compare to the peer median?"</div>
-        <div class="feat-list">
-          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Returns tables, charts, and plain-English narrative</div>
-          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Self-corrects via Verifier + Router loop (up to 20 rounds)</div>
-          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Typically 3–5 rounds · under 30 seconds end-to-end</div>
-          <div class="feat"><i data-lucide="check-circle" class="fc-b"></i> Export to Excel or PDF · full audit trail</div>
+<!-- ═══════════════ SLIDE 4 — TWO MODES ═══════════════ -->
+<div class="slide" data-index="3">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sh-ey">Platform Modes</div>
+      <div class="sh-title"><em>FIP-Insight</em> for specific queries in seconds; <em>FIP-Research</em> for leadership-ready thematic reports</div>
+    </div>
+    <div class="sh-msg">
+      <strong>Key Finding</strong>
+      One platform, two operating modes. FIP-Insight runs the 8-agent DS-STAR core for targeted factoid queries. FIP-Research wraps DS-STAR × n sub-questions with a Report Writer and Evaluator for open-ended analysis — every claim in the report is cited to code.
+    </div>
+  </div>
+  <div class="sc">
+    <!-- Comparison table -->
+    <div>
+      <div class="lbl">Mode Comparison</div>
+      <div class="tbl-wrap">
+        <div class="modes-cmp">
+          <div class="mc-hdr">Dimension</div>
+          <div class="mc-hdr ins">FIP-Insight (DS-STAR)</div>
+          <div class="mc-hdr res">FIP-Research (DS-STAR+)</div>
+          <!-- Row 1 -->
+          <div class="mc-label">Trigger query type</div>
+          <div class="mc-val">Specific, factoid — one correct numerical or categorical answer exists. <em>"Which LFIs have the highest card fraud rate in Q1 2025?"</em></div>
+          <div class="mc-val">Open-ended research — requires synthesis across multiple analyses. <em>"Generate a thematic analysis of APP fraud growth across UAE banks in 2024."</em></div>
+          <!-- Row 2 -->
+          <div class="mc-label">Architecture</div>
+          <div class="mc-val">8-agent loop: Analyzer → Planner → Coder → Executor → Debugger → Verifier → Router ↻ → Finalizer</div>
+          <div class="mc-val">Sub-Question Generator → DS-STAR × n sub-questions → Report Writer → Evaluator ↻ → Final report</div>
+          <!-- Row 3 -->
+          <div class="mc-label">LLM allocation</div>
+          <div class="mc-val">Single LLM backend for all 8 agents. Provider-agnostic adapter (Ollama / Azure OAI / Gemini).</div>
+          <div class="mc-val">Flash-tier per sub-question (cost-efficient); Pro-tier for Report Writer synthesis (highest quality output).</div>
+          <!-- Row 4 -->
+          <div class="mc-label">Max iterations</div>
+          <div class="mc-val">Up to <strong>20 reasoning rounds</strong> per query. Backtracking allows plan regeneration from any prior step.</div>
+          <div class="mc-val">Configurable refinement loops. Evaluator can trigger additional sub-question rounds to improve coverage.</div>
+          <!-- Row 5 -->
+          <div class="mc-label">Output</div>
+          <div class="mc-val">Tables, charts, plain-English narrative per department. Export: PDF, Excel. Full code + execution audit trail.</div>
+          <div class="mc-val">Structured report with sections, findings, and <strong>citations to sub-question + code</strong>. Export: Word, PDF. Evidence package.</div>
+          <!-- Row 6 -->
+          <div class="mc-label">Typical response</div>
+          <div class="mc-val"><strong>&lt;30 seconds</strong> end-to-end (3–5 rounds typical)</div>
+          <div class="mc-val"><strong>2–8 minutes</strong> depending on sub-question count and refinement rounds</div>
         </div>
       </div>
-      <div class="mode-card res">
-        <div class="mode-pill pill-p"><i data-lucide="file-text"></i> FIP-Research</div>
-        <h3>Thematic Reports</h3>
-        <p>For open-ended research queries. Decomposes the question into sub-questions, runs DS-STAR on each, then synthesises a leadership-ready report where every claim is cited.</p>
-        <div class="mode-eg eg-p">"Generate a thematic analysis of APP fraud growth across UAE banks in 2024 — include typology breakdown, channel analysis, YoY trends, and LFI outliers."</div>
-        <div class="feat-list">
-          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Structured report with sections, tables, and findings</div>
-          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Every claim cited to the sub-question and code that proved it</div>
-          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Evaluator refinement loop checks completeness before delivery</div>
-          <div class="feat"><i data-lucide="check-circle" class="fc-p"></i> Export to Word or PDF · examination-ready evidence package</div>
+    </div>
+    <!-- Pipeline flows + dept mapping -->
+    <div class="row" style="flex:1;align-items:flex-start">
+      <div style="flex:1;display:flex;flex-direction:column;gap:9px">
+        <div class="mode-pipes">
+          <div class="mode-pipe-box" style="border-top:2px solid var(--blue)">
+            <div class="mode-pipe-title" style="color:var(--blue)"><i data-lucide="zap" style="width:12px;height:12px"></i> FIP-Insight Pipeline</div>
+            <div class="mode-pipe-flow">
+              <div class="pn pn-b" style="font-size:9.5px;padding:4px 8px"><i data-lucide="scan-search"></i> Analyzer</div><div class="arr"></div>
+              <div class="pn pn-b" style="font-size:9.5px;padding:4px 8px"><i data-lucide="list-checks"></i> Planner</div><div class="arr"></div>
+              <div class="pn pn-b" style="font-size:9.5px;padding:4px 8px"><i data-lucide="code-2"></i> Coder</div><div class="arr"></div>
+              <div class="pn pn-b" style="font-size:9.5px;padding:4px 8px"><i data-lucide="play"></i> Executor</div><div class="arr"></div>
+              <div class="pn pn-a" style="font-size:9.5px;padding:4px 8px"><i data-lucide="bug"></i> Debug</div><div class="arr"></div>
+              <div class="pn pn-b" style="font-size:9.5px;padding:4px 8px"><i data-lucide="check-circle"></i> Verify</div><div class="arr"></div>
+              <div class="pn pn-a" style="font-size:9.5px;padding:4px 8px"><i data-lucide="git-branch"></i> Route</div><div class="arr"></div>
+              <div class="pn pn-g" style="font-size:9.5px;padding:4px 8px"><i data-lucide="sparkles"></i> Final</div>
+            </div>
+            <div style="font-size:9px;color:var(--text-subtle);margin-top:6px">Router loops back to Planner (add step) or truncates to step l (backtrack). Max 20 rounds.</div>
+          </div>
+          <div class="mode-pipe-box" style="border-top:2px solid var(--purple)">
+            <div class="mode-pipe-title" style="color:var(--purple)"><i data-lucide="file-text" style="width:12px;height:12px"></i> FIP-Research Pipeline</div>
+            <div class="mode-pipe-flow">
+              <div class="pn" style="font-size:9.5px;padding:4px 8px;background:var(--purple-bg);border-color:var(--purple-bd);color:var(--purple)"><i data-lucide="list-ordered"></i> Sub-Q Gen</div><div class="arr" style="background:var(--purple)"></div>
+              <div class="pn" style="font-size:9.5px;padding:4px 8px;background:var(--purple-bg);border-color:var(--purple-bd);color:var(--purple)"><i data-lucide="cpu"></i> DS-STAR × n</div><div class="arr" style="background:var(--purple)"></div>
+              <div class="pn" style="font-size:9.5px;padding:4px 8px;background:var(--purple-bg);border-color:var(--purple-bd);color:var(--purple)"><i data-lucide="file-text"></i> Report Writer</div><div class="arr" style="background:var(--purple)"></div>
+              <div class="pn pn-a" style="font-size:9.5px;padding:4px 8px"><i data-lucide="check-circle"></i> Evaluator</div><div class="arr"></div>
+              <div class="pn pn-g" style="font-size:9.5px;padding:4px 8px"><i data-lucide="sparkles"></i> Cited Report</div>
+            </div>
+            <div style="font-size:9px;color:var(--text-subtle);margin-top:6px">Each sub-question (sq₁…sqₙ) runs a full DS-STAR pass. Evidence set {sqᵢ, aᵢ, sᵢ} cited in final report.</div>
+          </div>
+        </div>
+        <!-- Example queries by dept -->
+        <div>
+          <div class="lbl">Representative Queries by Department</div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Department</th><th>FIP-Insight Example</th><th>FIP-Research Example</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Fraud Prevention</strong> <span class="badge bb">★</span></td><td>"Which LFIs exceed 2× peer median card fraud rate in Q1 2025?"</td><td>"Thematic analysis of APP fraud growth across UAE banks — H1 2025"</td></tr>
+                <tr><td><strong>AML/CFT</strong></td><td>"Which LFIs filed fewer SARs in Q1 2025 than Q4 2024, filtered to exchange houses?"</td><td>"Typology distribution report vs FATF benchmarks — annual 2024"</td></tr>
+                <tr><td><strong>Market Conduct</strong></td><td>"Which LFIs have complaint volumes &gt;3× peer median by product category?"</td><td>"Mis-selling pattern thematic review — mortgage products 2023–2024"</td></tr>
+                <tr><td><strong>Enforcement</strong></td><td>"Pull 3-year fraud loss trend for LFI X across all channels"</td><td>"Evidence package for Case #ENFC-2025-014 — full compliance history"</td></tr>
+                <tr><td><strong>Policy &amp; Research</strong></td><td>"UAE-wide fraud loss rate by channel vs GCC benchmark — 2024"</td><td>"Annual sector fraud report for CBUAE Board — FY 2024"</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- Mode usage by dept -->
+      <div style="width:210px;flex-shrink:0;display:flex;flex-direction:column;gap:9px">
+        <div class="lbl">Mode Usage by Department</div>
+        <div class="dept-mode-grid">
+          <div class="dm-card"><div class="dm-name">Fraud Prevention</div><div class="dm-badges"><span class="badge bb">Insight</span><span class="badge bp">Research</span></div></div>
+          <div class="dm-card"><div class="dm-name">AML / CFT</div><div class="dm-badges"><span class="badge bb">Insight</span><span class="badge bp">Research</span></div></div>
+          <div class="dm-card"><div class="dm-name">Market Conduct</div><div class="dm-badges"><span class="badge bb">Insight</span><span class="badge bp">Research</span></div></div>
+          <div class="dm-card"><div class="dm-name">Enforcement</div><div class="dm-badges"><span class="badge bb">Insight</span></div></div>
+          <div class="dm-card"><div class="dm-name">Policy &amp; Research</div><div class="dm-badges"><span class="badge bp">Research</span></div></div>
+        </div>
+        <div class="card-xs">
+          <div class="lbl">Output Formats</div>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:3px">
+            <div style="font-size:9.5px;color:var(--text-muted);display:flex;justify-content:space-between"><span>FIP-Insight</span><div style="display:flex;gap:3px"><span class="badge bb">PDF</span><span class="badge bb">Excel</span></div></div>
+            <div style="font-size:9.5px;color:var(--text-muted);display:flex;justify-content:space-between"><span>FIP-Research</span><div style="display:flex;gap:3px"><span class="badge bp">Word</span><span class="badge bp">PDF</span></div></div>
+            <div class="divider" style="margin:2px 0"></div>
+            <div style="font-size:9.5px;color:var(--text-muted)">All outputs include: execution code, audit log, PII-masked narrative, and full run metadata.</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ═══════════════════════════════════════════
-       SLIDE 5 — UI Preview (iframes)
-  ════════════════════════════════════════════ -->
-  <div class="slide" data-index="4">
-    <div class="eyebrow">Platform Preview</div>
-    <h2 class="heading" style="margin-bottom:16px">From question to insight — <em>in seconds</em></h2>
+<!-- ═══════════════ SLIDE 5 — UI PREVIEW ═══════════════ -->
+<div class="slide" data-index="4">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sh-ey">Platform Preview</div>
+      <div class="sh-title">Three screens, one workflow: <em>plain English in → agent pipeline → consulting dashboard out</em></div>
+    </div>
+    <div class="sh-msg">
+      <strong>Key Finding</strong>
+      The FIP interface requires zero technical skills. Analysts type a question, select their datasets, and receive a fully-formatted dashboard with tables, charts, and plain-English narrative — all in under 30 seconds. No SQL. No code. No IT ticket.
+    </div>
+  </div>
+  <div class="sc">
+    <!-- Step flow -->
+    <div class="ui-flow" style="flex-shrink:0">
+      <div class="ui-step">
+        <div class="ui-step-num" style="background:var(--blue)">1</div>
+        <div class="ui-step-text"><strong>Natural Language Query</strong>Type question in plain English. Attach data files. Configure output formatting preferences.</div>
+      </div>
+      <div class="ui-step">
+        <div class="ui-step-num" style="background:#6366f1">2</div>
+        <div class="ui-step-text"><strong>Dataset Selection</strong>Confirm which LFI reports, SAR files, or KYC data the pipeline should analyse. Multi-file support.</div>
+      </div>
+      <div class="ui-step">
+        <div class="ui-step-num" style="background:#0891b2">3</div>
+        <div class="ui-step-text"><strong>Live Agent Execution</strong>Real-time feed of plan steps as they execute. Debugger and Router activations visible. WebSocket streaming.</div>
+      </div>
+      <div class="ui-step">
+        <div class="ui-step-num" style="background:var(--green)">4</div>
+        <div class="ui-step-text"><strong>Consulting Dashboard</strong>KPI cards, bar charts, trend lines, outlier table, plain-English narrative. Export to PDF or Excel.</div>
+      </div>
+      <div class="ui-step" style="border-right:none">
+        <div class="ui-step-num" style="background:var(--purple)">5</div>
+        <div class="ui-step-text"><strong>Research Report</strong>For FIP-Research queries: cited, structured report with sections, findings, and evidence references.</div>
+      </div>
+    </div>
+    <!-- Screens -->
     <div class="screens-row">
       <div class="screen-col">
-        <div class="screen-lbl">
-          <div class="step-pip" style="background:var(--blue)">1</div>
-          Ask in plain English · select data
-        </div>
+        <div class="screen-lbl" style="color:var(--blue)"><i data-lucide="message-square"></i> Screen 1 · Query Interface (01-chat.html)</div>
         <div class="screen-wrap" id="sw1">
           <iframe src="01-chat.html" id="if1" scrolling="no"></iframe>
         </div>
+        <div class="screen-note"><span>Plain English input</span><span>File attach panel</span><span>Formatting options</span><span>→ Dataset selection</span></div>
       </div>
       <div class="screen-col">
-        <div class="screen-lbl">
-          <div class="step-pip" style="background:var(--text-muted)">2</div>
-          Pipeline runs · live agent steps
-        </div>
+        <div class="screen-lbl" style="color:#0891b2"><i data-lucide="activity"></i> Screen 2 · Live Agent Dashboard (02-dashboard-insight.html)</div>
         <div class="screen-wrap" id="sw2">
           <iframe src="02-dashboard-insight.html" id="if2" scrolling="no"></iframe>
         </div>
+        <div class="screen-note"><span>Step-by-step agent log</span><span>Elapsed time</span><span>Round counter</span><span>Live WebSocket feed</span></div>
       </div>
       <div class="screen-col">
-        <div class="screen-lbl">
-          <div class="step-pip" style="background:var(--green)">3</div>
-          Consulting dashboard · export ready
-        </div>
+        <div class="screen-lbl" style="color:var(--green)"><i data-lucide="bar-chart-2"></i> Screen 3 · Result Dashboard (04-result-insight.html)</div>
         <div class="screen-wrap" id="sw3">
           <iframe src="04-result-insight.html" id="if3" scrolling="no"></iframe>
         </div>
+        <div class="screen-note"><span>4 KPI cards</span><span>12-LFI bar chart</span><span>QoQ trend line</span><span>Outlier table · Export</span></div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ═══════════════════════════════════════════
-       SLIDE 6 — CBUAE Enhancements
-  ════════════════════════════════════════════ -->
-  <div class="slide" data-index="5">
-    <div class="eyebrow">CBUAE-Native Intelligence</div>
-    <h2 class="heading">DS-STAR enhanced for <em>UAE financial supervision</em></h2>
-    <div class="enh-grid">
-      <div class="enh-card">
-        <div class="enh-icon" style="background:var(--blue-bg)"><i data-lucide="message-circle" style="color:var(--blue)"></i></div>
-        <div class="enh-title">Query Clarity Agent</div>
-        <div class="enh-desc">Validates queries before planning. Maps business language to data columns ("high-risk customers" → risk_band = 'High'). Flags ambiguous queries upfront.</div>
+<!-- ═══════════════ SLIDE 6 — ENHANCEMENTS ═══════════════ -->
+<div class="slide" data-index="5">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sh-ey">CBUAE-Native Intelligence</div>
+      <div class="sh-title">9 purpose-built enhancements embed <em>UAE regulatory expertise</em> directly into the DS-STAR pipeline</div>
+    </div>
+    <div class="sh-msg">
+      <strong>Key Finding</strong>
+      DS-STAR out-of-the-box has no domain knowledge. The CBUAE layer adds schema awareness, UAE law (Decretal Federal Law 20/2018, FATF 40), PII protection, and examination-ready audit logging — turning a research paper into a production supervisory tool.
+    </div>
+  </div>
+  <div class="sc">
+    <div class="enh-split">
+      <!-- Left: enhancement table -->
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="lbl">Enhancement Catalogue — Layered on Top of DS-STAR Core</div>
+        <div class="tbl-wrap" style="flex:1;overflow:auto">
+          <table class="tbl enh-tbl">
+            <thead><tr><th>#</th><th>Enhancement</th><th>What It Does</th><th>Regulatory Reference</th><th>Pipeline Position</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="badge bb">1</span></td>
+                <td><strong>Query Clarity Agent</strong></td>
+                <td>Validates query is answerable from available data. Maps business language → column names ("high-risk customers" → risk_band='High'). Routes to Insight vs Research mode. Fast-path for template queries.</td>
+                <td>—</td>
+                <td><span class="badge bk">Pre-Planner</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">2</span></td>
+                <td><strong>Domain-Aware Analyzer</strong></td>
+                <td>Extends base Analyzer to recognise CBUAE schemas per department: LFI fraud loss reports (fraud_type, channel, amount_aed), SAR/STR filing records, KYC/CDD exports, complaint registers, market surveillance trades. Produces richer D.</td>
+                <td>CBUAE reporting templates</td>
+                <td><span class="badge bk">Analyzer</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">3</span></td>
+                <td><strong>Regulatory Knowledge Injection</strong></td>
+                <td>Domain knowledge injected into Planner + Coder system prompts: UAE AML law, FATF 40, CTR threshold (AED 40,000), structuring patterns, fraud typology definitions (APP, CNP, social engineering, identity takeover), CPR mis-selling indicators.</td>
+                <td>Decretal Federal Law 20/2018; FATF Rec. 20; CPR 2020</td>
+                <td><span class="badge bk">Planner + Coder</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">4</span></td>
+                <td><strong>Department Routing</strong></td>
+                <td>Each of the 5 departments has a distinct data schema set, regulatory knowledge subset, and output template set. Routing logic ensures correct context is loaded per user session without manual configuration.</td>
+                <td>—</td>
+                <td><span class="badge bk">Pre-Planner</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">5</span></td>
+                <td><strong>Plain English Explainer</strong></td>
+                <td>Converts DataFrames, statistical outputs, and chart data into plain-language narratives. Tailored to department role and regulatory terminology. Non-technical analysts receive insight without data literacy. Runs after Finalizer.</td>
+                <td>—</td>
+                <td><span class="badge bk">Post-Finalizer</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">6</span></td>
+                <td><strong>PII Masking Layer</strong></td>
+                <td>Account numbers, national IDs, and customer names automatically masked before delivery. Pattern-matching + NER-based detection. Raw PII accessible only to authorised roles (Enforcement). Masking applied before Explainer output is rendered.</td>
+                <td>CBUAE Data Privacy Policy; UAE PDPL</td>
+                <td><span class="badge bk">Post-Explainer</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">7</span></td>
+                <td><strong>Supervisory Output Templates</strong></td>
+                <td>Finalizer extended with department-specific templates: LFI Fraud Benchmarking Report, SAR Filing Trend Report, Consumer Complaint Scorecard, Enforcement Evidence Summary, FATF Mutual Evaluation Annex. Invoked by template name in formatting_guidelines.</td>
+                <td>CBUAE supervisory letter standards</td>
+                <td><span class="badge bk">Finalizer</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">8</span></td>
+                <td><strong>Immutable Audit Log</strong></td>
+                <td>Every query, plan step, code version, execution result, and formatted output is timestamped, user-attributed, and written append-only to a tamper-evident log. Separate from task DB. Required for FATF mutual evaluation and internal examination readiness.</td>
+                <td>FATF Rec. 29 (record-keeping); CBUAE IA standards</td>
+                <td><span class="badge bk">All stages</span></td>
+              </tr>
+              <tr>
+                <td><span class="badge bb">9</span></td>
+                <td><strong>LLM Provider Adapter</strong></td>
+                <td>Single config flag switches LLM backend: provider: ollama (air-gapped production), provider: azure_openai (hybrid), provider: gemini (dev/test). All 8 agents use the same interface. Zero agent-level changes on provider switch.</td>
+                <td>CBUAE IT air-gap policy</td>
+                <td><span class="badge bk">All agents</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="enh-card">
-        <div class="enh-icon" style="background:var(--purple-bg)"><i data-lucide="database" style="color:var(--purple)"></i></div>
-        <div class="enh-title">Domain-Aware Analyzer</div>
-        <div class="enh-desc">Recognises CBUAE schemas — LFI fraud reports, SAR/STR filings, KYC data, complaint registers — without being told. Produces richer data descriptions per department.</div>
-      </div>
-      <div class="enh-card">
-        <div class="enh-icon" style="background:var(--green-bg)"><i data-lucide="book-open" style="color:var(--green)"></i></div>
-        <div class="enh-title">Regulatory Knowledge Injection</div>
-        <div class="enh-desc">UAE AML law, FATF 40 Recommendations, CTR threshold (AED 40,000), fraud typology definitions — injected into Planner and Coder prompts. Correct analysis by default.</div>
-      </div>
-      <div class="enh-card">
-        <div class="enh-icon" style="background:var(--blue-bg)"><i data-lucide="message-square" style="color:var(--blue)"></i></div>
-        <div class="enh-title">Plain English Explainer</div>
-        <div class="enh-desc">Converts DataFrames, statistics, and charts into plain-language narratives tailored to each department's regulatory role and terminology — no data literacy needed.</div>
-      </div>
-      <div class="enh-card">
-        <div class="enh-icon" style="background:var(--red-bg)"><i data-lucide="eye-off" style="color:var(--red)"></i></div>
-        <div class="enh-title">PII Masking Layer</div>
-        <div class="enh-desc">Account numbers, national IDs, and names are automatically masked before delivery. Raw PII accessible only to authorised roles. Masking happens before the analyst sees output.</div>
-      </div>
-      <div class="enh-card">
-        <div class="enh-icon" style="background:var(--amber-bg)"><i data-lucide="scroll-text" style="color:var(--amber)"></i></div>
-        <div class="enh-title">Immutable Audit Log</div>
-        <div class="enh-desc">Every query, plan step, code version, execution result, and output is timestamped and logged. Tamper-evident, user-attributed, and examination-ready.</div>
+      <!-- Right: tech stack + regulatory refs -->
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="lbl">Technical Stack</div>
+        <div class="stack-box">
+          <div class="stack-row">
+            <div class="stack-icon" style="background:var(--blue-bg)"><i data-lucide="cpu" style="color:var(--blue)"></i></div>
+            <div><div class="stack-name">LangGraph</div><div class="stack-spec">Agent orchestration · stateful graph · conditional routing</div></div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-icon" style="background:var(--purple-bg)"><i data-lucide="zap" style="color:var(--purple)"></i></div>
+            <div><div class="stack-name">Celery + Redis</div><div class="stack-spec">Async task queue · WebSocket streaming · result TTL</div></div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-icon" style="background:var(--green-bg)"><i data-lucide="box" style="color:var(--green)"></i></div>
+            <div><div class="stack-name">Docker Sandbox</div><div class="stack-spec">No network · 2 GB cap · read-only data · non-root</div></div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-icon" style="background:var(--amber-bg)"><i data-lucide="database" style="color:var(--amber)"></i></div>
+            <div><div class="stack-name">PostgreSQL</div><div class="stack-spec">Task DB · audit log · query history · RBAC</div></div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-icon" style="background:var(--blue-bg)"><i data-lucide="server" style="color:var(--blue)"></i></div>
+            <div><div class="stack-name">Ollama (llama3.3:70b-q4)</div><div class="stack-spec">Air-gapped · 10.0.0.42:11434 · 46 tok/s</div></div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-icon" style="background:#f0f9ff"><i data-lucide="globe" style="color:#0891b2"></i></div>
+            <div><div class="stack-name">FastAPI + React</div><div class="stack-spec">REST API · WebSocket · Role-based frontend views</div></div>
+          </div>
+        </div>
+        <div class="lbl">Regulatory References Embedded</div>
+        <div class="reg-note">
+          <div class="reg-note-title">UAE-Specific Legal Instruments Injected into LLM Context</div>
+          <div class="reg-note-item">Decretal Federal Law No. 20 of 2018 (AML-CFT) — SAR/CTR obligations, predicate offences, PEP definitions</div>
+          <div class="reg-note-item">FATF 40 Recommendations — typology library, risk-based approach, beneficial ownership rules</div>
+          <div class="reg-note-item">UAE CTR threshold: AED 40,000 — hard-coded into AML knowledge module</div>
+          <div class="reg-note-item">Consumer Protection Regulation (CPR) 2020 — complaint taxonomy, mis-selling indicators</div>
+          <div class="reg-note-item">CBUAE Payment System Fraud Reporting — LFI reporting templates, typology definitions</div>
+          <div class="reg-note-item">UAE Personal Data Protection Law (PDPL) 2021 — PII masking scope and access controls</div>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ═══════════════════════════════════════════
-       SLIDE 7 — Departments & Roadmap
-  ════════════════════════════════════════════ -->
-  <div class="slide" data-index="6">
-    <div class="eyebrow">Deployment</div>
-    <h2 class="heading">Five departments. <em>One platform.</em></h2>
-    <div class="deploy-body">
-      <div class="dept-col">
-        <div class="dept-card primary">
-          <div class="d-icon" style="background:var(--blue-bg)"><i data-lucide="shield" style="color:var(--blue)"></i></div>
-          <div>
-            <div class="d-name">Fraud Prevention Supervision <span class="d-badge">★ Primary</span></div>
-            <div class="d-use">LFI benchmarking, outlier detection, fraud typology trends, peer median comparisons, supervisory letter data annexes</div>
-          </div>
+<!-- ═══════════════ SLIDE 7 — DEPLOYMENT ═══════════════ -->
+<div class="slide" data-index="6">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="sh-ey">Deployment Plan</div>
+      <div class="sh-title">Five departments, <em>one air-gapped platform</em> — phased delivery from core pipeline to full research mode</div>
+    </div>
+    <div class="sh-msg">
+      <strong>Key Finding</strong>
+      Phase 0 (product lifecycle documentation) is complete. Phase 1 delivers the working DS-STAR core pipeline to Fraud Prevention Supervision as the pilot department. Full platform including FIP-Research, React frontend, and all 5 departments activates in Phase 3.
+    </div>
+  </div>
+  <div class="sc">
+    <div class="deploy-split">
+      <!-- Left: departments table -->
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="lbl">Department Coverage &amp; Primary Use Cases</div>
+        <div class="tbl-wrap">
+          <table class="tbl dept-tbl">
+            <thead><tr><th>Department</th><th>Primary FIP Use Cases</th><th>Key Data Sources</th><th>Modes</th><th>Phase</th></tr></thead>
+            <tbody>
+              <tr class="primary-row">
+                <td><strong>Fraud Prevention Supervision</strong> <span class="badge bb">★ Pilot</span></td>
+                <td>LFI fraud rate benchmarking vs peer median; outlier detection; typology trend analysis (APP, CNP, social engineering); supervisory letter data annexes; fraud channel breakdown</td>
+                <td>LFI fraud loss reports (47 LFIs); detection rate data; fraud control assessment files</td>
+                <td><span class="badge bb">Insight</span> <span class="badge bp">Research</span></td>
+                <td><span class="badge bg">Phase 1</span></td>
+              </tr>
+              <tr>
+                <td><strong>AML / CFT Supervision</strong></td>
+                <td>SAR filing trend analysis by LFI; FATF typology benchmark comparison; structuring pattern detection; beneficial ownership gap analysis; STR quality assessment</td>
+                <td>SAR/STR records (typology, lfi_id, filing_date); TM alert exports; BO data</td>
+                <td><span class="badge bb">Insight</span> <span class="badge bp">Research</span></td>
+                <td><span class="badge bg">Phase 2</span></td>
+              </tr>
+              <tr>
+                <td><strong>Market Conduct &amp; Consumer Protection</strong></td>
+                <td>Complaint volume trend by LFI and product; peer scorecard comparison; mis-selling pattern identification; resolution rate analysis; regulatory breach flagging</td>
+                <td>Consumer complaint register (product_type, category, resolution_status); market surveillance trades</td>
+                <td><span class="badge bb">Insight</span> <span class="badge bp">Research</span></td>
+                <td><span class="badge bg">Phase 2</span></td>
+              </tr>
+              <tr>
+                <td><strong>Enforcement</strong></td>
+                <td>Case evidence data packages; 3-year historical compliance pattern extraction; penalty calculation data; violation frequency analysis; LFI recidivism patterns</td>
+                <td>Case evidence files; penalty records; compliance history per LFI (cross-dept)</td>
+                <td><span class="badge bb">Insight</span></td>
+                <td><span class="badge bg">Phase 2</span></td>
+              </tr>
+              <tr>
+                <td><strong>Policy &amp; Research</strong></td>
+                <td>Annual sector fraud report; GCC/MENA benchmarking; regulatory impact assessments; FATF mutual evaluation preparation; cross-sector thematic analysis</td>
+                <td>Aggregated sector stats; international comparison datasets; all dept data (read-only)</td>
+                <td><span class="badge bp">Research</span></td>
+                <td><span class="badge bg">Phase 3</span></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="dept-card">
-          <div class="d-icon" style="background:var(--red-bg)"><i data-lucide="alert-triangle" style="color:var(--red)"></i></div>
-          <div>
-            <div class="d-name">AML / CFT Supervision</div>
-            <div class="d-use">SAR filing trend analysis, FATF benchmark comparisons, structuring pattern detection, beneficial ownership gap analysis</div>
+        <!-- Success KPIs -->
+        <div class="row" style="flex-shrink:0">
+          <div class="card-xs" style="flex:1">
+            <div class="lbl">Success Metrics — Phase 1 Targets</div>
+            <div class="kpi-items" style="margin-top:4px">
+              <div class="kpi-item">Average query response time<strong style="color:var(--green)">&lt;30s</strong></div>
+              <div class="kpi-item">Query success rate (Verifier "sufficient")<strong style="color:var(--green)">&gt;85%</strong></div>
+              <div class="kpi-item">Analyst adoption (Fraud Prevention)<strong>&gt;80% weekly active</strong></div>
+              <div class="kpi-item">Audit log completeness<strong>100%</strong></div>
+              <div class="kpi-item">PII exposure incidents<strong style="color:var(--green)">0</strong></div>
+            </div>
           </div>
-        </div>
-        <div class="dept-card">
-          <div class="d-icon" style="background:var(--purple-bg)"><i data-lucide="users" style="color:var(--purple)"></i></div>
-          <div>
-            <div class="d-name">Market Conduct & Consumer Protection</div>
-            <div class="d-use">Complaint volume trends by LFI and product, mis-selling pattern identification, peer complaint scorecards</div>
-          </div>
-        </div>
-        <div class="dept-card">
-          <div class="d-icon" style="background:var(--amber-bg)"><i data-lucide="scale" style="color:var(--amber)"></i></div>
-          <div>
-            <div class="d-name">Enforcement</div>
-            <div class="d-use">Case evidence summaries, historical compliance pattern analysis, penalty calculation data packages</div>
-          </div>
-        </div>
-        <div class="dept-card">
-          <div class="d-icon" style="background:var(--green-bg)"><i data-lucide="bar-chart-2" style="color:var(--green)"></i></div>
-          <div>
-            <div class="d-name">Policy & Research</div>
-            <div class="d-use">Annual sector reports, GCC/MENA benchmarking, regulatory impact assessments, FATF mutual evaluation preparation</div>
+          <div class="card-xs" style="flex:1">
+            <div class="lbl">Architecture Constraints (Air-Gap)</div>
+            <div class="kpi-items" style="margin-top:4px">
+              <div class="kpi-item">LLM backend<strong>Ollama (on-premise)</strong></div>
+              <div class="kpi-item">Network policy<strong>No outbound internet</strong></div>
+              <div class="kpi-item">Data residency<strong>CBUAE DC only</strong></div>
+              <div class="kpi-item">Auth<strong>CBUAE LDAP / AD SSO</strong></div>
+              <div class="kpi-item">Deployment<strong>Docker Compose → K8s</strong></div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="rmap-col">
-        <div class="rmap-lbl">Build Roadmap</div>
-        <div class="rmap-step">
-          <div class="rmap-dot rd-done"><i data-lucide="check" style="width:11px;height:11px"></i></div>
-          <div>
-            <div class="rmap-phase">Phase 0 — Complete</div>
-            <div class="rmap-desc">Product discovery, PRD, UX design, TDD, security review, test strategy. Full product lifecycle documentation.</div>
+      <!-- Right: roadmap -->
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="lbl">Build Roadmap</div>
+        <div class="rmap">
+          <div class="rmap-step">
+            <div class="rm-dot rm-done"><i data-lucide="check" style="width:11px;height:11px"></i></div>
+            <div>
+              <div class="rm-phase">Phase 0 · Complete</div>
+              <div class="rm-title">Product Lifecycle Documentation</div>
+              <div class="rm-items">1-Pager / PRFAQ · Requirements discovery · PRD · UX design + mockups · Technical design doc · Security &amp; privacy review · Test strategy · Work breakdown structure</div>
+            </div>
+          </div>
+          <div class="rmap-step">
+            <div class="rm-dot rm-next">1</div>
+            <div>
+              <div class="rm-phase">Phase 1 · Next · ~90 days</div>
+              <div class="rm-title">Core DS-STAR Pipeline</div>
+              <div class="rm-items">All 8 agents (LangGraph) · Ollama integration · Docker sandbox · PostgreSQL + Redis · FastAPI REST + WebSocket · Basic React frontend · Fraud Prevention pilot · Audit log v1</div>
+            </div>
+          </div>
+          <div class="rmap-step">
+            <div class="rm-dot rm-later">2</div>
+            <div>
+              <div class="rm-phase">Phase 2 · ~60 days</div>
+              <div class="rm-title">CBUAE Intelligence Layer</div>
+              <div class="rm-items">Domain-aware Analyzer · Regulatory knowledge injection · PII masking · Dept routing (AML, Market Conduct, Enforcement) · Output templates · Immutable audit log v2 · RBAC + LDAP SSO</div>
+            </div>
+          </div>
+          <div class="rmap-step">
+            <div class="rm-dot rm-later">3</div>
+            <div>
+              <div class="rm-phase">Phase 3 · ~60 days</div>
+              <div class="rm-title">FIP-Research Mode &amp; Full Frontend</div>
+              <div class="rm-items">DS-STAR+ (Sub-Q Gen, Report Writer, Evaluator) · React frontend complete · Report export (PDF/Word) · Query history + saved results · Admin panel · Policy &amp; Research dept onboarding</div>
+            </div>
+          </div>
+          <div class="rmap-step">
+            <div class="rm-dot rm-later">4</div>
+            <div>
+              <div class="rm-phase">Phase 4 · Ongoing</div>
+              <div class="rm-title">Operationalisation &amp; Scale</div>
+              <div class="rm-items">K8s deployment · HA configuration · LLM model upgrades · New data source connectors · GCC benchmarking datasets · FATF mutual evaluation reporting module</div>
+            </div>
           </div>
         </div>
-        <div class="rmap-step">
-          <div class="rmap-dot rd-next">2</div>
-          <div>
-            <div class="rmap-phase">Phase 1 — Core Pipeline</div>
-            <div class="rmap-desc">DS-STAR engine (8 agents), Ollama LLM, Docker sandbox, PostgreSQL + Redis, REST API + WebSocket streaming.</div>
-          </div>
-        </div>
-        <div class="rmap-step">
-          <div class="rmap-dot rd-later">3</div>
-          <div>
-            <div class="rmap-phase">Phase 2 — CBUAE Intelligence Layer</div>
-            <div class="rmap-desc">Schema recognition, regulatory knowledge injection, PII masking, audit log, department-level access controls.</div>
-          </div>
-        </div>
-        <div class="rmap-step">
-          <div class="rmap-dot rd-later">4</div>
-          <div>
-            <div class="rmap-phase">Phase 3 — Research Mode & Frontend</div>
-            <div class="rmap-desc">FIP-Research (DS-STAR+), React frontend, report templates, admin panel. UAT with Fraud Prevention Supervision team.</div>
+        <div class="card-xs">
+          <div class="lbl">Tech Stack Summary</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+            <span class="badge bb">LangGraph</span><span class="badge bb">FastAPI</span><span class="badge bb">React</span>
+            <span class="badge bk">PostgreSQL</span><span class="badge bk">Redis</span><span class="badge bk">Docker</span>
+            <span class="badge ba">Ollama</span><span class="badge ba">llama3.3:70b</span>
+            <span class="badge bg">Celery</span><span class="badge bg">WebSocket</span>
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
 </div><!-- /deck -->
 
-<!-- Nav controls -->
+<!-- Nav -->
 <div class="nav">
   <button class="nav-btn" onclick="go(cur-1)"><i data-lucide="chevron-left"></i></button>
   <div class="dots" id="dots"></div>
@@ -659,55 +1053,45 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
 
 <script>
 lucide.createIcons();
-
 const slides = Array.from(document.querySelectorAll('.slide'));
 const TOTAL = slides.length;
 let cur = 0;
-
-// Build dots
 const dotsEl = document.getElementById('dots');
 slides.forEach((_,i)=>{
-  const d = document.createElement('div');
-  d.className = 'dot' + (i===0?' active':'');
-  d.onclick = ()=>go(i);
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' active':'');
+  d.onclick=()=>go(i);
   dotsEl.appendChild(d);
 });
-
 function go(n){
   if(n<0||n>=TOTAL) return;
   slides[cur].classList.remove('active');
-  cur = n;
+  cur=n;
   slides[cur].classList.add('active');
   document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
-  document.getElementById('nav-count').textContent = (cur+1)+' / '+TOTAL;
-  if(cur===4) setTimeout(sizeFrames,60);
+  document.getElementById('nav-count').textContent=(cur+1)+' / '+TOTAL;
+  if(cur===4) setTimeout(sizeFrames,80);
 }
-
 document.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight'||e.key===' '||e.key==='ArrowDown') go(cur+1);
   if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(cur-1);
 });
-
-document.getElementById('nav-count').textContent = '1 / '+TOTAL;
-
-// Scale iframes to fill their wrapper
+document.getElementById('nav-count').textContent='1 / '+TOTAL;
 function sizeFrames(){
   [['sw1','if1'],['sw2','if2'],['sw3','if3']].forEach(([wId,fId])=>{
-    const wrap = document.getElementById(wId);
-    const frame = document.getElementById(fId);
+    const wrap=document.getElementById(wId);
+    const frame=document.getElementById(fId);
     if(!wrap||!frame) return;
-    const W = wrap.clientWidth;
-    const H = wrap.clientHeight;
-    const scale = W / 1280;
-    frame.style.width = '1280px';
-    frame.style.height = Math.round(H/scale)+'px';
-    frame.style.transform = `scale(${scale})`;
+    const W=wrap.clientWidth;
+    const H=wrap.clientHeight;
+    const scale=W/1280;
+    frame.style.width='1280px';
+    frame.style.height=Math.round(H/scale)+'px';
+    frame.style.transform=`scale(${scale})`;
   });
 }
-
-window.addEventListener('resize', sizeFrames);
-// Pre-size on load in case user jumps to slide 5
-window.addEventListener('load', sizeFrames);
+window.addEventListener('resize',sizeFrames);
+window.addEventListener('load',sizeFrames);
 </script>
 </body>
 </html>
