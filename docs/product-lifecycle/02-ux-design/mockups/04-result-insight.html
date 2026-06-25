@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Completed Analysis (FIP-Insight)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:#09090b;color:#fafafa;display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+
+/* Sidebar */
+.sidebar{width:240px;min-height:100vh;background:#09090b;border-right:1px solid #27272a;display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid #27272a;display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:#fafafa;color:#09090b;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:#fafafa}
+.logo-sub{font-size:10px;color:#52525b;font-weight:400}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:#52525b;font-weight:600;text-transform:uppercase;letter-spacing:0.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#71717a;font-size:13px;font-weight:500;transition:all 0.15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:#18181b;color:#fafafa}
+.nav-item:hover:not(.active){background:#18181b;color:#a1a1aa}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:#52525b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all 0.15s;margin-bottom:1px}
+.history-item:hover{background:#18181b;color:#a1a1aa}
+.history-item.current{background:#101828;color:#93c5fd}
+.history-item svg{width:13px;height:13px;flex-shrink:0;color:#3f3f46}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(59,130,246,0.15);color:#3b82f6}
+.hb-purple{background:rgba(168,85,247,0.15);color:#a855f7}
+.sidebar-footer{padding:12px 14px;border-top:1px solid #27272a;display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:#27272a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#a1a1aa;flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:#fafafa}
+.user-dept{font-size:11px;color:#52525b}
+.settings-btn{margin-left:auto;color:#52525b;cursor:pointer}
+.settings-btn svg{width:15px;height:15px}
+
+/* Main */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh;background:#09090b}
+.main-header{padding:14px 24px;border-bottom:1px solid #27272a;display:flex;align-items:center;justify-content:space-between}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-title{font-size:14px;font-weight:600;color:#fafafa}
+.mode-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600}
+.badge-done{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)}
+.header-right{display:flex;align-items:center;gap:8px}
+.action-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;background:transparent;border:1px solid #27272a;color:#71717a;font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+.action-btn:hover{background:#18181b;color:#fafafa}
+.action-btn svg{width:13px;height:13px}
+.notif-btn{width:32px;height:32px;background:transparent;border:1px solid #27272a;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#71717a}
+.notif-btn svg{width:15px;height:15px}
+
+/* Content */
+.content{flex:1;padding:24px;display:flex;flex-direction:column;gap:20px;max-width:960px;width:100%;margin:0 auto}
+
+/* Meta row */
+.meta-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.meta-chip{display:flex;align-items:center;gap:5px;font-size:11px;color:#52525b;padding:3px 8px;border-radius:5px;background:#18181b;border:1px solid #27272a}
+.meta-chip svg{width:11px;height:11px}
+
+/* Summary card */
+.summary-card{background:#111113;border:1px solid #27272a;border-radius:10px;padding:20px}
+.card-title{font-size:12px;font-weight:600;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px}
+.summary-text{font-size:14px;color:#e4e4e7;line-height:1.75}
+.summary-text strong{color:#fafafa}
+.callout{margin-top:14px;padding:12px 14px;background:#0f1a2e;border:1px solid rgba(59,130,246,0.25);border-radius:8px;border-left:3px solid #3b82f6}
+.callout-text{font-size:13px;color:#93c5fd;line-height:1.6}
+
+/* Chart card */
+.chart-card{background:#111113;border:1px solid #27272a;border-radius:10px;padding:20px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.chart-legend{display:flex;align-items:center;gap:12px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#71717a}
+.leg-dot{width:8px;height:8px;border-radius:50%}
+.chart-area{height:200px;display:flex;align-items:flex-end;gap:6px;padding-bottom:0}
+.bar-group{display:flex;flex-direction:column;align-items:center;flex:1;gap:3px}
+.bar-wrap{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:180px;gap:2px}
+.bar{width:70%;border-radius:3px 3px 0 0;min-height:2px;transition:all 0.3s}
+.bar-rate{background:#3b82f6}
+.bar-median-line{width:100%;height:2px;background:#f59e0b;position:relative;margin-top:-2px}
+.bar-label{font-size:9px;color:#52525b;text-align:center;margin-top:4px;white-space:nowrap}
+.bar-val{font-size:9px;color:#a1a1aa;margin-bottom:2px}
+.outlier-bar .bar{background:#ef4444}
+.chart-axis{display:flex;justify-content:space-between;padding:6px 0 0;border-top:1px solid #27272a;margin-top:4px}
+.axis-label{font-size:10px;color:#3f3f46}
+
+/* Data table */
+.table-card{background:#111113;border:1px solid #27272a;border-radius:10px;overflow:hidden}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #27272a}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:10px 16px;text-align:left;font-size:11px;font-weight:600;color:#52525b;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #1c1c1f}
+.tbl td{padding:10px 16px;font-size:13px;color:#e4e4e7;border-bottom:1px solid #1c1c1f}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#0d0d0f}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:11px;font-weight:700}
+.rb-1{background:rgba(239,68,68,0.15);color:#ef4444}
+.rb-2{background:rgba(245,158,11,0.15);color:#f59e0b}
+.rb-3{background:rgba(245,158,11,0.1);color:#fbbf24}
+.rb-n{background:#18181b;color:#52525b}
+.vs-badge{padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
+.vs-high{background:rgba(239,68,68,0.1);color:#f87171}
+.vs-med{background:rgba(245,158,11,0.1);color:#fbbf24}
+.vs-low{background:rgba(34,197,94,0.1);color:#4ade80}
+.outlier-flag{width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;margin-right:4px}
+
+/* Feedback bar */
+.feedback-bar{background:#111113;border:1px solid #27272a;border-radius:10px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.feedback-label{font-size:12px;color:#71717a}
+.feedback-actions{display:flex;align-items:center;gap:6px}
+.fb-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:transparent;border:1px solid #27272a;color:#71717a;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+.fb-btn:hover{background:#18181b;color:#fafafa}
+.fb-btn svg{width:13px;height:13px}
+.fb-sep{width:1px;height:20px;background:#27272a}
+
+/* Bottom hint */
+.bottom-hint{font-size:12px;color:#3f3f46;text-align:center;padding-bottom:8px}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div>
+      <div class="logo-text">FIP</div>
+      <div class="logo-sub">Financial Intelligence Platform</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="01-chat.html">
+      <i data-lucide="message-square"></i> New Analysis
+    </a>
+    <a class="nav-item active" href="#">
+      <i data-lucide="layout-dashboard"></i> Dashboard
+    </a>
+    <div class="nav-section">Recent</div>
+    <div class="history-item current">
+      <i data-lucide="check-circle"></i>
+      <span>Card fraud rate by LFI Q1…</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>APP fraud thematic report…</span>
+      <span class="history-badge hb-purple">R</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>STR filing trends by LFI</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>Social engineering outliers</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>H1 2024 fraud sector report</span>
+      <span class="history-badge hb-purple">R</span>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">SA</div>
+    <div>
+      <div class="user-name">Sara Al Mansouri</div>
+      <div class="user-dept">Fraud Prevention</div>
+    </div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <header class="main-header">
+    <div class="header-left">
+      <div class="header-title">Analysis Result</div>
+      <span class="mode-badge badge-done">
+        <i data-lucide="check" style="width:11px;height:11px"></i> FIP-Insight · Complete
+      </span>
+    </div>
+    <div class="header-right">
+      <button class="action-btn"><i data-lucide="download"></i> Export Excel</button>
+      <button class="action-btn"><i data-lucide="file-text"></i> Export PDF</button>
+      <button class="notif-btn"><i data-lucide="bell"></i></button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- Meta -->
+    <div class="meta-row">
+      <div class="meta-chip"><i data-lucide="calendar"></i> Q1 2025</div>
+      <div class="meta-chip"><i data-lucide="database"></i> 3 files · 47 LFIs</div>
+      <div class="meta-chip"><i data-lucide="refresh-cw"></i> 5 rounds</div>
+      <div class="meta-chip"><i data-lucide="clock"></i> 18.3s</div>
+      <div class="meta-chip"><i data-lucide="lock"></i> Snapshot: 2025-06-24T08:14Z</div>
+    </div>
+
+    <!-- Executive summary -->
+    <div class="summary-card">
+      <div class="card-title">Executive Summary</div>
+      <div class="summary-text">
+        Across 47 UAE LFIs in Q1 2025, the peer median card fraud loss rate was <strong>0.056%</strong> of total transaction volume. <strong>Six LFIs exceeded 2× the peer median</strong>, with Al Baraka Bank (ABB) recording the highest rate at <strong>0.183%</strong> — 3.3× the median. Three of the six outliers are mid-tier retail banks with high digital-channel exposure; social engineering and card-not-present fraud account for the majority of losses in the outlier group.
+      </div>
+      <div class="callout">
+        <div class="callout-text"><strong>Supervisory note:</strong> ABB, EIB, and FNB have remained above 2× peer median for two consecutive quarters. These institutions may warrant a targeted fraud control assessment under the CBUAE Fraud Prevention Supervision Framework.</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="card-title" style="margin-bottom:0">Card Fraud Loss Rate by LFI — Top 12 (Q1 2025)</div>
+        <div class="chart-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#3b82f6"></div> Fraud rate</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#ef4444"></div> >2× median (outlier)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#f59e0b"></div> Peer median (0.056%)</div>
+        </div>
+      </div>
+      <div class="chart-area">
+        <div class="bar-group outlier-bar"><div class="bar-wrap"><div class="bar-val">0.183%</div><div class="bar bar-rate" style="height:100%"></div></div><div class="bar-label">ABB</div></div>
+        <div class="bar-group outlier-bar"><div class="bar-wrap"><div class="bar-val">0.142%</div><div class="bar bar-rate" style="height:78%"></div></div><div class="bar-label">EIB</div></div>
+        <div class="bar-group outlier-bar"><div class="bar-wrap"><div class="bar-val">0.121%</div><div class="bar bar-rate" style="height:66%"></div></div><div class="bar-label">FNB</div></div>
+        <div class="bar-group outlier-bar"><div class="bar-wrap"><div class="bar-val">0.118%</div><div class="bar bar-rate" style="height:64%"></div></div><div class="bar-label">MBZ</div></div>
+        <div class="bar-group outlier-bar"><div class="bar-wrap"><div class="bar-val">0.113%</div><div class="bar bar-rate" style="height:62%"></div></div><div class="bar-label">RAK</div></div>
+        <div class="bar-group outlier-bar"><div class="bar-wrap"><div class="bar-val">0.112%</div><div class="bar bar-rate" style="height:61%"></div></div><div class="bar-label">SJB</div></div>
+        <div class="bar-group"><div class="bar-wrap"><div class="bar-val">0.087%</div><div class="bar" style="height:47%;background:#3b82f6"></div></div><div class="bar-label">NBD</div></div>
+        <div class="bar-group"><div class="bar-wrap"><div class="bar-val">0.074%</div><div class="bar" style="height:40%;background:#3b82f6"></div></div><div class="bar-label">ADIB</div></div>
+        <div class="bar-group"><div class="bar-wrap"><div class="bar-val">0.068%</div><div class="bar" style="height:37%;background:#3b82f6"></div></div><div class="bar-label">DIB</div></div>
+        <div class="bar-group"><div class="bar-wrap"><div class="bar-val">0.061%</div><div class="bar" style="height:33%;background:#3b82f6"></div></div><div class="bar-label">FAB</div></div>
+        <div class="bar-group"><div class="bar-wrap"><div class="bar-val">0.056%</div><div class="bar" style="height:31%;background:#3b82f6"></div></div><div class="bar-label">CBD</div></div>
+        <div class="bar-group"><div class="bar-wrap"><div class="bar-val">0.041%</div><div class="bar" style="height:22%;background:#3b82f6"></div></div><div class="bar-label">UNB</div></div>
+      </div>
+      <div style="height:2px;background:#f59e0b;margin-top:-4px;opacity:0.6;border-radius:1px"></div>
+      <div style="font-size:10px;color:#92400e;text-align:right;margin-top:3px">── Peer median 0.056%</div>
+    </div>
+
+    <!-- Data table -->
+    <div class="table-card">
+      <div class="table-header">
+        <div class="card-title" style="margin-bottom:0">Full LFI Rankings — Top 12</div>
+        <div style="font-size:11px;color:#52525b">47 LFIs total · Sorted by fraud rate</div>
+      </div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>LFI</th>
+            <th>Fraud Rate</th>
+            <th>vs. Peer Median</th>
+            <th>Primary Typology</th>
+            <th>Outlier</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="rank-badge rb-1">1</span></td>
+            <td>Al Baraka Bank (ABB)</td>
+            <td>0.183%</td>
+            <td><span class="vs-badge vs-high">3.3×</span></td>
+            <td>Social engineering</td>
+            <td><span class="outlier-flag"></span>Yes</td>
+          </tr>
+          <tr>
+            <td><span class="rank-badge rb-2">2</span></td>
+            <td>Emirates Islamic (EIB)</td>
+            <td>0.142%</td>
+            <td><span class="vs-badge vs-high">2.5×</span></td>
+            <td>Card-not-present</td>
+            <td><span class="outlier-flag"></span>Yes</td>
+          </tr>
+          <tr>
+            <td><span class="rank-badge rb-3">3</span></td>
+            <td>First National Bank (FNB)</td>
+            <td>0.121%</td>
+            <td><span class="vs-badge vs-high">2.2×</span></td>
+            <td>Card-not-present</td>
+            <td><span class="outlier-flag"></span>Yes</td>
+          </tr>
+          <tr>
+            <td><span class="rank-badge rb-n">7</span></td>
+            <td>Emirates NBD (NBD)</td>
+            <td>0.087%</td>
+            <td><span class="vs-badge vs-med">1.6×</span></td>
+            <td>Identity takeover</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><span class="rank-badge rb-n">10</span></td>
+            <td>First Abu Dhabi (FAB)</td>
+            <td>0.061%</td>
+            <td><span class="vs-badge vs-med">1.1×</span></td>
+            <td>Card-not-present</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><span class="rank-badge rb-n">11</span></td>
+            <td>Commercial Bank Dubai (CBD)</td>
+            <td>0.056%</td>
+            <td><span class="vs-badge vs-low">1.0×</span></td>
+            <td>Card-not-present</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Feedback bar -->
+    <div class="feedback-bar">
+      <div class="feedback-label">Was this analysis helpful?</div>
+      <div class="feedback-actions">
+        <button class="fb-btn"><i data-lucide="thumbs-up"></i> Helpful</button>
+        <button class="fb-btn"><i data-lucide="thumbs-down"></i> Not helpful</button>
+        <div class="fb-sep"></div>
+        <button class="fb-btn"><i data-lucide="flag"></i> Flag issue</button>
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped</div>
+  </div>
+</main>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

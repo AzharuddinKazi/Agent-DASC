@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — UI Mockups Index</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#09090b;color:#fafafa;min-height:100vh;padding:48px 32px}
+h1{font-size:24px;font-weight:700;margin-bottom:4px}
+p{color:#71717a;font-size:14px;margin-bottom:40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:#111113;border:1px solid #27272a;border-radius:10px;padding:20px;text-decoration:none;display:block;transition:border-color 0.15s,background 0.15s}
+.card:hover{border-color:#52525b;background:#18181b}
+.card-num{font-size:11px;font-weight:600;color:#52525b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px}
+.card-title{font-size:15px;font-weight:600;color:#fafafa;margin-bottom:4px}
+.card-desc{font-size:13px;color:#71717a;line-height:1.5}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;margin-top:10px}
+.blue{background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3)}
+.purple{background:rgba(168,85,247,0.15);color:#a855f7;border:1px solid rgba(168,85,247,0.3)}
+.zinc{background:rgba(113,113,122,0.15);color:#a1a1aa;border:1px solid rgba(113,113,122,0.3)}
+.tag{background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)}
+.divider{border:none;border-top:1px solid #27272a;margin:32px 0}
+</style>
+</head>
+<body>
+<h1>CBUAE Financial Intelligence Platform</h1>
+<p>UI Mockups — ShadCN Dark Theme · 7 Screens · Review before presentation</p>
+<div class="grid">
+  <a class="card" href="01-chat.html">
+    <div class="card-num">Screen 01</div>
+    <div class="card-title">Chat Interface</div>
+    <div class="card-desc">The main query entry page. Clean text box, starter templates, file upload.</div>
+    <span class="badge zinc">/ chat</span>
+  </a>
+  <a class="card" href="02-dashboard-insight.html">
+    <div class="card-num">Screen 02</div>
+    <div class="card-title">Analysis In Progress — FIP-Insight</div>
+    <div class="card-desc">Live agent progress panel, round counter, steering input, pause/stop controls.</div>
+    <span class="badge blue">FIP-Insight · Running</span>
+  </a>
+  <a class="card" href="03-dashboard-research.html">
+    <div class="card-num">Screen 03</div>
+    <div class="card-title">Report Mode — FIP-Research</div>
+    <div class="card-desc">Sub-question breakdown list, per-sub-question status, Report Mode purple badge.</div>
+    <span class="badge purple">FIP-Research · Running</span>
+  </a>
+  <a class="card" href="04-result-insight.html">
+    <div class="card-num">Screen 04</div>
+    <div class="card-title">Completed Analysis — FIP-Insight</div>
+    <div class="card-desc">Executive summary, bar chart, data table, export buttons, feedback bar.</div>
+    <span class="badge tag">Complete</span>
+  </a>
+  <a class="card" href="05-result-research.html">
+    <div class="card-num">Screen 05</div>
+    <div class="card-title">Completed Report — FIP-Research</div>
+    <div class="card-desc">Formal document output with sections, inline citations, and export controls.</div>
+    <span class="badge tag">Complete</span>
+  </a>
+  <a class="card" href="06-dataset-selection.html">
+    <div class="card-num">Screen 06</div>
+    <div class="card-title">Dataset Selection</div>
+    <div class="card-desc">File suggestion screen shown before pipeline starts. Analyst confirms data sources.</div>
+    <span class="badge zinc">Pre-pipeline</span>
+  </a>
+  <a class="card" href="07-admin-health.html">
+    <div class="card-num">Screen 07</div>
+    <div class="card-title">Admin — System Health</div>
+    <div class="card-desc">Task queue, GPU utilisation, error rate, DLQ, active tasks dashboard.</div>
+    <span class="badge zinc">/ admin</span>
+  </a>
+</div>
+</body>
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Dataset Selection</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:#09090b;color:#fafafa;display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+
+/* Sidebar */
+.sidebar{width:240px;min-height:100vh;background:#09090b;border-right:1px solid #27272a;display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid #27272a;display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:#fafafa;color:#09090b;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:#fafafa}
+.logo-sub{font-size:10px;color:#52525b;font-weight:400}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:#52525b;font-weight:600;text-transform:uppercase;letter-spacing:0.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#71717a;font-size:13px;font-weight:500;transition:all 0.15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:#18181b;color:#fafafa}
+.nav-item:hover:not(.active){background:#18181b;color:#a1a1aa}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:#52525b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all 0.15s;margin-bottom:1px}
+.history-item:hover{background:#18181b;color:#a1a1aa}
+.history-item svg{width:13px;height:13px;flex-shrink:0;color:#3f3f46}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(59,130,246,0.15);color:#3b82f6}
+.hb-purple{background:rgba(168,85,247,0.15);color:#a855f7}
+.sidebar-footer{padding:12px 14px;border-top:1px solid #27272a;display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:#27272a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#a1a1aa;flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:#fafafa}
+.user-dept{font-size:11px;color:#52525b}
+.settings-btn{margin-left:auto;color:#52525b;cursor:pointer}
+.settings-btn svg{width:15px;height:15px}
+
+/* Main */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh;background:#09090b}
+.main-header{padding:14px 24px;border-bottom:1px solid #27272a;display:flex;align-items:center;justify-content:space-between}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-title{font-size:14px;font-weight:600;color:#fafafa}
+.header-right{display:flex;align-items:center;gap:8px}
+.notif-btn{width:32px;height:32px;background:transparent;border:1px solid #27272a;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#71717a}
+.notif-btn svg{width:15px;height:15px}
+
+/* Content */
+.content{flex:1;padding:32px 40px;display:flex;flex-direction:column;gap:24px;max-width:880px;width:100%;margin:0 auto}
+
+/* Query recap */
+.query-recap{background:#111113;border:1px solid #27272a;border-radius:10px;padding:16px 20px}
+.ql{font-size:10px;font-weight:600;color:#52525b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+.qt{font-size:14px;color:#fafafa;line-height:1.6}
+
+/* Step heading */
+.step-heading{display:flex;align-items:center;gap:10px}
+.step-circle{width:24px;height:24px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:#3b82f6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-title{font-size:15px;font-weight:700;color:#fafafa}
+.step-sub{font-size:13px;color:#71717a;margin-top:3px}
+
+/* Sections */
+.section-label{font-size:11px;font-weight:600;color:#52525b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px}
+
+/* Suggested datasets */
+.dataset-grid{display:flex;flex-direction:column;gap:6px}
+.dataset-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;background:#111113;border:1px solid #27272a;cursor:pointer;transition:all 0.15s}
+.dataset-row:hover{border-color:#52525b}
+.dataset-row.selected{border-color:#3b82f6;background:#0d1626}
+.ds-check{width:18px;height:18px;border-radius:4px;border:1px solid #3f3f46;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s}
+.dataset-row.selected .ds-check{background:#3b82f6;border-color:#3b82f6}
+.ds-check svg{width:11px;height:11px;color:#fff}
+.ds-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dsi-blue{background:rgba(59,130,246,0.1)}
+.dsi-green{background:rgba(34,197,94,0.1)}
+.dsi-amber{background:rgba(245,158,11,0.1)}
+.ds-icon svg{width:15px;height:15px}
+.dsic-blue{color:#3b82f6}
+.dsic-green{color:#22c55e}
+.dsic-amber{color:#f59e0b}
+.ds-body{flex:1;min-width:0}
+.ds-name{font-size:13px;font-weight:600;color:#fafafa;margin-bottom:2px}
+.ds-meta{font-size:11px;color:#52525b;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ds-tag{padding:1px 6px;border-radius:4px;background:#18181b;border:1px solid #27272a;font-size:10px;color:#71717a}
+.ds-dept{padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:500}
+.dsd-fraud{background:rgba(59,130,246,0.1);color:#60a5fa}
+
+/* Upload drop zone */
+.upload-zone{border:1px dashed #27272a;border-radius:10px;padding:28px;text-align:center;transition:all 0.15s;cursor:pointer}
+.upload-zone:hover{border-color:#52525b;background:#0d0d0f}
+.upload-icon{width:40px;height:40px;border-radius:8px;background:#18181b;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.upload-icon svg{width:20px;height:20px;color:#52525b}
+.upload-title{font-size:13px;font-weight:600;color:#fafafa;margin-bottom:4px}
+.upload-sub{font-size:12px;color:#52525b}
+.upload-link{color:#3b82f6;cursor:pointer}
+.upload-sub2{font-size:11px;color:#3f3f46;margin-top:8px}
+
+/* Uploaded files */
+.uploaded-file{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:#0d0d0f;border:1px solid #27272a}
+.uf-icon{width:28px;height:28px;border-radius:5px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.uf-icon svg{width:13px;height:13px;color:#3b82f6}
+.uf-name{font-size:12px;color:#fafafa;font-weight:500}
+.uf-meta{font-size:11px;color:#52525b}
+.uf-remove{margin-left:auto;color:#3f3f46;cursor:pointer}
+.uf-remove svg{width:13px;height:13px}
+.uf-remove:hover{color:#71717a}
+
+/* Action bar */
+.action-bar{display:flex;align-items:center;justify-content:space-between;padding-top:4px}
+.action-bar-left{font-size:12px;color:#52525b}
+.action-bar-left strong{color:#a1a1aa}
+.btn-primary{display:flex;align-items:center;gap:6px;padding:8px 20px;border-radius:6px;background:#fafafa;border:none;color:#09090b;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+.btn-primary:hover{background:#e4e4e7}
+.btn-primary svg{width:14px;height:14px}
+.btn-secondary{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;background:transparent;border:1px solid #27272a;color:#71717a;font-size:13px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s;margin-right:8px}
+.btn-secondary:hover{background:#18181b;color:#fafafa}
+
+/* Bottom hint */
+.bottom-hint{font-size:12px;color:#3f3f46;text-align:center;padding-bottom:8px}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div>
+      <div class="logo-text">FIP</div>
+      <div class="logo-sub">Financial Intelligence Platform</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" href="01-chat.html">
+      <i data-lucide="message-square"></i> New Analysis
+    </a>
+    <a class="nav-item" href="04-result-insight.html">
+      <i data-lucide="layout-dashboard"></i> Dashboard
+    </a>
+    <div class="nav-section">Recent</div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>Card fraud rate by LFI Q1…</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>APP fraud thematic report…</span>
+      <span class="history-badge hb-purple">R</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>STR filing trends by LFI</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">SA</div>
+    <div>
+      <div class="user-name">Sara Al Mansouri</div>
+      <div class="user-dept">Fraud Prevention</div>
+    </div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <header class="main-header">
+    <div class="header-left">
+      <div class="header-title">Dataset Selection</div>
+    </div>
+    <div class="header-right">
+      <button class="notif-btn"><i data-lucide="bell"></i></button>
+      <button class="notif-btn"><i data-lucide="help-circle"></i></button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- Query recap -->
+    <div class="query-recap">
+      <div class="ql">Your Query</div>
+      <div class="qt">Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025?</div>
+    </div>
+
+    <!-- Step -->
+    <div>
+      <div class="step-heading">
+        <div class="step-circle">1</div>
+        <div>
+          <div class="step-title">Select data for this analysis</div>
+          <div class="step-sub">FIP suggests the following datasets based on your query. Add your own files or remove suggestions you don't need.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggested -->
+    <div>
+      <div class="section-label">Suggested by FIP</div>
+      <div class="dataset-grid">
+
+        <div class="dataset-row selected">
+          <div class="ds-check"><i data-lucide="check"></i></div>
+          <div class="ds-icon dsi-blue"><i data-lucide="file-spreadsheet" class="dsic-blue"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Fraud Loss Report — Q1 2025</div>
+            <div class="ds-meta">
+              <span>fraud_loss_q1_2025.csv</span>
+              <span>47 LFIs · 12 columns · 1,128 rows</span>
+              <span class="ds-tag">Institutional</span>
+              <span class="ds-dept dsd-fraud">Fraud Prevention</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dataset-row selected">
+          <div class="ds-check"><i data-lucide="check"></i></div>
+          <div class="ds-icon dsi-blue"><i data-lucide="file-spreadsheet" class="dsic-blue"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Transaction Volume Report — Q1 2025</div>
+            <div class="ds-meta">
+              <span>txn_volume_q1_2025.csv</span>
+              <span>47 LFIs · 8 columns · 564 rows</span>
+              <span class="ds-tag">Institutional</span>
+              <span class="ds-dept dsd-fraud">Fraud Prevention</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dataset-row selected">
+          <div class="ds-check"><i data-lucide="check"></i></div>
+          <div class="ds-icon dsi-green"><i data-lucide="building-2" class="dsic-green"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Master Reference — 2025</div>
+            <div class="ds-meta">
+              <span>lfi_master_2025.csv</span>
+              <span>54 LFIs · LFI names, types, categories</span>
+              <span class="ds-tag">Reference</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dataset-row">
+          <div class="ds-check"></div>
+          <div class="ds-icon dsi-amber"><i data-lucide="file-spreadsheet" class="dsic-amber"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Fraud Control Assessment — 2024</div>
+            <div class="ds-meta">
+              <span>fraud_control_assessment_2024.xlsx</span>
+              <span>47 LFIs · Qualitative scores, control maturity</span>
+              <span class="ds-tag">Institutional</span>
+              <span class="ds-dept dsd-fraud">Fraud Prevention</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Upload zone -->
+    <div>
+      <div class="section-label">Upload additional files (optional)</div>
+      <div class="upload-zone">
+        <div class="upload-icon"><i data-lucide="upload-cloud"></i></div>
+        <div class="upload-title">Drop files here or <span class="upload-link">browse</span></div>
+        <div class="upload-sub">CSV, Excel, JSON, PDF — up to 500 MB per file · 20 files max</div>
+        <div class="upload-sub2">Files are stored in your workspace and never leave CBUAE infrastructure</div>
+      </div>
+    </div>
+
+    <!-- Action bar -->
+    <div class="action-bar">
+      <div class="action-bar-left"><strong>3</strong> datasets selected · 2.1 MB total</div>
+      <div style="display:flex">
+        <button class="btn-secondary"><i data-lucide="arrow-left"></i> Back</button>
+        <button class="btn-primary"><i data-lucide="play"></i> Start Analysis</button>
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped</div>
+  </div>
+</main>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>

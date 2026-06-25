@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Inter',sans-serif;background:#09090b;color:#fafafa;display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+
+/* Sidebar */
+.sidebar{width:240px;min-height:100vh;background:#09090b;border-right:1px solid #27272a;display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid #27272a;display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:#fafafa;color:#09090b;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:#fafafa}
+.logo-sub{font-size:10px;color:#52525b;font-weight:400}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:#52525b;font-weight:600;text-transform:uppercase;letter-spacing:0.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#71717a;font-size:13px;font-weight:500;transition:all 0.15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:#18181b;color:#fafafa}
+.nav-item:hover:not(.active){background:#18181b;color:#a1a1aa}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:#52525b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all 0.15s;margin-bottom:1px}
+.history-item:hover{background:#18181b;color:#a1a1aa}
+.history-item svg{width:13px;height:13px;flex-shrink:0;color:#3f3f46}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(59,130,246,0.15);color:#3b82f6}
+.hb-purple{background:rgba(168,85,247,0.15);color:#a855f7}
+.sidebar-footer{padding:12px 14px;border-top:1px solid #27272a;display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:#27272a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#a1a1aa;flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:#fafafa}
+.user-dept{font-size:11px;color:#52525b}
+.settings-btn{margin-left:auto;color:#52525b;cursor:pointer}
+.settings-btn svg{width:15px;height:15px}
+
+/* Main */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh;background:#09090b}
+.main-header{padding:14px 24px;border-bottom:1px solid #27272a;display:flex;align-items:center;justify-content:space-between}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-title{font-size:14px;font-weight:600;color:#fafafa}
+.header-right{display:flex;align-items:center;gap:8px}
+.notif-btn{width:32px;height:32px;background:transparent;border:1px solid #27272a;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#71717a;transition:all 0.15s}
+.notif-btn:hover{background:#18181b;color:#fafafa}
+.notif-btn svg{width:15px;height:15px}
+
+/* Chat area */
+.chat-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px 24px}
+.chat-intro{text-align:center;margin-bottom:40px}
+.chat-intro h2{font-size:26px;font-weight:700;color:#fafafa;margin-bottom:8px;letter-spacing:-0.02em}
+.chat-intro p{font-size:14px;color:#71717a;max-width:480px;margin:0 auto}
+
+/* Input box */
+.input-container{width:100%;max-width:720px;margin-bottom:24px}
+.input-wrap{position:relative;background:#18181b;border:1px solid #27272a;border-radius:10px;transition:border-color 0.15s}
+.input-wrap:focus-within{border-color:#52525b}
+.query-textarea{width:100%;background:transparent;border:none;outline:none;color:#fafafa;font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;padding:16px 56px 16px 16px;resize:none;min-height:96px;max-height:200px}
+.query-textarea::placeholder{color:#3f3f46}
+.input-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid #27272a}
+.input-actions-left{display:flex;align-items:center;gap:6px}
+.input-actions-right{display:flex;align-items:center;gap:6px}
+.input-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:transparent;border:1px solid #27272a;color:#71717a;font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+.input-btn:hover{background:#27272a;color:#fafafa}
+.input-btn svg{width:13px;height:13px}
+.submit-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;background:#fafafa;border:none;color:#09090b;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
+.submit-btn:hover{background:#e4e4e7}
+.submit-btn svg{width:14px;height:14px}
+
+/* Format hint */
+.format-hint{width:100%;max-width:720px;margin-bottom:32px}
+.format-toggle{display:flex;align-items:center;gap:6px;background:transparent;border:none;color:#52525b;font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;padding:0;transition:color 0.15s}
+.format-toggle:hover{color:#a1a1aa}
+.format-toggle svg{width:13px;height:13px}
+
+/* Templates */
+.templates-section{width:100%;max-width:720px}
+.templates-label{font-size:12px;font-weight:500;color:#52525b;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em}
+.templates-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.template-card{background:#111113;border:1px solid #27272a;border-radius:8px;padding:12px 14px;cursor:pointer;transition:all 0.15s;text-align:left}
+.template-card:hover{border-color:#52525b;background:#18181b}
+.template-icon{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.ti-blue{background:rgba(59,130,246,0.15)}
+.ti-purple{background:rgba(168,85,247,0.15)}
+.ti-amber{background:rgba(245,158,11,0.15)}
+.template-icon svg{width:13px;height:13px}
+.tc-blue{color:#3b82f6}
+.tc-purple{color:#a855f7}
+.tc-amber{color:#f59e0b}
+.template-text{font-size:12px;color:#a1a1aa;line-height:1.4;font-weight:400}
+
+/* Bottom hint */
+.bottom-hint{margin-top:32px;font-size:12px;color:#3f3f46;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div>
+      <div class="logo-text">FIP</div>
+      <div class="logo-sub">Financial Intelligence Platform</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="nav-item active" href="#">
+      <i data-lucide="message-square"></i> New Analysis
+    </a>
+    <a class="nav-item" href="04-result-insight.html">
+      <i data-lucide="layout-dashboard"></i> Dashboard
+    </a>
+
+    <div class="nav-section">Recent</div>
+
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>Card fraud rate by LFI Q1...</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>APP fraud thematic report...</span>
+      <span class="history-badge hb-purple">R</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>STR filing trends by LFI</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>Social engineering outliers</span>
+      <span class="history-badge hb-blue">I</span>
+    </div>
+    <div class="history-item">
+      <i data-lucide="clock"></i>
+      <span>H1 2024 fraud sector report</span>
+      <span class="history-badge hb-purple">R</span>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="avatar">SA</div>
+    <div>
+      <div class="user-name">Sara Al Mansouri</div>
+      <div class="user-dept">Fraud Prevention</div>
+    </div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <header class="main-header">
+    <div class="header-left">
+      <div class="header-title">New Analysis</div>
+    </div>
+    <div class="header-right">
+      <button class="notif-btn"><i data-lucide="bell"></i></button>
+      <button class="notif-btn"><i data-lucide="help-circle"></i></button>
+    </div>
+  </header>
+
+  <div class="chat-area">
+    <div class="chat-intro">
+      <h2>What would you like to analyse?</h2>
+      <p>Ask a question about LFI data in plain English. FIP will plan, code, and verify the answer automatically.</p>
+    </div>
+
+    <div class="input-container">
+      <div class="input-wrap">
+        <textarea class="query-textarea" placeholder="e.g. Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025?"></textarea>
+        <div class="input-footer">
+          <div class="input-actions-left">
+            <button class="input-btn">
+              <i data-lucide="paperclip"></i> Attach files
+            </button>
+            <button class="input-btn">
+              <i data-lucide="sliders-horizontal"></i> Formatting
+            </button>
+          </div>
+          <div class="input-actions-right">
+            <button class="submit-btn">
+              <i data-lucide="arrow-up"></i> Analyse
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="templates-section">
+      <div class="templates-label">Start with a template</div>
+      <div class="templates-grid">
+
+        <div class="template-card">
+          <div class="template-icon ti-blue"><i data-lucide="bar-chart-2" class="tc-blue"></i></div>
+          <div class="template-text">Which LFIs have the highest card fraud loss rate vs. the peer median this quarter?</div>
+        </div>
+
+        <div class="template-card">
+          <div class="template-icon ti-blue"><i data-lucide="trending-up" class="tc-blue"></i></div>
+          <div class="template-text">Show me fraud typology trends by channel across UAE banks over the past 12 months.</div>
+        </div>
+
+        <div class="template-card">
+          <div class="template-icon ti-blue"><i data-lucide="alert-triangle" class="tc-blue"></i></div>
+          <div class="template-text">Which LFIs are statistical outliers in their social engineering fraud detection rate?</div>
+        </div>
+
+        <div class="template-card">
+          <div class="template-icon ti-purple"><i data-lucide="file-text" class="tc-purple"></i></div>
+          <div class="template-text">Generate a thematic analysis of APP fraud growth across UAE banks in 2024.</div>
+        </div>
+
+        <div class="template-card">
+          <div class="template-icon ti-purple"><i data-lucide="book-open" class="tc-purple"></i></div>
+          <div class="template-text">Produce a sector-wide fraud trend report for H1 2025 suitable for a supervisory letter annex.</div>
+        </div>
+
+        <div class="template-card">
+          <div class="template-icon ti-amber"><i data-lucide="search" class="tc-amber"></i></div>
+          <div class="template-text">Which LFIs have declining STR filing rates compared to the prior quarter?</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped</div>
+  </div>
+</main>
+
+<script>lucide.createIcons();</script>
+</body>
+</html>
