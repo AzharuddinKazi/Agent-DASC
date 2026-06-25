@@ -111,6 +111,25 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .md-insight{background:#2563eb}
 .md-research{background:#9333ea}
 
+/* Mini bar chart */
+.bar-chart-wrap{display:flex;align-items:flex-end;gap:5px;height:64px;margin-top:6px}
+.mini-bar-col{display:flex;flex-direction:column;align-items:center;flex:1;gap:3px}
+.mini-bar{width:100%;border-radius:3px 3px 0 0;background:#2563eb;min-height:2px}
+.dark .mini-bar{background:#3b82f6}
+.mini-bar.low{background:#e4e4e7}
+.dark .mini-bar.low{background:#27272a}
+.mini-bar-lbl{font-size:9px;color:var(--text-subtle);text-align:center}
+
+/* Metric rows */
+.metric-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.metric-row:last-child{border-bottom:none}
+.metric-name{color:var(--text-muted)}
+.metric-val{font-weight:600;color:var(--text)}
+.metric-badge{padding:1px 7px;border-radius:9999px;font-size:10px;font-weight:600}
+.mb-green{background:rgba(22,163,74,.1);color:#16a34a}
+.mb-amber{background:rgba(217,119,6,.1);color:#d97706}
+.mb-blue{background:rgba(37,99,235,.1);color:#2563eb}
+
 /* Audit log */
 .log-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px}
 .log-row:last-child{border-bottom:none}
@@ -277,6 +296,107 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
           <div class="log-row"><div class="log-time">09:11:44</div><div class="log-dot ld-green"></div><div class="log-user">Hessa A.</div><div class="log-event">Dataset uploaded · fraud_q2_2025.csv · 1.2 MB</div></div>
           <div class="log-row"><div class="log-time">08:55:21</div><div class="log-dot ld-blue"></div><div class="log-user">Admin</div><div class="log-event">Dataset assigned to Fraud Prevention, AML/CFT · lfi_master_2025.csv</div></div>
           <div class="log-row"><div class="log-time">07:52:11</div><div class="log-dot ld-red"></div><div class="log-user">Mohammed K.</div><div class="log-event">Task failed · DLQ · task_4b1c7d0f · LLM timeout</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance metrics + LLM config + query volume -->
+    <div class="three-col">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="bar-chart-2"></i> Query Volume — Last 7 Days</div>
+          <div style="font-size:10px;color:var(--text-subtle)">Total: 214</div>
+        </div>
+        <div class="panel-body">
+          <div class="bar-chart-wrap">
+            <div class="mini-bar-col"><div class="mini-bar" style="height:55%"></div><div class="mini-bar-lbl">Mon</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:70%"></div><div class="mini-bar-lbl">Tue</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:48%"></div><div class="mini-bar-lbl">Wed</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:90%"></div><div class="mini-bar-lbl">Thu</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:62%"></div><div class="mini-bar-lbl">Fri</div></div>
+            <div class="mini-bar-col"><div class="mini-bar low" style="height:18%"></div><div class="mini-bar-lbl">Sat</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:38%"></div><div class="mini-bar-lbl">Sun</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+            <div style="text-align:center">
+              <div style="font-size:15px;font-weight:700;color:var(--text)">156</div>
+              <div style="font-size:10px;color:var(--text-subtle)">FIP-Insight</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:15px;font-weight:700;color:#9333ea">58</div>
+              <div style="font-size:10px;color:var(--text-subtle)">FIP-Research</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:15px;font-weight:700;color:#16a34a">97.2%</div>
+              <div style="font-size:10px;color:var(--text-subtle)">Success rate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="gauge"></i> Performance Metrics</div>
+          <div style="font-size:10px;color:var(--text-subtle)">Last 24h</div>
+        </div>
+        <div class="panel-body" style="padding:6px 14px">
+          <div class="metric-row">
+            <span class="metric-name">Avg task duration</span>
+            <span class="metric-val">22.4s <span class="metric-badge mb-green">↓ 8%</span></span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Avg rounds (Insight)</span>
+            <span class="metric-val">3.8 / 20 max</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Avg sub-questions (Research)</span>
+            <span class="metric-val">5.2 / query</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Debugger activation rate</span>
+            <span class="metric-val">14.2% <span class="metric-badge mb-amber">↑ 3%</span></span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Verifier pass (1st round)</span>
+            <span class="metric-val">31% of tasks</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">LLM tokens / task (avg)</span>
+            <span class="metric-val">18,400</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="brain-circuit"></i> LLM Configuration</div>
+          <span class="metric-badge mb-green" style="font-size:10px">Connected</span>
+        </div>
+        <div class="panel-body" style="padding:6px 14px">
+          <div class="metric-row">
+            <span class="metric-name">Provider</span>
+            <span class="metric-val">Ollama (local)</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Model</span>
+            <span class="metric-val" style="font-family:monospace;font-size:11px">llama3.3:70b-q4</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Endpoint</span>
+            <span class="metric-val" style="font-family:monospace;font-size:11px">10.0.0.42:11434</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Context window</span>
+            <span class="metric-val">128k tokens</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Throughput</span>
+            <span class="metric-val">46 tok/s <span class="metric-badge mb-blue">GPU</span></span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Last health check</span>
+            <span class="metric-val" style="color:var(--text-subtle)">09:31:04</span>
+          </div>
         </div>
       </div>
     </div>
