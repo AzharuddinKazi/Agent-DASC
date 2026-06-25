@@ -23,7 +23,7 @@
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.1 | 2026-06-24 | FPS, CBUAE | Initial draft — feature coverage from discovery phase |
-| 0.2 | 2026-06-25 | FPS, CBUAE | PM audit applied: RACI, launch criteria, rollout plan, feedback mechanism, risk register, error states, system capacity, acceptance criteria (in progress), Section 10 simplified |
+| 0.2 | 2026-06-25 | FPS, CBUAE | PM audit applied: RACI, launch criteria, rollout plan, feedback mechanism, risk register, error states, system capacity, acceptance criteria (in progress), Section 10 simplified. AC review in progress — corrections applied to FR-QI-01/02/04/06, FR-DA-02/04/05 |
 
 ---
 
