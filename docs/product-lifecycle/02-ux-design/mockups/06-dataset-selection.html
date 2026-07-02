@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Dataset Selection</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root{
+  --bg:#f4f4f5;--bg-card:#ffffff;--bg-hover:#f0f0f1;--bg-active:#e9e9eb;
+  --border:#e4e4e7;--text:#09090b;--text-muted:#71717a;--text-subtle:#a1a1aa;
+  --sidebar:#ffffff;--sidebar-border:#e4e4e7;--nav-active:#f4f4f5;--nav-active-text:#09090b;
+  --submit-bg:#09090b;--submit-text:#ffffff;--card-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.dark{
+  --bg:#09090b;--bg-card:#111113;--bg-hover:#18181b;--bg-active:#27272a;
+  --border:#27272a;--text:#fafafa;--text-muted:#71717a;--text-subtle:#52525b;
+  --sidebar:#09090b;--sidebar-border:#27272a;--nav-active:#18181b;--nav-active-text:#fafafa;
+  --submit-bg:#fafafa;--submit-text:#09090b;--card-shadow:none;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.5;transition:background .2s,color .2s}
+
+.sidebar{width:240px;min-height:100vh;background:var(--sidebar);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10;transition:background .2s}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--text);color:var(--bg-card);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text-subtle)}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:var(--text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;transition:all .15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:var(--nav-active);color:var(--nav-active-text);font-weight:600}
+.nav-item:hover:not(.active){background:var(--bg-hover);color:var(--text)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-subtle);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all .15s;margin-bottom:1px}
+.history-item:hover{background:var(--bg-hover);color:var(--text-muted)}
+.history-item svg{width:13px;height:13px;flex-shrink:0;opacity:.5}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(37,99,235,.1);color:#2563eb}
+.hb-purple{background:rgba(147,51,234,.1);color:#9333ea}
+.sidebar-footer{padding:12px 14px;border-top:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:var(--bg-active);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-muted);flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:var(--text)}
+.user-dept{font-size:11px;color:var(--text-subtle)}
+.settings-btn{margin-left:auto;color:var(--text-subtle);cursor:pointer;display:flex}
+.settings-btn svg{width:15px;height:15px}
+
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main-header{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);transition:background .2s}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.header-right{display:flex;align-items:center;gap:6px}
+.icon-btn{width:32px;height:32px;background:transparent;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+.icon-btn svg{width:15px;height:15px}
+
+.content{flex:1;padding:32px 40px;display:flex;flex-direction:column;gap:20px;max-width:820px;width:100%;margin:0 auto}
+
+.query-recap{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;box-shadow:var(--card-shadow)}
+.ql{font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.qt{font-size:14px;color:var(--text);line-height:1.6}
+
+.step-heading{display:flex;align-items:center;gap:10px}
+.step-circle{width:24px;height:24px;border-radius:50%;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.3);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-title{font-size:15px;font-weight:700;color:var(--text)}
+.step-sub{font-size:13px;color:var(--text-muted);margin-top:3px}
+
+.section-label{font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+
+/* Dataset rows */
+.dataset-grid{display:flex;flex-direction:column;gap:6px}
+.dataset-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);cursor:pointer;transition:all .15s;box-shadow:var(--card-shadow)}
+.dataset-row:hover{border-color:#c0c0c4}
+.dark .dataset-row:hover{border-color:#52525b}
+.dataset-row.selected{border-color:#2563eb;background:rgba(37,99,235,.04)}
+.dark .dataset-row.selected{border-color:#3b82f6;background:rgba(59,130,246,.08)}
+.ds-check{width:18px;height:18px;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.dataset-row.selected .ds-check{background:#2563eb;border-color:#2563eb}
+.dark .dataset-row.selected .ds-check{background:#3b82f6;border-color:#3b82f6}
+.ds-check svg{width:11px;height:11px;color:#fff}
+.ds-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dsi-blue{background:rgba(37,99,235,.1)}
+.dsi-green{background:rgba(22,163,74,.1)}
+.dsi-amber{background:rgba(217,119,6,.1)}
+.ds-icon svg{width:15px;height:15px}
+.dsic-blue{color:#2563eb}
+.dsic-green{color:#16a34a}
+.dsic-amber{color:#d97706}
+.ds-body{flex:1;min-width:0}
+.ds-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.ds-meta{font-size:11px;color:var(--text-subtle);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ds-tag{padding:1px 6px;border-radius:4px;background:var(--bg-hover);border:1px solid var(--border);font-size:10px;color:var(--text-muted)}
+.ds-dept{padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:500;background:rgba(37,99,235,.08);color:#2563eb}
+
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;transition:all .15s;cursor:pointer;background:var(--bg-card)}
+.upload-zone:hover{border-color:#a1a1aa;background:var(--bg-hover)}
+.upload-icon{width:40px;height:40px;border-radius:8px;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.upload-icon svg{width:20px;height:20px;color:var(--text-muted)}
+.upload-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--text-muted)}
+.upload-link{color:#2563eb;cursor:pointer}
+.upload-sub2{font-size:11px;color:var(--text-subtle);margin-top:8px}
+
+/* Action bar */
+.action-bar{display:flex;align-items:center;justify-content:space-between}
+.action-bar-left{font-size:12px;color:var(--text-muted)}
+.action-bar-left strong{color:var(--text)}
+.btn-row{display:flex;gap:8px}
+.btn-primary{display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:6px;background:var(--submit-bg);border:none;color:var(--submit-text);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.btn-primary svg{width:14px;height:14px}
+.btn-secondary{display:flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.btn-secondary:hover{background:var(--bg-hover);color:var(--text)}
+.btn-secondary svg{width:13px;height:13px}
+
+.bottom-hint{font-size:12px;color:var(--text-subtle);text-align:center;padding-bottom:4px}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div><div class="logo-text">FIP</div><div class="logo-sub">Financial Intelligence Platform</div></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" href="01-chat.html"><i data-lucide="message-square"></i> New Analysis</a>
+    <a class="nav-item" href="04-result-insight.html"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+    <div class="nav-section">Recent</div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Card fraud rate by LFI Q1…</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>APP fraud thematic report…</span><span class="history-badge hb-purple">R</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>STR filing trends by LFI</span><span class="history-badge hb-blue">I</span></div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">AK</div>
+    <div><div class="user-name">Azharuddin Kazi</div><div class="user-dept">Fraud Prevention</div></div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="main-header">
+    <div class="header-title">Dataset Selection</div>
+    <div class="header-right">
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme"><i data-lucide="moon"></i></button>
+      <button class="icon-btn"><i data-lucide="bell"></i></button>
+      <button class="icon-btn"><i data-lucide="help-circle"></i></button>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="query-recap">
+      <div class="ql">Your Query</div>
+      <div class="qt">Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025?</div>
+    </div>
+
+    <div>
+      <div class="step-heading">
+        <div class="step-circle">1</div>
+        <div>
+          <div class="step-title">Select data for this analysis</div>
+          <div class="step-sub">FIP suggests datasets based on your query. Add files or remove suggestions as needed.</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Suggested by FIP</div>
+      <div class="dataset-grid">
+        <div class="dataset-row selected">
+          <div class="ds-check"><i data-lucide="check"></i></div>
+          <div class="ds-icon dsi-blue"><i data-lucide="file-spreadsheet" class="dsic-blue"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Fraud Loss Report — Q1 2025</div>
+            <div class="ds-meta"><span>fraud_loss_q1_2025.csv</span><span>47 LFIs · 12 cols · 1,128 rows</span><span class="ds-tag">Institutional</span><span class="ds-dept">Fraud Prevention</span></div>
+          </div>
+        </div>
+        <div class="dataset-row selected">
+          <div class="ds-check"><i data-lucide="check"></i></div>
+          <div class="ds-icon dsi-blue"><i data-lucide="file-spreadsheet" class="dsic-blue"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Transaction Volume Report — Q1 2025</div>
+            <div class="ds-meta"><span>txn_volume_q1_2025.csv</span><span>47 LFIs · 8 cols · 564 rows</span><span class="ds-tag">Institutional</span><span class="ds-dept">Fraud Prevention</span></div>
+          </div>
+        </div>
+        <div class="dataset-row selected">
+          <div class="ds-check"><i data-lucide="check"></i></div>
+          <div class="ds-icon dsi-green"><i data-lucide="building-2" class="dsic-green"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Master Reference — 2025</div>
+            <div class="ds-meta"><span>lfi_master_2025.csv</span><span>54 LFIs · Names, types, categories</span><span class="ds-tag">Reference</span></div>
+          </div>
+        </div>
+        <div class="dataset-row">
+          <div class="ds-check"></div>
+          <div class="ds-icon dsi-amber"><i data-lucide="file-spreadsheet" class="dsic-amber"></i></div>
+          <div class="ds-body">
+            <div class="ds-name">LFI Fraud Control Assessment — 2024</div>
+            <div class="ds-meta"><span>fraud_control_assessment_2024.xlsx</span><span>47 LFIs · Qualitative scores, control maturity</span><span class="ds-tag">Institutional</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Upload additional files (optional)</div>
+      <div class="upload-zone">
+        <div class="upload-icon"><i data-lucide="upload-cloud"></i></div>
+        <div class="upload-title">Drop files here or <span class="upload-link">browse</span></div>
+        <div class="upload-sub">CSV, Excel, JSON, PDF — up to 500 MB per file · 20 files max</div>
+        <div class="upload-sub2">Files are stored in your workspace and never leave CBUAE infrastructure</div>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <div class="action-bar-left"><strong>3</strong> datasets selected · 2.1 MB total</div>
+      <div class="btn-row">
+        <button class="btn-secondary"><i data-lucide="arrow-left"></i> Back</button>
+        <button class="btn-primary"><i data-lucide="play"></i> Start Analysis</button>
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped</div>
+  </div>
+</main>
+
+<script>
+lucide.createIcons();
+function toggleTheme(){
+  const d=document.body;const btn=document.getElementById('theme-btn');
+  const dark=d.classList.toggle('dark');
+  btn.innerHTML=dark?'<i data-lucide="sun"></i>':'<i data-lucide="moon"></i>';
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>

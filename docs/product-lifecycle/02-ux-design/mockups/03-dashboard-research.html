@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Report Mode In Progress (FIP-Research)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root{
+  --bg:#f4f4f5;--bg-card:#ffffff;--bg-hover:#f0f0f1;--bg-active:#e9e9eb;
+  --border:#e4e4e7;--text:#09090b;--text-muted:#71717a;--text-subtle:#a1a1aa;
+  --sidebar:#ffffff;--sidebar-border:#e4e4e7;--nav-active:#f4f4f5;--nav-active-text:#09090b;
+  --submit-bg:#09090b;--submit-text:#ffffff;--card-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.dark{
+  --bg:#09090b;--bg-card:#111113;--bg-hover:#18181b;--bg-active:#27272a;
+  --border:#27272a;--text:#fafafa;--text-muted:#71717a;--text-subtle:#52525b;
+  --sidebar:#09090b;--sidebar-border:#27272a;--nav-active:#18181b;--nav-active-text:#fafafa;
+  --submit-bg:#fafafa;--submit-text:#09090b;--card-shadow:none;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.5;transition:background .2s,color .2s}
+
+.sidebar{width:240px;min-height:100vh;background:var(--sidebar);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10;transition:background .2s}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--text);color:var(--bg-card);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text-subtle)}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:var(--text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;transition:all .15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:var(--nav-active);color:var(--nav-active-text);font-weight:600}
+.nav-item:hover:not(.active){background:var(--bg-hover);color:var(--text)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-subtle);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all .15s;margin-bottom:1px}
+.history-item.current{background:rgba(147,51,234,.07);color:#9333ea;border-left:2px solid #9333ea;padding-left:8px}
+.dark .history-item.current{background:rgba(168,85,247,.1);color:#c4b5fd;border-color:#a855f7}
+.history-item:hover:not(.current){background:var(--bg-hover);color:var(--text-muted)}
+.history-item svg{width:13px;height:13px;flex-shrink:0;opacity:.5}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(37,99,235,.1);color:#2563eb}
+.hb-purple{background:rgba(147,51,234,.1);color:#9333ea}
+.sidebar-footer{padding:12px 14px;border-top:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:var(--bg-active);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-muted);flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:var(--text)}
+.user-dept{font-size:11px;color:var(--text-subtle)}
+.settings-btn{margin-left:auto;color:var(--text-subtle);cursor:pointer;display:flex}
+.settings-btn svg{width:15px;height:15px}
+
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main-header{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);transition:background .2s}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.mode-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:rgba(147,51,234,.1);color:#9333ea;border:1px solid rgba(147,51,234,.2)}
+.dark .mode-badge{background:rgba(168,85,247,.15);color:#a855f7;border-color:rgba(168,85,247,.3)}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:#9333ea;animation:pulse 1.5s infinite}
+.dark .pulse-dot{background:#a855f7}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.header-right{display:flex;align-items:center;gap:6px}
+.ctrl-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.ctrl-btn:hover{background:var(--bg-hover);color:var(--text)}
+.ctrl-btn.stop{border-color:rgba(220,38,38,.3);color:#dc2626}
+.ctrl-btn svg,.icon-btn svg{width:13px;height:13px}
+.icon-btn{width:32px;height:32px;background:transparent;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+
+.content{flex:1;padding:24px;display:flex;flex-direction:column;gap:16px;max-width:960px;width:100%;margin:0 auto}
+
+.query-banner{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;box-shadow:var(--card-shadow)}
+.query-label{font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.query-text{font-size:14px;color:var(--text);line-height:1.6}
+
+/* Phase tracker */
+.phase-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;box-shadow:var(--card-shadow)}
+.card-title{font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+.phases{display:flex;align-items:center;gap:6px}
+.phase{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.phase-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.pd-done{background:rgba(147,51,234,.1);border:1px solid rgba(147,51,234,.3)}
+.pd-active{background:rgba(147,51,234,.1);border:2px solid #9333ea}
+.dark .pd-active{border-color:#a855f7}
+.pd-pending{background:var(--bg-hover);border:1px solid var(--border)}
+.phase-dot svg{width:14px;height:14px}
+.pd-done svg,.pd-active svg{color:#9333ea}
+.dark .pd-done svg,.dark .pd-active svg{color:#a855f7}
+.pd-pending svg{color:var(--text-subtle)}
+.phase-label{font-size:10px;font-weight:500;color:var(--text-subtle);text-align:center;line-height:1.3}
+.phase-label.active{color:#9333ea;font-weight:600}
+.dark .phase-label.active{color:#c084fc}
+.phase-line{flex:1;height:1px;background:var(--border);margin-bottom:22px}
+.phase-line.done{background:rgba(147,51,234,.3)}
+.dark .phase-line.done{background:rgba(168,85,247,.4)}
+
+/* Progress */
+.progress-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;box-shadow:var(--card-shadow)}
+.progress-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.progress-pct{font-size:20px;font-weight:700;color:#9333ea;letter-spacing:-.02em}
+.dark .progress-pct{color:#a855f7}
+.progress-bar-wrap{height:4px;background:var(--bg-active);border-radius:9999px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#9333ea);border-radius:9999px;width:42%}
+.dark .progress-fill{background:linear-gradient(90deg,#7c3aed,#a855f7)}
+.progress-sub{font-size:11px;color:var(--text-subtle);margin-top:6px}
+
+/* Sub-questions */
+.sq-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:var(--card-shadow)}
+.sq-list{display:flex;flex-direction:column;gap:8px}
+.sq-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--border)}
+.sq-row.sq-done{border-color:rgba(22,163,74,.2);background:rgba(22,163,74,.03)}
+.dark .sq-row.sq-done{border-color:rgba(34,197,94,.15);background:transparent}
+.sq-row.sq-running{border-color:rgba(147,51,234,.3);background:rgba(147,51,234,.04)}
+.dark .sq-row.sq-running{border-color:rgba(168,85,247,.35);background:#120e1a}
+.sq-row.sq-pending{opacity:.55}
+.sq-num{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px}
+.sqn-done{background:rgba(22,163,74,.12);color:#16a34a}
+.sqn-running{background:rgba(147,51,234,.12);color:#9333ea}
+.dark .sqn-running{color:#a855f7}
+.sqn-pending{background:var(--bg-active);color:var(--text-subtle)}
+.sq-body{flex:1;min-width:0}
+.sq-text{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:3px}
+.sq-text.muted{color:var(--text-muted)}
+.sq-meta{font-size:11px;color:var(--text-subtle);display:flex;align-items:center;gap:8px}
+.sq-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:9999px;font-size:10px;font-weight:600}
+.sqt-done{background:rgba(22,163,74,.1);color:#16a34a}
+.sqt-running{background:rgba(147,51,234,.1);color:#9333ea}
+.dark .sqt-running{color:#c084fc}
+.sqt-pending{background:var(--bg-active);color:var(--text-subtle)}
+
+.bottom-hint{font-size:12px;color:var(--text-subtle);text-align:center;padding-bottom:4px}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div><div class="logo-text">FIP</div><div class="logo-sub">Financial Intelligence Platform</div></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="01-chat.html"><i data-lucide="message-square"></i> New Analysis</a>
+    <a class="nav-item active" href="04-result-insight.html"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+    <div class="nav-section">Recent</div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Card fraud rate by LFI Q1…</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item current"><i data-lucide="loader"></i><span>APP fraud thematic report…</span><span class="history-badge hb-purple">R</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>STR filing trends by LFI</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Social engineering outliers</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>H1 2024 fraud sector report</span><span class="history-badge hb-purple">R</span></div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">AK</div>
+    <div><div class="user-name">Azharuddin Kazi</div><div class="user-dept">Fraud Prevention</div></div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="main-header">
+    <div class="header-left">
+      <div class="header-title">Report Mode</div>
+      <span class="mode-badge"><span class="pulse-dot"></span> FIP-Research · Running</span>
+    </div>
+    <div class="header-right">
+      <button class="ctrl-btn"><i data-lucide="pause"></i> Pause</button>
+      <button class="ctrl-btn stop"><i data-lucide="square"></i> Stop</button>
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme"><i data-lucide="moon"></i></button>
+      <button class="icon-btn"><i data-lucide="bell"></i></button>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="query-banner">
+      <div class="query-label">Research Query</div>
+      <div class="query-text">Generate a thematic analysis of APP fraud growth across UAE banks in 2024 — include typology breakdown, channel analysis, YoY trends, and LFI outliers.</div>
+    </div>
+
+    <div class="phase-card">
+      <div class="card-title">Pipeline Phase</div>
+      <div class="phases">
+        <div class="phase">
+          <div class="phase-dot pd-done"><i data-lucide="check"></i></div>
+          <div class="phase-label">Sub-question<br>Generation</div>
+        </div>
+        <div class="phase-line done"></div>
+        <div class="phase">
+          <div class="phase-dot pd-active"><i data-lucide="loader"></i></div>
+          <div class="phase-label active">DS-STAR<br>Analysis ×6</div>
+        </div>
+        <div class="phase-line"></div>
+        <div class="phase">
+          <div class="phase-dot pd-pending"><i data-lucide="file-text"></i></div>
+          <div class="phase-label">Report<br>Writer</div>
+        </div>
+        <div class="phase-line"></div>
+        <div class="phase">
+          <div class="phase-dot pd-pending"><i data-lucide="check-circle"></i></div>
+          <div class="phase-label">Evaluator &<br>Refinement</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-card">
+      <div class="progress-header">
+        <div class="card-title" style="margin-bottom:0">Overall Progress</div>
+        <div class="progress-pct">42%</div>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-fill"></div></div>
+      <div class="progress-sub">3 of 6 sub-questions complete · Report Writer and Evaluator pending</div>
+    </div>
+
+    <div class="sq-card">
+      <div class="card-title">Sub-Questions — Refinement Round 1</div>
+      <div class="sq-list">
+        <div class="sq-row sq-done">
+          <div class="sq-num sqn-done">1</div>
+          <div class="sq-body">
+            <div class="sq-text">What is the total APP fraud loss in AED by LFI for 2024 vs. 2023, and what is the YoY growth rate for each?</div>
+            <div class="sq-meta"><span class="sq-tag sqt-done"><i data-lucide="check" style="width:9px;height:9px"></i> Complete</span><span>6 rounds · 8.4s</span></div>
+          </div>
+        </div>
+        <div class="sq-row sq-done">
+          <div class="sq-num sqn-done">2</div>
+          <div class="sq-body">
+            <div class="sq-text">Which channels (mobile banking, internet banking, telephone) have the highest APP fraud rates in 2024?</div>
+            <div class="sq-meta"><span class="sq-tag sqt-done"><i data-lucide="check" style="width:9px;height:9px"></i> Complete</span><span>4 rounds · 5.2s</span></div>
+          </div>
+        </div>
+        <div class="sq-row sq-done">
+          <div class="sq-num sqn-done">3</div>
+          <div class="sq-body">
+            <div class="sq-text">What is the APP fraud typology breakdown — authorised push payment vs. invoice fraud vs. romance scams — across UAE banks?</div>
+            <div class="sq-meta"><span class="sq-tag sqt-done"><i data-lucide="check" style="width:9px;height:9px"></i> Complete</span><span>5 rounds · 6.9s</span></div>
+          </div>
+        </div>
+        <div class="sq-row sq-running">
+          <div class="sq-num sqn-running">4</div>
+          <div class="sq-body">
+            <div class="sq-text">Which LFIs are statistical outliers in their APP fraud detection rate relative to peer median in 2024?</div>
+            <div class="sq-meta"><span class="sq-tag sqt-running"><i data-lucide="loader" style="width:9px;height:9px"></i> Round 3 / 6</span><span>Executor running…</span></div>
+          </div>
+        </div>
+        <div class="sq-row sq-pending">
+          <div class="sq-num sqn-pending">5</div>
+          <div class="sq-body">
+            <div class="sq-text sq-text muted">What is the APP fraud recovery rate (recovered_amount / total_loss) by LFI and how does it compare to the peer average?</div>
+            <div class="sq-meta"><span class="sq-tag sqt-pending">Queued</span></div>
+          </div>
+        </div>
+        <div class="sq-row sq-pending">
+          <div class="sq-num sqn-pending">6</div>
+          <div class="sq-body">
+            <div class="sq-text sq-text muted">What are the peak APP fraud periods by quarter and month in 2024 — are there seasonal patterns across UAE LFIs?</div>
+            <div class="sq-meta"><span class="sq-tag sqt-pending">Queued</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped</div>
+  </div>
+</main>
+
+<script>
+lucide.createIcons();
+function toggleTheme(){
+  const d=document.body;const btn=document.getElementById('theme-btn');
+  const dark=d.classList.toggle('dark');
+  btn.innerHTML=dark?'<i data-lucide="sun"></i>':'<i data-lucide="moon"></i>';
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>

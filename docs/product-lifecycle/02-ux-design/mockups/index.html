@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — UI Mockups Index</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f4f5;--bg-card:#ffffff;--bg-hover:#f0f0f1;--border:#e4e4e7;
+  --text:#09090b;--text-muted:#71717a;--text-subtle:#a1a1aa;--card-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.dark{
+  --bg:#09090b;--bg-card:#111113;--bg-hover:#18181b;--border:#27272a;
+  --text:#fafafa;--text-muted:#71717a;--text-subtle:#52525b;--card-shadow:none;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:48px 32px;transition:background .2s,color .2s}
+.top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:40px}
+h1{font-size:24px;font-weight:700;margin-bottom:4px;color:var(--text)}
+p{color:var(--text-muted);font-size:14px}
+.icon-btn{width:34px;height:34px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+.icon-btn svg{width:15px;height:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:20px;text-decoration:none;display:block;transition:all .15s;box-shadow:var(--card-shadow)}
+.card:hover{border-color:#c0c0c4;box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-1px)}
+.dark .card:hover{border-color:#52525b;box-shadow:none;transform:none}
+.card-num{font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.card-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+.card-desc{font-size:13px;color:var(--text-muted);line-height:1.5}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;margin-top:10px}
+.blue{background:rgba(37,99,235,.1);color:#2563eb;border:1px solid rgba(37,99,235,.2)}
+.purple{background:rgba(147,51,234,.1);color:#9333ea;border:1px solid rgba(147,51,234,.2)}
+.zinc{background:var(--bg-hover);color:var(--text-muted);border:1px solid var(--border)}
+.green{background:rgba(22,163,74,.1);color:#16a34a;border:1px solid rgba(22,163,74,.2)}
+.divider{border:none;border-top:1px solid var(--border);margin:28px 0}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>CBUAE Financial Intelligence Platform</h1>
+    <p>UI Mockups — ShadCN Light Theme · 7 Screens · Click any card to preview</p>
+  </div>
+  <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme"><i data-lucide="moon"></i></button>
+</div>
+<div class="grid">
+  <a class="card" href="01-chat.html">
+    <div class="card-num">Screen 01</div>
+    <div class="card-title">Chat Interface</div>
+    <div class="card-desc">The main query entry page. Clean text box, starter templates, file upload.</div>
+    <span class="badge zinc">/ chat</span>
+  </a>
+  <a class="card" href="02-dashboard-insight.html">
+    <div class="card-num">Screen 02</div>
+    <div class="card-title">Analysis In Progress — FIP-Insight</div>
+    <div class="card-desc">Live agent progress panel, round counter, steering input, pause/stop controls.</div>
+    <span class="badge blue">FIP-Insight · Running</span>
+  </a>
+  <a class="card" href="03-dashboard-research.html">
+    <div class="card-num">Screen 03</div>
+    <div class="card-title">Report Mode — FIP-Research</div>
+    <div class="card-desc">Sub-question breakdown list, per-sub-question status, phase tracker.</div>
+    <span class="badge purple">FIP-Research · Running</span>
+  </a>
+  <a class="card" href="04-result-insight.html">
+    <div class="card-num">Screen 04</div>
+    <div class="card-title">Completed Analysis — FIP-Insight</div>
+    <div class="card-desc">Executive summary, bar chart, data table, export buttons, feedback bar.</div>
+    <span class="badge green">Complete</span>
+  </a>
+  <a class="card" href="05-result-research.html">
+    <div class="card-num">Screen 05</div>
+    <div class="card-title">Completed Report — FIP-Research</div>
+    <div class="card-desc">Formal document output with sections, inline citations, and export controls.</div>
+    <span class="badge green">Complete</span>
+  </a>
+  <a class="card" href="06-dataset-selection.html">
+    <div class="card-num">Screen 06</div>
+    <div class="card-title">Dataset Selection</div>
+    <div class="card-desc">File suggestion screen shown before pipeline starts. Analyst confirms data sources.</div>
+    <span class="badge zinc">Pre-pipeline</span>
+  </a>
+  <a class="card" href="07-admin-health.html">
+    <div class="card-num">Screen 07</div>
+    <div class="card-title">Admin — System Health</div>
+    <div class="card-desc">Task queue, GPU utilisation, error rate, DLQ, worker status dashboard.</div>
+    <span class="badge zinc">/ admin</span>
+  </a>
+</div>
+<script>
+lucide.createIcons();
+function toggleTheme(){
+  const d=document.body;const btn=document.getElementById('theme-btn');
+  const dark=d.classList.toggle('dark');
+  btn.innerHTML=dark?'<i data-lucide="sun"></i>':'<i data-lucide="moon"></i>';
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Agent-DASC · FIP Intelligence Platform</title>
+<style>
+:root{
+  --g:#86BC25;--gd:#046A38;
+  --t:#009CDE;--td:#006E9B;
+  --ink:#1A1A1A;--ink2:#63666A;--ink3:#9CA3AF;
+  --line:#D0D0CE;--bg:#F0F0EE;
+  --err:#B91C1C;--warn:#B45309;--v2c:#5B21B6;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;background:#C8C8C6;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;}
+
+#deck{width:1280px;height:720px;position:relative;transform-origin:center center;}
+.slide{position:absolute;inset:0;width:1280px;height:720px;display:flex;flex-direction:column;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .22s;background:#fff;}
+.slide.active{opacity:1;pointer-events:auto;}
+
+/* ── Top accent bar ── */
+.ta{flex-shrink:0;height:3px;background:var(--g);}
+
+/* ── Slide header ── */
+.sh{flex-shrink:0;border-left:4px solid var(--g);border-bottom:1px solid var(--line);background:#fff;padding:11px 24px 10px 20px;}
+.sh .ey{font-size:7.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ink2);margin-bottom:3px;}
+.sh .ti{font-size:15px;font-weight:700;color:var(--ink);line-height:1.22;}
+.sh .su{font-size:8.5px;color:var(--ink2);margin-top:3px;line-height:1.45;}
+
+/* ── Content body ── */
+.sc{flex:1;overflow:hidden;padding:10px 24px 8px;display:flex;flex-direction:column;gap:8px;background:#fff;}
+
+/* ── Footer ── */
+.ft{flex-shrink:0;height:20px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:#fff;}
+.fts{font-size:7px;color:var(--ink3);}
+.ftp{font-size:7px;color:var(--ink3);font-weight:600;}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;font-size:7.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border:1px solid;white-space:nowrap;}
+.bv1{border-color:#86BC25;color:var(--gd);background:#F4FAE8;}
+.bv2{border-color:#5B21B6;color:var(--v2c);background:#F5F3FF;}
+.bdr{border-color:#B91C1C;color:var(--err);background:#FEF2F2;}
+.bfx{border-color:#B45309;color:var(--warn);background:#FFFBEB;}
+
+/* ── Layout ── */
+.row{display:flex;gap:8px;flex:1;min-height:0;}
+.col{flex:1;display:flex;flex-direction:column;gap:7px;min-height:0;overflow:hidden;}
+
+/* ── Cards ── */
+.card{background:#fff;border:1px solid var(--line);padding:9px 11px;overflow:hidden;}
+.card.cl{border-left:3px solid var(--g);}
+.card.cl2{border-left:3px solid var(--t);}
+.card.cl3{border-left:3px solid var(--err);}
+.card.cl4{border-left:3px solid var(--v2c);}
+.ch{font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px;}
+.cb{font-size:8.5px;color:var(--ink2);line-height:1.5;}
+
+/* ── KPI tiles ── */
+.krow{display:flex;gap:8px;flex-shrink:0;}
+.kpi{flex:1;border:1px solid var(--line);padding:9px 11px;}
+.kpi.kr{border-top:2px solid var(--err);}
+.kpi.kt{border-top:2px solid var(--t);}
+.kpi.kg{border-top:2px solid var(--g);}
+.kpi.kw{border-top:2px solid var(--warn);}
+.kpi .kn{font-size:20px;font-weight:800;line-height:1;color:var(--ink);}
+.kpi .kl{font-size:7.5px;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;color:var(--ink2);font-weight:600;}
+.kpi .ks{font-size:7.5px;color:var(--ink3);margin-top:1px;}
+
+/* ── Tables ── */
+.tw{overflow:hidden;border:1px solid var(--line);}
+table{width:100%;border-collapse:collapse;font-size:8.5px;}
+thead{background:var(--bg);}
+th{padding:5px 9px;text-align:left;font-size:7.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink2);}
+td{padding:4px 9px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:middle;}
+td.hl{color:var(--ink);font-weight:600;}
+.pg2{color:var(--gd);font-weight:700;}
+.pr2{color:var(--err);font-weight:700;}
+
+/* ── Pills ── */
+.pill{display:inline-block;padding:1px 7px;font-size:8px;font-weight:600;border:1px solid;}
+.pg{border-color:#86BC25;color:var(--gd);background:#F4FAE8;}
+.pr{border-color:#B91C1C;color:var(--err);background:#FEF2F2;}
+.pa{border-color:#B45309;color:var(--warn);background:#FFFBEB;}
+.pb{border-color:#009CDE;color:var(--td);background:#EFF9FF;}
+.pp{border-color:#5B21B6;color:var(--v2c);background:#F5F3FF;}
+
+/* ── Lists ── */
+.lst{list-style:none;display:flex;flex-direction:column;gap:3px;}
+.lst li{display:flex;align-items:flex-start;gap:5px;font-size:8.5px;color:var(--ink2);line-height:1.45;}
+.lst li::before{content:'—';flex-shrink:0;margin-top:0;color:var(--g);font-weight:700;}
+.lst li.r::before{color:var(--err);}
+.lst li.a::before{color:var(--warn);}
+
+/* ═══════════════════════════════════════════
+   COVER
+═══════════════════════════════════════════ */
+.cover{flex-direction:row !important;}
+.cv-left{width:580px;flex-shrink:0;background:var(--ink);display:flex;flex-direction:column;justify-content:center;padding:50px 48px;border-right:4px solid var(--g);}
+.cv-tag{font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--g);margin-bottom:18px;display:flex;align-items:center;gap:10px;}
+.cv-tag::before{content:'';width:28px;height:2px;background:var(--g);flex-shrink:0;}
+.cv-title{font-size:34px;font-weight:800;line-height:1.1;color:#F0F0EE;margin-bottom:14px;}
+.cv-title em{color:var(--g);font-style:normal;}
+.cv-sub{font-size:9px;color:#9CA3AF;line-height:1.65;margin-bottom:24px;max-width:420px;}
+.cv-pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:22px;}
+.cv-pill{border:1px solid rgba(134,188,37,.35);color:rgba(134,188,37,.8);font-size:8px;font-weight:600;padding:2px 9px;}
+.cv-meta{display:flex;flex-direction:column;gap:4px;border-top:1px solid rgba(255,255,255,.08);padding-top:14px;}
+.cv-mr{font-size:8px;color:#63666A;display:flex;gap:6px;}
+.cv-mr strong{color:#9CA3AF;}
+.cv-right{flex:1;background:var(--bg);display:flex;flex-direction:column;padding:36px 36px 30px;}
+.cv-rtitle{font-size:7.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px;}
+.cv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;}
+.cv-stat{background:#fff;border:1px solid var(--line);padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between;}
+.cv-stat .n{font-size:22px;font-weight:800;line-height:1;margin-bottom:5px;}
+.cv-stat .l{font-size:8px;color:var(--ink2);line-height:1.4;}
+.cv-foot{margin-top:10px;font-size:7px;color:var(--ink3);}
+
+/* ═══════════════════════════════════════════
+   AGENDA
+═══════════════════════════════════════════ */
+.ag-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;}
+.ag-item{background:#fff;border:1px solid var(--line);border-left:3px solid var(--g);padding:10px 13px;display:flex;gap:10px;overflow:hidden;}
+.ag-num{font-size:20px;font-weight:800;line-height:1;flex-shrink:0;width:30px;color:var(--ink);opacity:.18;}
+.ag-body h3{font-size:10px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+.ag-body p{font-size:8.5px;color:var(--ink2);line-height:1.5;}
+.ag-body .tags{margin-top:5px;}
+
+/* ═══════════════════════════════════════════
+   SECTION DIVIDERS — DELOITTE SPLIT
+═══════════════════════════════════════════ */
+.div-slide{flex-direction:row !important;}
+.dv-left{width:52%;display:flex;flex-direction:column;justify-content:flex-end;padding:48px 44px 44px 44px;background:#1A1A1A;border-right:4px solid var(--g);}
+.dv-sec{font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--g);margin-bottom:10px;}
+.dv-title{font-size:25px;font-weight:800;color:#F0F0EE;line-height:1.2;margin-bottom:18px;}
+.dv-title em{color:var(--g);font-style:normal;}
+.dv-bullets{display:flex;flex-direction:column;gap:6px;}
+.dv-b{font-size:9px;color:rgba(240,240,238,.65);display:flex;align-items:flex-start;gap:7px;line-height:1.45;}
+.dv-b::before{content:'—';color:var(--g);flex-shrink:0;font-weight:700;}
+.dv-right{flex:1;background:#fff;display:flex;flex-direction:column;justify-content:center;padding:40px 36px;gap:12px;}
+.dv-stat{border:1px solid var(--line);border-top:3px solid var(--g);padding:16px 18px;background:#fff;}
+.dn{font-size:22px;font-weight:800;line-height:1;color:var(--ink);}
+.dl{font-size:9px;font-weight:700;color:var(--ink);margin-top:4px;}
+.ds{font-size:7.5px;color:var(--ink2);margin-top:2px;}
+
+/* ═══════════════════════════════════════════
+   AGENTS (arch slide)
+═══════════════════════════════════════════ */
+.agent{flex:1;border:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.agent.at{border-top:2px solid var(--t);}
+.agent.ag{border-top:2px solid var(--g);}
+.agent-hd{padding:4px 7px;font-size:8px;font-weight:700;color:var(--ink);background:var(--bg);}
+.agent-bd{padding:4px 7px;font-size:7.5px;color:var(--ink2);line-height:1.4;flex:1;}
+
+/* ═══════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════ */
+#nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:9px;background:rgba(26,26,26,.92);border:1px solid #3A3A3A;padding:5px 14px;z-index:999;}
+#nav button{background:none;border:none;color:#63666A;font-size:16px;cursor:pointer;padding:1px 4px;line-height:1;transition:color .12s;}
+#nav button:hover{color:#F0F0EE;}
+#slide-info{font-size:8.5px;color:#63666A;min-width:48px;text-align:center;}
+.dots{display:flex;gap:4px;}
+.dot{width:5px;height:5px;background:#3A3A3A;cursor:pointer;transition:background .15s;}
+.dot.on{background:var(--g);}
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- ══════════════════════════════════════════
+  01 · COVER
+══════════════════════════════════════════ -->
+<div class="slide cover active" id="s0">
+  <div class="cv-left">
+    <div class="cv-tag">Agent-DASC · FIP Intelligence Platform</div>
+    <div class="cv-title">Turn Regulatory Data<br>into <em>Supervisory<br>Intelligence</em></div>
+    <div class="cv-sub">A self-correcting AI agent system that lets CBUAE's Financial Crime &amp; Market Conduct analysts answer complex questions using natural language — no code, no SQL, no waiting.</div>
+    <div class="cv-pills">
+      <div class="cv-pill">DS-STAR Architecture</div>
+      <div class="cv-pill">LangGraph + Python Sandbox</div>
+      <div class="cv-pill">On-Premise · Air-Gapped</div>
+      <div class="cv-pill">React + ShadCN UI</div>
+    </div>
+    <div class="cv-meta">
+      <div class="cv-mr"><strong>Status:</strong> Discovery Complete · PRD v1.0 Finalised</div>
+      <div class="cv-mr"><strong>Scope:</strong> 5 departments · All analyst levels</div>
+      <div class="cv-mr"><strong>Date:</strong> June 2026 · Confidential</div>
+    </div>
+  </div>
+  <div class="cv-right">
+    <div class="cv-rtitle">Why it matters</div>
+    <div class="cv-grid">
+      <div class="cv-stat" style="border-top:3px solid var(--err);">
+        <div class="n" style="color:var(--err);">3–5 days</div>
+        <div class="l">Current cycle time for a thematic review using Excel + manual SQL</div>
+      </div>
+      <div class="cv-stat" style="border-top:3px solid var(--g);">
+        <div class="n" style="color:var(--gd);">&lt; 30 min</div>
+        <div class="l">Target cycle time for the same analysis with Agent-DASC</div>
+      </div>
+      <div class="cv-stat" style="border-top:3px solid var(--t);">
+        <div class="n" style="color:var(--td);">45%</div>
+        <div class="l">DS-STAR accuracy on hard benchmarks vs 12.7% baseline (Google, 2025)</div>
+      </div>
+      <div class="cv-stat" style="border-top:3px solid var(--v2c);">
+        <div class="n" style="color:var(--v2c);">88%+</div>
+        <div class="l">DS-STAR+ win rate over best baseline on open-ended research tasks</div>
+      </div>
+    </div>
+    <div class="cv-foot">Based on DS-STAR paper · arXiv:2509.21825 · Google Cloud · Sept 2025</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  02 · AGENDA
+══════════════════════════════════════════ -->
+<div class="slide" id="s1">
+  <div class="ta"></div>
+  <div class="sh">
+    <div class="ey">Agenda</div>
+    <div class="ti">This deck answers five questions every executive will ask</div>
+    <div class="su">Each section builds toward a complete picture — the problem, the solution, the technology, the evidence, and what comes next.</div>
+  </div>
+  <div class="sc">
+    <div class="ag-grid">
+      <div class="ag-item">
+        <div class="ag-num">01</div>
+        <div class="ag-body">
+          <h3>The Problem</h3>
+          <p>Why CBUAE's supervisory analysts cannot get timely answers from complex regulatory data — and what that costs in cycle time and supervisory capacity.</p>
+          <div class="tags"><span class="badge bv1">Validated</span></div>
+        </div>
+      </div>
+      <div class="ag-item">
+        <div class="ag-num">02</div>
+        <div class="ag-body">
+          <h3>The Solution</h3>
+          <p>Two operating modes — FIP-Insight (specific queries) and FIP-Research (thematic reports) — powered by a single self-correcting agent engine.</p>
+          <div class="tags"><span class="badge bv1">Architecture Confirmed</span></div>
+        </div>
+      </div>
+      <div class="ag-item">
+        <div class="ag-num">03</div>
+        <div class="ag-body">
+          <h3>Technology</h3>
+          <p>DS-STAR's 8-agent pipeline, architecture corrections vs the paper, CBUAE intelligence layer, and explicit V1 / V2 / Dropped scope boundaries.</p>
+          <div class="tags"><span class="badge bv1">PRD Signed Off</span></div>
+        </div>
+      </div>
+      <div class="ag-item">
+        <div class="ag-num">04</div>
+        <div class="ag-body">
+          <h3>See It In Action</h3>
+          <p>Live UI walkthrough: chat query entry, real-time agent progress dashboard, and the final analytical result view with one-click export controls.</p>
+          <div class="tags"><span class="badge bv1">Mockups Complete</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;">
+      <div class="ag-item" style="flex:1;">
+        <div class="ag-num">05</div>
+        <div class="ag-body">
+          <h3>What's Next</h3>
+          <p>Complete V1 scope, what's deferred, what was considered and dropped, and a 4-phase deployment roadmap covering all 5 CBUAE departments.</p>
+          <div class="tags"><span class="badge bv2">Planning</span></div>
+        </div>
+      </div>
+      <div style="flex:1;border:1px solid var(--line);border-left:3px solid var(--g);padding:10px 13px;">
+        <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink2);margin-bottom:7px;">Document Status</div>
+        <div style="font-size:8.5px;color:var(--ink2);line-height:1.9;">
+          <span style="color:var(--gd);font-weight:700;">✓</span> One-Pager · Requirements Discovery<br/>
+          <span style="color:var(--gd);font-weight:700;">✓</span> Architecture Decisions (18 confirmed Q&amp;As)<br/>
+          <span style="color:var(--gd);font-weight:700;">✓</span> PRD v1.0 · UX Mockups (5 screens)<br/>
+          <span style="color:var(--warn);font-weight:700;">◌</span> TDD / Technical Spec — in progress<br/>
+          <span style="color:var(--ink3);">○</span> Security Review · Work Breakdown — pending
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><div class="fts">Agent-DASC · FIP Intelligence Platform · Confidential</div><div class="ftp">2 / 14</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  03 · DIVIDER: THE PROBLEM
+══════════════════════════════════════════ -->
+<div class="slide div-slide" id="s2">
+  <div class="dv-left">
+    <div class="dv-sec">Section One · The Problem</div>
+    <div class="dv-title">Supervisory analysts are<br><em>bottlenecked</em> by<br>data complexity</div>
+    <div class="dv-bullets">
+      <div class="dv-b">3–5 days to produce a thematic review from raw regulatory returns</div>
+      <div class="dv-b">Data scattered across Excel, PDF submissions, and disconnected systems</div>
+      <div class="dv-b">Technical analysts are a scarce shared resource — non-technical analysts wait indefinitely</div>
+    </div>
+  </div>
+  <div class="dv-right">
+    <div class="dv-stat" style="border-top-color:var(--err);">
+      <div class="dn" style="color:var(--err);">3–5</div>
+      <div class="dl">days per thematic review</div>
+      <div class="ds">Manual Excel + SQL process, today</div>
+    </div>
+    <div class="dv-stat">
+      <div class="dn">47+</div>
+      <div class="dl">LFIs filing in heterogeneous formats</div>
+      <div class="ds">CSV, Excel, PDF, Word — no unified schema</div>
+    </div>
+    <div class="dv-stat">
+      <div class="dn" style="color:var(--err);">0</div>
+      <div class="dl">Self-service analytics tools</div>
+      <div class="ds">Available to non-technical analysts today</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  04 · THE PROBLEM — DETAIL
+══════════════════════════════════════════ -->
+<div class="slide" id="s3">
+  <div class="ta"></div>
+  <div class="sh">
+    <div class="ey">Section 01 · The Problem · SCQA Framework</div>
+    <div class="ti">Every supervisory question requires multi-step data work that only technical staff can do — creating a systemic analyst capacity bottleneck</div>
+    <div class="su">Situation: analysts have complex questions. Complication: answering them requires code. Question: how do you scale? Answer: Agent-DASC.</div>
+  </div>
+  <div class="sc">
+    <div class="krow">
+      <div class="kpi kr">
+        <div class="kn">3–5 days</div>
+        <div class="kl">time per thematic review</div>
+        <div class="ks">manual Excel + SQL</div>
+      </div>
+      <div class="kpi kw">
+        <div class="kn">47+</div>
+        <div class="kl">LFIs · heterogeneous files</div>
+        <div class="ks">CSV, Excel, PDF, Word</div>
+      </div>
+      <div class="kpi kt">
+        <div class="kn">5</div>
+        <div class="kl">CBUAE departments</div>
+        <div class="ks">Fraud, AML, Market, Enforcement, Policy</div>
+      </div>
+      <div class="kpi kr">
+        <div class="kn">0</div>
+        <div class="kl">self-service analytics</div>
+        <div class="ks">available to non-technical analysts</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col" style="flex:1.5;">
+        <div class="card cl3" style="flex:0 0 auto;">
+          <div class="ch">Today's Analyst Workflow — Fully Manual</div>
+          <div style="display:flex;align-items:center;gap:3px;">
+            <div style="flex:1;border:1px solid var(--line);padding:6px 5px;font-size:8px;color:var(--ink);text-align:center;line-height:1.4;">1. Request data<br/><span style="color:var(--ink2);">from IT team</span></div>
+            <div style="font-size:10px;color:var(--ink3);flex-shrink:0;">›</div>
+            <div style="flex:1;border:1px solid var(--line);padding:6px 5px;font-size:8px;color:var(--ink);text-align:center;line-height:1.4;">2. Receive files<br/><span style="color:var(--ink2);">CSV, Excel, PDF</span></div>
+            <div style="font-size:10px;color:var(--ink3);flex-shrink:0;">›</div>
+            <div style="flex:1;border:1px solid var(--line);padding:6px 5px;font-size:8px;color:var(--ink);text-align:center;line-height:1.4;">3. Write code<br/><span style="color:var(--ink2);">Python/SQL if skilled</span></div>
+            <div style="font-size:10px;color:var(--ink3);flex-shrink:0;">›</div>
+            <div style="flex:1;border:1px solid var(--line);padding:6px 5px;font-size:8px;color:var(--ink);text-align:center;line-height:1.4;">4. Build charts<br/><span style="color:var(--ink2);">manual in Excel</span></div>
+            <div style="font-size:10px;color:var(--ink3);flex-shrink:0;">›</div>
+            <div style="flex:1;border:1px solid var(--line);padding:6px 5px;font-size:8px;color:var(--ink);text-align:center;line-height:1.4;">5. Write report<br/><span style="color:var(--ink2);">Word, manually</span></div>
+          </div>
+          <div style="margin-top:6px;border:1px solid var(--line);border-left:3px solid var(--err);padding:4px 9px;font-size:8px;color:var(--err);">Non-technical analysts skip steps 3–4 entirely — analysis never happens or is delegated indefinitely</div>
+        </div>
+        <div class="card" style="flex:1;">
+          <div class="ch">Questions That Currently Take Days to Answer</div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Analyst Question</th><th>Dept</th><th>Today</th><th>With Agent-DASC</th></tr></thead>
+              <tbody>
+                <tr><td>"Which LFIs have highest card fraud rate vs peers?"</td><td><span class="pill pb">FIP</span></td><td class="pr2">3 days</td><td class="pg2">&lt;15 min</td></tr>
+                <tr><td>"SAR filing trends across exchange houses 2024"</td><td><span class="pill pp">AML</span></td><td class="pr2">4 days</td><td class="pg2">&lt;20 min</td></tr>
+                <tr><td>"Which LFIs have most consumer complaints by product?"</td><td><span class="pill pa">MC</span></td><td class="pr2">2 days</td><td class="pg2">&lt;10 min</td></tr>
+                <tr><td>"Generate APP fraud thematic review for Q1 2025"</td><td><span class="pill pb">FIP</span></td><td class="pr2">5 days</td><td class="pg2">&lt;30 min</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="flex:.6;">
+        <div class="card" style="flex:1;">
+          <div class="ch">Root Causes</div>
+          <ul class="lst">
+            <li class="r">Heterogeneous formats — no unified schema across LFI returns</li>
+            <li class="r">Non-technical analysts lack coding skills for ad-hoc queries</li>
+            <li class="r">Technical resources shared and always queue-bound</li>
+            <li class="r">No institutional memory — analysis can't be re-run on fresh data</li>
+            <li class="a">Every report is bespoke — no templating or reuse</li>
+            <li class="a">Supervisory decisions delayed while analysis is pending</li>
+          </ul>
+        </div>
+        <div class="card cl">
+          <div class="ch">The Answer: Agent-DASC</div>
+          <div class="cb">An AI agent that takes a plain-English question, profiles the data, writes and runs the code, verifies the result, and delivers a formatted analysis — in minutes, with no technical dependency.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><div class="fts">CBUAE FIP departmental requirements interviews · DS-STAR paper arXiv:2509.21825 (Google Cloud, Sept 2025)</div><div class="ftp">4 / 14</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  05 · DIVIDER: THE SOLUTION
+══════════════════════════════════════════ -->
+<div class="slide div-slide" id="s4">
+  <div class="dv-left">
+    <div class="dv-sec">Section Two · The Solution</div>
+    <div class="dv-title">Two modes,<br>one engine —<br><em>insight at any scale</em></div>
+    <div class="dv-bullets">
+      <div class="dv-b">FIP-Insight: specific questions answered in &lt;15 minutes</div>
+      <div class="dv-b">FIP-Research: open-ended thematic reports in &lt;30 minutes</div>
+      <div class="dv-b">Routing is automatic — no analyst configuration required</div>
+    </div>
+  </div>
+  <div class="dv-right">
+    <div class="dv-stat">
+      <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin-bottom:4px;">FIP-Insight · Mode A</div>
+      <div class="dn" style="color:var(--gd);">&lt;15 min</div>
+      <div class="ds">Specific queries · DS-STAR 8-agent pipeline</div>
+    </div>
+    <div style="text-align:center;font-size:8px;color:var(--ink3);font-style:italic;padding:4px 0;">+ same self-correcting engine</div>
+    <div class="dv-stat" style="border-top-color:var(--v2c);">
+      <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin-bottom:4px;">FIP-Research · Mode B</div>
+      <div class="dn" style="color:var(--v2c);">&lt;30 min</div>
+      <div class="ds">Open-ended reports · DS-STAR+ pipeline</div>
+    </div>
+    <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:10px 14px;">
+      <div style="font-size:8px;font-weight:700;color:var(--gd);margin-bottom:4px;">Shared across both modes</div>
+      <div style="font-size:8.5px;color:var(--ink2);">Audit log · Data versioning · Word / PDF / Excel export · Pause / Resume / Stop · Mid-analysis steering</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  06 · THE SOLUTION — TWO MODES
+══════════════════════════════════════════ -->
+<div class="slide" id="s5">
+  <div class="ta"></div>
+  <div class="sh">
+    <div class="ey">Section 02 · The Solution · Two Modes</div>
+    <div class="ti">FIP-Insight answers specific questions; FIP-Research synthesises thematic reports — one platform covers all five CBUAE departments from day one</div>
+    <div class="su">Query routing is automatic: the Query Clarity Agent classifies intent and directs to Mode A (DS-STAR) or Mode B (DS-STAR+) before any analysis begins.</div>
+  </div>
+  <div class="sc">
+    <div class="row">
+      <div class="col">
+        <div class="card cl" style="flex:0 0 auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;"><div class="ch" style="margin-bottom:0;">Mode A — FIP-Insight</div><span class="badge bv1">V1</span></div>
+          <div style="font-size:8px;color:var(--ink2);margin-bottom:5px;">DS-STAR · 8-agent self-correcting pipeline · single query</div>
+          <ul class="lst">
+            <li>Specific factoid question → narrative + tables + charts in &lt;15 min</li>
+            <li>Chat-style response — a direct answer, not a document</li>
+            <li>Linear follow-up questions supported in same thread</li>
+          </ul>
+        </div>
+        <div class="card" style="flex:1;">
+          <div class="ch">FIP-Insight Example Queries</div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Question</th><th>Dept</th></tr></thead>
+              <tbody>
+                <tr><td>"Which LFIs have highest card fraud loss rate vs sector peers?"</td><td><span class="pill pb">FIP</span></td></tr>
+                <tr><td>"Show SAR filing rate trends Q1–Q4 2024 by exchange house"</td><td><span class="pill pp">AML</span></td></tr>
+                <tr><td>"Which banks have most unresolved consumer complaints?"</td><td><span class="pill pa">MC</span></td></tr>
+                <tr><td>"Pull all fraud data for Emirates NBD last 3 years"</td><td><span class="pill pr">ENF</span></td></tr>
+                <tr><td>"Compare UAE card fraud rate vs GCC average"</td><td><span class="pill pg">POL</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card cl4" style="flex:0 0 auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;"><div class="ch" style="margin-bottom:0;">Mode B — FIP-Research</div><span class="badge bv1">V1</span></div>
+          <div style="font-size:8px;color:var(--ink2);margin-bottom:5px;">DS-STAR+ · decomposes query → N DS-STAR runs → cited report</div>
+          <ul class="lst">
+            <li>Open-ended query → N sub-questions (auto-decomposed)</li>
+            <li>Cited report: every claim references the sub-question + code</li>
+            <li>Suitable for supervisory letters, thematic reviews, board annexes</li>
+          </ul>
+        </div>
+        <div class="card" style="flex:1;">
+          <div class="ch">FIP-Research Example Queries</div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Question</th><th>Dept</th></tr></thead>
+              <tbody>
+                <tr><td>"Generate thematic review: APP fraud growth across UAE banks 2024"</td><td><span class="pill pb">FIP</span></td></tr>
+                <tr><td>"Produce FATF mutual evaluation prep — AML typology analysis"</td><td><span class="pill pp">AML</span></td></tr>
+                <tr><td>"Create mis-selling thematic report across personal loans 2024"</td><td><span class="pill pa">MC</span></td></tr>
+                <tr><td>"Generate evidence package for case #ENF-2025-044"</td><td><span class="pill pr">ENF</span></td></tr>
+                <tr><td>"Annual UAE fraud sector report by channel and typology 2024"</td><td><span class="pill pg">POL</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col" style="flex:.52;">
+        <div class="card" style="flex:1;">
+          <div class="ch">Mode A vs Mode B</div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>Attribute</th><th>Mode A</th><th>Mode B</th></tr></thead>
+              <tbody>
+                <tr><td class="hl">Query type</td><td>Specific</td><td>Open-ended</td></tr>
+                <tr><td class="hl">Output</td><td>Chat response</td><td>Report</td></tr>
+                <tr><td class="hl">Time</td><td class="pg2">&lt;15 min</td><td class="pg2">&lt;30 min</td></tr>
+                <tr><td class="hl">Sub-questions</td><td>None</td><td>Auto (N)</td></tr>
+                <tr><td class="hl">Citations</td><td>Code-linked</td><td>Inline + code</td></tr>
+                <tr><td class="hl">Export</td><td colspan="2" style="text-align:center;">Word · PDF · Excel</td></tr>
+                <tr><td class="hl">Routing</td><td colspan="2" style="text-align:center;font-size:8px;">Automatic — Query Clarity Agent</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card cl">
+          <div class="ch">Shared V1 Features</div>
+          <ul class="lst">
+            <li>Pause / Resume / Stop any running task</li>
+            <li>Mid-analysis steering hints (accumulated)</li>
+            <li>Data versioning — snapshot per result</li>
+            <li>Immutable audit log, all queries + steps</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><div class="fts">Mode routing: Feature Discussion Topic 3 §3 · DS-STAR paper §3 (DS-STAR+)</div><div class="ftp">6 / 14</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  07 · DIVIDER: TECHNOLOGY
+══════════════════════════════════════════ -->
+<div class="slide div-slide" id="s6">
+  <div class="dv-left">
+    <div class="dv-sec">Section Three · Technology</div>
+    <div class="dv-title">Built on Google's DS-STAR —<br><em>adapted for CBUAE</em></div>
+    <div class="dv-bullets">
+      <div class="dv-b">8 core agents forming a self-correcting iterative loop</div>
+      <div class="dv-b">18 architecture decisions documented — paper vs our implementation</div>
+      <div class="dv-b">V1 / V2-Future / Dropped scope explicitly marked on every component</div>
+    </div>
+  </div>
+  <div class="dv-right">
+    <div class="dv-stat">
+      <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin-bottom:4px;">Hard Task Accuracy · DABStep</div>
+      <div class="dn">45.2%</div>
+      <div class="ds">DS-STAR vs <span style="color:var(--err);font-weight:700;">12.7%</span> baseline · +32 pp improvement</div>
+    </div>
+    <div class="dv-stat">
+      <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin-bottom:4px;">Research Report Win Rate · DABStep-R</div>
+      <div class="dn">88%+</div>
+      <div class="ds">DS-STAR+ over best baseline on open-ended research tasks</div>
+    </div>
+    <div class="dv-stat" style="border-top-color:var(--err);">
+      <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin-bottom:4px;">Ablation: Removing Analyzer alone</div>
+      <div class="dn" style="color:var(--err);">−18 pp</div>
+      <div class="ds">Most critical single component in the entire pipeline</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  08 · ARCHITECTURE
+══════════════════════════════════════════ -->
+<div class="slide" id="s7">
+  <div class="ta"></div>
+  <div class="sh">
+    <div class="ey">Section 03 · Technology · DS-STAR Pipeline</div>
+    <div class="ti">DS-STAR's 8-agent self-correcting loop is the core engine — with three documented corrections to the paper's design applied before we build</div>
+    <div class="su">Badges: <span class="badge bv1">V1</span> ships &nbsp; <span class="badge bv2">V2</span> deferred &nbsp; <span class="badge bfx">Changed</span> vs paper &nbsp; <span class="badge bdr">Dropped</span> from paper</div>
+  </div>
+  <div class="sc" style="gap:6px;">
+    <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:8px 11px;flex-shrink:0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:7.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);">DS-STAR Core Loop · FIP-Insight</div>
+        <span class="badge bv1">All 8 agents in V1</span>
+      </div>
+      <div style="display:flex;align-items:stretch;gap:3px;">
+        <div class="agent ag"><div class="agent-hd">Analyzer</div><div class="agent-bd">Profiles every file → D. Ablation: −18pp if removed.</div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent ag"><div class="agent-hd">Planner</div><div class="agent-bd">One plan step pₖ per round from (q, D, p₀..pₖ₋₁, rₖ₋₁).</div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent ag"><div class="agent-hd">Coder</div><div class="agent-bd">Full script sₖ per round — not a delta. <span class="badge bfx" style="font-size:7px;">Q3 ✓</span></div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent ag"><div class="agent-hd">Executor</div><div class="agent-bd">Docker sandbox. 1 container per task. <span class="badge bfx" style="font-size:7px;">Q1 ✓</span></div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent ag"><div class="agent-hd">Debugger</div><div class="agent-bd">2-step: summarizer + fixer. Gets (s, tb, D). Max 3. <span class="badge bfx" style="font-size:7px;">Q15 ✓</span></div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent ag"><div class="agent-hd">Verifier</div><div class="agent-bd">LLM-judge: "sufficient" → Finalizer. "insufficient" → Router or Finalizer at cap.</div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent ag"><div class="agent-hd">Router</div><div class="agent-bd">"Add Step" or backtrack index l → truncate plan, regenerate.</div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent ag"><div class="agent-hd">Finalizer</div><div class="agent-bd">Runs formatting script in Docker. <span class="badge bfx" style="font-size:7px;">Q16 ✓</span></div></div>
+      </div>
+      <div style="font-size:7.5px;color:var(--ink3);margin-top:5px;">Loop: Executor → Debugger (on error) → Verifier → Router (insufficient) → Planner → Coder → Executor ↻ · Default 5–6 rounds · Hard cap 40 · 10 KB stdout cap</div>
+    </div>
+    <div style="border:1px solid var(--line);border-left:3px solid var(--t);padding:8px 11px;flex-shrink:0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:7.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);">DS-STAR+ Extension · FIP-Research</div>
+        <span class="badge bv1">V1</span>
+      </div>
+      <div style="display:flex;align-items:stretch;gap:3px;">
+        <div class="agent at" style="flex:1.1;"><div class="agent-hd">Sub-Question Generator</div><div class="agent-bd">Decomposes query into {sq₁…sqₙ}. Handles refinement gap-finding — no separate Evaluator. <span class="badge bfx" style="font-size:7px;">Q11 ✓</span></div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent at" style="flex:1.6;"><div class="agent-hd">DS-STAR × N — inner engine (sequential in V1 <span class="badge bv2" style="font-size:7px;">Parallel: V2</span>)</div><div class="agent-bd">Each sub-question runs the full 8-agent pipeline independently. Produces evidence set {(sqᵢ, aᵢ, sᵢ)}.</div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent at"><div class="agent-hd">Report Writer</div><div class="agent-bd">Highest-quality LLM. Cited report — every claim references sqᵢ + code sᵢ.</div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div class="agent at"><div class="agent-hd">Generator (refinement)</div><div class="agent-bd">Gap check. Adds sub-questions if needed (K=1). Early stop: zero new questions.</div></div>
+        <div style="display:flex;align-items:center;color:var(--ink3);font-size:10px;flex-shrink:0;">›</div>
+        <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:6px 8px;flex:0.8;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:8px;font-weight:700;color:var(--gd);">Cited Report</div><div style="font-size:7.5px;color:var(--ink2);margin-top:2px;">Word · PDF · Excel<br/>Audit-logged</div></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;flex:1;min-height:0;">
+      <div style="flex:1;border:1px solid var(--line);border-left:3px solid var(--g);padding:8px 11px;overflow:hidden;">
+        <div style="font-size:7.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gd);margin-bottom:6px;">CBUAE Intelligence Layer — V1 Additions</div>
+        <div style="display:flex;gap:7px;">
+          <div style="flex:1;"><div style="font-size:8px;font-weight:700;color:var(--ink);margin-bottom:2px;">Query Clarity Agent</div><div style="font-size:8px;color:var(--ink2);">Validates query, maps domain terms, routes A vs B. Pop-up for ambiguous queries.</div></div>
+          <div style="flex:1;"><div style="font-size:8px;font-weight:700;color:var(--ink);margin-bottom:2px;">Domain Analyzer Ext.</div><div style="font-size:8px;color:var(--ink2);">CBUAE schemas: fraud loss (lfi_id, fraud_type, channel, amount_aed), SAR/STR, KYC.</div></div>
+          <div style="flex:1;"><div style="font-size:8px;font-weight:700;color:var(--ink);margin-bottom:2px;">Explainer</div><div style="font-size:8px;color:var(--ink2);">Plain-English narrative after Finalizer for non-technical analysts.</div></div>
+          <div style="flex:1;"><div style="font-size:8px;font-weight:700;color:var(--ink);margin-bottom:2px;">LLM Adapter</div><div style="font-size:8px;color:var(--ink2);">Config flag: Gemini / Ollama / Azure. Zero agent changes when switching.</div></div>
+          <div style="flex:1;"><div style="font-size:8px;font-weight:700;color:var(--ink);margin-bottom:2px;">Audit Log</div><div style="font-size:8px;color:var(--ink2);">Immutable append-only. All queries, steps, results. Forever retention in V1.</div></div>
+        </div>
+      </div>
+      <div style="flex:0 0 220px;border:1px solid var(--line);border-left:3px solid var(--err);padding:8px 11px;overflow:hidden;">
+        <div style="font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--err);margin-bottom:6px;">Dropped / Changed vs Paper</div>
+        <ul class="lst" style="font-size:8px;">
+          <li class="r">Separate Evaluator — removed (Q11); Generator handles refinement</li>
+          <li class="a">Debugger: 1-step → 2-step with traceback summarizer (Q15)</li>
+          <li class="a">Finalizer: text-only → runs code in Docker sandbox (Q16)</li>
+          <li class="a">Container: per-round → per-task, reused (Q1)</li>
+          <li class="r">20-round default → 5–6 rounds (paper's hard-task average)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><div class="fts">Architecture Decisions Log: 18 Q&As (04-architecture-decisions.md) · DS-STAR paper arXiv:2509.21825 §2–4</div><div class="ftp">8 / 14</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  09 · CBUAE INTELLIGENCE LAYER
+══════════════════════════════════════════ -->
+<div class="slide" id="s8">
+  <div class="ta"></div>
+  <div class="sh">
+    <div class="ey">Section 03 · Technology · CBUAE Intelligence Layer · 9 Enhancements</div>
+    <div class="ti">Five enhancements ship in V1; four are deferred to V2 to protect delivery scope and validate the core capability with analysts first</div>
+    <div class="su">V2 items are architecturally accommodated via adapter patterns in V1 — deferral is scope discipline, not rework. All V1 items confirmed in PRD v1.0.</div>
+  </div>
+  <div class="sc">
+    <div class="row">
+      <div class="col">
+        <div style="font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gd);margin-bottom:3px;">Ships in V1</div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;overflow:hidden;">
+          <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:7px 10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E1 · Query Clarity Agent</span><span class="badge bv1">V1</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Maps "high-risk customers" → risk_band='High'. Routes Mode A vs B. Shows clarification pop-up for ambiguous queries before pipeline starts.</div>
+          </div>
+          <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:7px 10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E2 · Domain-Aware Analyzer</span><span class="badge bv1">V1</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Recognises CBUAE schemas: fraud loss reports (lfi_id, fraud_type, channel, amount_aed, detection_method), SAR/STR records, KYC/CDD, market surveillance.</div>
+          </div>
+          <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:7px 10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E3 · Natural Language Explainer</span><span class="badge bv1">V1</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Post-Finalizer node. "ABC Bank card fraud rate is 3.2× the peer median at 0.18% of transaction volume." Non-technical analysts read this directly.</div>
+          </div>
+          <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:7px 10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E4 · LLM Provider Adapter</span><span class="badge bv1">V1</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Single config flag: Gemini | Ollama | Azure OpenAI. Enables on-premise air-gapped deployment. Zero agent-level code changes when switching provider.</div>
+          </div>
+          <div style="border:1px solid var(--line);border-left:3px solid var(--g);padding:7px 10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E5 · Immutable Audit Log</span><span class="badge bv1">V1</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Append-only. Every query, plan step, code version, result linked by task_id. Forever retention. Admin: all records. Analyst: own queries only. Regulatory examination ready.</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div style="font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--v2c);margin-bottom:3px;">Deferred to V2</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="border:1px solid var(--line);border-left:3px solid var(--v2c);padding:7px 10px;opacity:.85;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E6 · PII Masking</span><span class="badge bv2">V2</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">V1 data is analyst-uploaded files, not live production DBs. Designed when live connectivity added in V2 — actual schemas unknown until then (Feature Discussion, Topic 7).</div>
+          </div>
+          <div style="border:1px solid var(--line);border-left:3px solid var(--v2c);padding:7px 10px;opacity:.85;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E7 · Regulatory Knowledge Injection</span><span class="badge bv2">V2</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Dept-specific domain knowledge in Planner/Coder prompts: AML/CFT law, FATF 40, CPR, penalty frameworks. V1 treats all analysts identically (Topic 6).</div>
+          </div>
+          <div style="border:1px solid var(--line);border-left:3px solid var(--v2c);padding:7px 10px;opacity:.85;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E8 · Supervisory Report Templates</span><span class="badge bv2">V2</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Pre-built dept templates: Fraud Benchmarking, SAR Trend, Consumer Scorecard, Evidence Package. Analyst picks template vs free-form. Added once core system is proven.</div>
+          </div>
+          <div style="border:1px solid var(--line);border-left:3px solid var(--v2c);padding:7px 10px;opacity:.85;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="font-size:9px;font-weight:700;color:var(--ink);">E9 · Live Database Connectivity</span><span class="badge bv2">V2</span></div>
+            <div style="font-size:8.5px;color:var(--ink2);">Informatica Data Catalog integration. Org-wide access reflected automatically. Adapter pattern accommodated in V1 for seamless plug-in when CBUAE IT is ready.</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--line);border-left:3px solid var(--warn);padding:8px 11px;margin-top:4px;">
+          <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--warn);margin-bottom:3px;">Why defer? — Scope discipline</div>
+          <div style="font-size:8.5px;color:var(--ink2);">V1 proves the core capability. Dept customisation adds complexity without validating the core hypothesis. V2 customises a system analysts already trust through daily use.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><div class="fts">Feature Discussion Log Topics 6 (Dept-Specific, V2) and 7 (PII, V2) · Architecture Decisions Q11, Q15, Q16</div><div class="ftp">9 / 14</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  10 · DIVIDER: SEE IT IN ACTION
+══════════════════════════════════════════ -->
+<div class="slide div-slide" id="s9">
+  <div class="dv-left">
+    <div class="dv-sec">Section Four · See It In Action</div>
+    <div class="dv-title">Three screens,<br>one analyst journey —<br><em>query to insight</em></div>
+    <div class="dv-bullets">
+      <div class="dv-b">Chat UI: clean query box, starter templates, history sidebar</div>
+      <div class="dv-b">Dashboard: real-time agent progress, pause / stop / steer controls</div>
+      <div class="dv-b">Result: narrative + tables + charts + one-click export</div>
+    </div>
+  </div>
+  <div class="dv-right">
+    <div class="dv-stat">
+      <div class="dn">4</div>
+      <div class="dl">Pages in V1</div>
+      <div class="ds">/login · /chat · /dashboard · /admin</div>
+    </div>
+    <div class="dv-stat" style="border-top-color:var(--t);">
+      <div class="dl" style="font-size:12px;font-weight:800;color:var(--ink);">React + Tailwind + ShadCN</div>
+      <div class="ds">Recharts · Plotly.js fallback for advanced charts</div>
+    </div>
+    <div class="dv-stat">
+      <div class="dl" style="font-size:12px;font-weight:800;color:var(--ink);">WebSocket real-time progress</div>
+      <div class="ds">Live agent trace · expandable verbosity per step</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  11 · UI MOCKUPS
+══════════════════════════════════════════ -->
+<div class="slide" id="s10" style="background:var(--bg);">
+  <div class="ta"></div>
+  <div class="sh" style="background:var(--bg);border-bottom-color:var(--line);">
+    <div class="ey">Section 04 · See It In Action · UI Walkthrough · Three Screens</div>
+    <div class="ti">Type a question, watch the agents work in real time, then receive a consulting-grade analytical result with one-click export to Word, PDF, or Excel</div>
+    <div class="su">React + Tailwind + ShadCN · Live WebSocket agent progress · Export to Word, PDF, or Excel from the result view</div>
+  </div>
+  <div class="sc" style="flex-direction:row;gap:9px;padding:8px 18px 8px;background:var(--bg);">
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;overflow:hidden;">
+      <div style="font-size:7.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);text-align:center;">① /chat — Query Entry</div>
+      <div id="sw1" style="flex:1;overflow:hidden;border:1px solid var(--line);background:#fff;position:relative;min-height:0;">
+        <iframe id="if1" src="01-chat.html" scrolling="no" style="border:none;transform-origin:top left;position:absolute;top:0;left:0;"></iframe>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;overflow:hidden;">
+      <div style="font-size:7.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);text-align:center;">② /dashboard — Live Progress</div>
+      <div id="sw2" style="flex:1;overflow:hidden;border:1px solid var(--line);background:#fff;position:relative;min-height:0;">
+        <iframe id="if2" src="02-dashboard-insight.html" scrolling="no" style="border:none;transform-origin:top left;position:absolute;top:0;left:0;"></iframe>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;overflow:hidden;">
+      <div style="font-size:7.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);text-align:center;">③ /dashboard — Result View</div>
+      <div id="sw3" style="flex:1;overflow:hidden;border:1px solid var(--line);background:#fff;position:relative;min-height:0;">
+        <iframe id="if3" src="04-result-insight.html" scrolling="no" style="border:none;transform-origin:top left;position:absolute;top:0;left:0;"></iframe>
+      </div>
+    </div>
+  </div>
+  <div class="ft" style="background:var(--bg);"><div class="fts">Agent-DASC · FIP Intelligence Platform · Confidential</div><div class="ftp">11 / 14</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  12 · DIVIDER: WHAT'S NEXT
+══════════════════════════════════════════ -->
+<div class="slide div-slide" id="s11">
+  <div class="dv-left">
+    <div class="dv-sec">Section Five · What's Next</div>
+    <div class="dv-title">Tight V1 scope,<br>clear V2 roadmap,<br><em>four-phase rollout</em></div>
+    <div class="dv-bullets">
+      <div class="dv-b">Every feature explicitly classified: V1 / V2 / Dropped</div>
+      <div class="dv-b">Four phases: Pilot → FIP → Core Depts → Full CBUAE</div>
+      <div class="dv-b">On-premise, air-gapped, JWT-authenticated throughout</div>
+    </div>
+  </div>
+  <div class="dv-right">
+    <div class="dv-stat">
+      <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin-bottom:4px;">Next Deliverable</div>
+      <div class="dl" style="font-size:14px;font-weight:800;color:var(--ink);line-height:1.2;">Technical Design Document<br/>(TDD / Tech Spec)</div>
+    </div>
+    <div style="border:1px solid var(--line);padding:12px 16px;">
+      <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink2);margin-bottom:6px;">Remaining Deliverables</div>
+      <div style="font-size:8.5px;color:var(--ink2);line-height:1.9;">
+        <span style="color:var(--warn);font-weight:700;">◌</span> TDD / Technical Spec<br/>
+        <span style="color:var(--ink3);">○</span> Security &amp; Privacy Review<br/>
+        <span style="color:var(--ink3);">○</span> Work Breakdown Structure<br/>
+        <span style="color:var(--ink3);">○</span> Sprint Planning &amp; Build
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  13 · SCOPE SUMMARY
+══════════════════════════════════════════ -->
+<div class="slide" id="s12">
+  <div class="ta"></div>
+  <div class="sh">
+    <div class="ey">Section 05 · What's Next · Scope Boundaries · Full Classification</div>
+    <div class="ti">Every feature is explicitly classified — V1 ships tight, V2 adds customisation, and six items were changed or dropped after paper review</div>
+    <div class="su">Sources: Feature Discussion Log (Topics 1–10) · Architecture Decisions (18 Q&amp;As) · PRD v1.0 · DS-STAR paper arXiv:2509.21825</div>
+  </div>
+  <div class="sc" style="flex-direction:row;gap:8px;padding:10px 24px 8px;">
+    <div style="flex:1;border:1px solid var(--line);border-top:3px solid var(--g);padding:10px 12px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="font-size:7.5px;font-weight:700;color:var(--gd);letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;">V1 — Ships in Initial Release</div>
+      <div style="display:flex;flex-direction:column;gap:2px;font-size:8.5px;color:var(--ink2);flex:1;overflow:hidden;">
+        <div style="font-size:7px;font-weight:700;color:var(--gd);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;margin-bottom:1px;">Pipeline</div>
+        <div>All 8 DS-STAR agents (Analyzer → Finalizer)</div>
+        <div>Query Clarity Agent + Domain-Aware Analyzer</div>
+        <div>Natural Language Explainer · LLM Adapter</div>
+        <div>Immutable audit log (forever retention in V1)</div>
+        <div style="font-size:7px;font-weight:700;color:var(--gd);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">Data</div>
+        <div>File upload: CSV, Excel, JSON, PDF, Word</div>
+        <div>Structured + unstructured file support</div>
+        <div>Data versioning — snapshot per result</div>
+        <div>Dataset semantic search (surfaces top 5–8)</div>
+        <div style="font-size:7px;font-weight:700;color:var(--gd);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">Execution</div>
+        <div>5–6 default rounds / 40 round hard cap</div>
+        <div>Pause, Resume, Stop at any point</div>
+        <div>Mid-analysis steering hints (accumulated)</div>
+        <div>LangGraph checkpointing to PostgreSQL</div>
+        <div>Docker sandbox (no network, 2 GB RAM)</div>
+        <div style="font-size:7px;font-weight:700;color:var(--gd);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">Output &amp; UI</div>
+        <div>FIP-Insight: chat-style + charts + tables</div>
+        <div>FIP-Research: cited report (K=1 refinement)</div>
+        <div>Export: Word (.docx) · PDF · Excel (.xlsx)</div>
+        <div>Recharts + Plotly.js fallback</div>
+        <div>In-app notifications · History · Re-run</div>
+        <div style="font-size:7px;font-weight:700;color:var(--gd);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">Platform</div>
+        <div>4 pages: /login · /chat · /dashboard · /admin</div>
+        <div>JWT auth · Dept-level RBAC · Admin panel</div>
+        <div>On-premise / air-gapped deployment</div>
+      </div>
+    </div>
+    <div style="flex:1;border:1px solid var(--line);border-top:3px solid var(--v2c);padding:10px 12px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="font-size:7.5px;font-weight:700;color:var(--v2c);letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;">V2-Future — Explicitly Deferred</div>
+      <div style="display:flex;flex-direction:column;gap:2px;font-size:8.5px;color:var(--ink2);flex:1;overflow:hidden;">
+        <div style="font-size:7px;font-weight:700;color:var(--v2c);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;margin-bottom:1px;">Dept Customisation (Topic 6)</div>
+        <div>Dept-specific UI, starter templates, schemas</div>
+        <div>Regulatory knowledge injection per dept</div>
+        <div>Pre-built supervisory report templates</div>
+        <div>Per-department RBAC granularity</div>
+        <div>Informatica Data Catalog connector</div>
+        <div style="font-size:7px;font-weight:700;color:var(--v2c);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">PII &amp; Data Governance (Topic 7)</div>
+        <div>PII masking (when live DBs connected)</div>
+        <div>Data retention policy management</div>
+        <div>Live database connectivity (not uploads)</div>
+        <div style="font-size:7px;font-weight:700;color:var(--v2c);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">UI Features</div>
+        <div>Conversation branching (V1: linear only)</div>
+        <div>Email notifications (V1: in-app only)</div>
+        <div>Analyst-chosen round increment (V1: +5 fixed)</div>
+        <div>Smart backtracking on contradicting hint</div>
+        <div style="font-size:7px;font-weight:700;color:var(--v2c);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">Pipeline</div>
+        <div>Parallel DS-STAR sub-questions (V1: sequential)</div>
+        <div>ML model building in sandbox</div>
+        <div>LLM switching via admin UI</div>
+        <div style="font-size:7px;font-weight:700;color:var(--v2c);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;margin-bottom:1px;">Platform</div>
+        <div>External API + API key / mTLS auth</div>
+        <div>Audit anomaly alerting</div>
+        <div>Email notification configuration</div>
+      </div>
+    </div>
+    <div style="flex:.65;border:1px solid var(--line);border-top:3px solid var(--err);padding:10px 12px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="font-size:7.5px;font-weight:700;color:var(--err);letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;">Dropped or Changed vs Paper</div>
+      <div style="display:flex;flex-direction:column;gap:7px;font-size:8.5px;color:var(--ink2);flex:1;overflow:hidden;">
+        <div style="border-bottom:1px solid var(--line);padding-bottom:6px;">
+          <div style="font-weight:700;color:var(--ink);margin-bottom:2px;">Separate Evaluator Agent <span class="badge bdr" style="font-size:7px;margin-left:2px;">DROPPED</span></div>
+          <div>Generator handles both decomposition AND gap-finding (Q11). No separate node.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--line);padding-bottom:6px;">
+          <div style="font-weight:700;color:var(--ink);margin-bottom:2px;">20-Round Default <span class="badge bdr" style="font-size:7px;margin-left:2px;">CHANGED</span></div>
+          <div>Reduced to 5–6. Paper's hard tasks avg 5.6 rounds. Extension UX handles edge cases.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--line);padding-bottom:6px;">
+          <div style="font-weight:700;color:var(--ink);margin-bottom:2px;">Debugger Design <span class="badge bfx" style="font-size:7px;margin-left:2px;">CHANGED</span></div>
+          <div>1-step → 2-step (traceback summarizer + fixer). Gets (s, traceback, D) — D critical for semantic error fixes (Q15).</div>
+        </div>
+        <div style="border-bottom:1px solid var(--line);padding-bottom:6px;">
+          <div style="font-weight:700;color:var(--ink);margin-bottom:2px;">Finalizer Design <span class="badge bfx" style="font-size:7px;margin-left:2px;">CHANGED</span></div>
+          <div>Text-only → runs formatting script in Docker. Same execution model as Coder for consistency (Q16).</div>
+        </div>
+        <div style="border-bottom:1px solid var(--line);padding-bottom:6px;">
+          <div style="font-weight:700;color:var(--ink);margin-bottom:2px;">Docker Lifecycle <span class="badge bfx" style="font-size:7px;margin-left:2px;">CHANGED</span></div>
+          <div>Per-round → per-task. Container reused across all rounds. Lower overhead (Q1).</div>
+        </div>
+        <div>
+          <div style="font-weight:700;color:var(--ink);margin-bottom:2px;">Delta/Patch Scripts <span class="badge bdr" style="font-size:7px;margin-left:2px;">DROPPED</span></div>
+          <div>Complete script sₖ every round — not incremental. Simpler, no patch-merging bugs (Q3).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><div class="fts">Feature Discussion Log Topics 1–10 · Architecture Decisions (18 Q&As) · PRD v1.0</div><div class="ftp">13 / 14</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  14 · DEPLOYMENT & ROADMAP
+══════════════════════════════════════════ -->
+<div class="slide" id="s13">
+  <div class="ta"></div>
+  <div class="sh">
+    <div class="ey">Section 05 · What's Next · Deployment Roadmap · Four Phases</div>
+    <div class="ti">A four-phase rollout starts with FIP pilot and expands to all five departments — on-premise, air-gapped, and regulation-ready from day one</div>
+    <div class="su">Each phase validates before expanding. One stack, one auth model, one audit log across all phases. No cloud dependencies at any phase.</div>
+  </div>
+  <div class="sc" style="gap:7px;">
+    <div style="display:flex;gap:7px;flex-shrink:0;">
+      <div style="flex:1;border:1px solid var(--line);border-top:3px solid var(--t);padding:9px 11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><div><div style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--td);">Phase 1</div><div style="font-size:11px;font-weight:800;color:var(--ink);">Foundation &amp; Pilot</div></div><span class="badge bv1">V1</span></div>
+        <ul class="lst" style="font-size:8px;">
+          <li>TDD + Security review sign-off</li>
+          <li>Full DS-STAR pipeline + CBUAE layer</li>
+          <li>FIP pilot: 5 analysts, 4 weeks</li>
+          <li>Both modes tested in production</li>
+          <li>Feedback loop → backlog refinement</li>
+        </ul>
+      </div>
+      <div style="flex:1;border:1px solid var(--line);border-top:3px solid var(--v2c);padding:9px 11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><div><div style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--v2c);">Phase 2</div><div style="font-size:11px;font-weight:800;color:var(--ink);">FIP Full Rollout</div></div><span class="badge bv1">V1</span></div>
+        <ul class="lst" style="font-size:8px;">
+          <li>All FIP analysts onboarded</li>
+          <li>Admin panel live</li>
+          <li>Audit log active + validated</li>
+          <li>Data versioning in production</li>
+          <li>Report export pipeline live</li>
+        </ul>
+      </div>
+      <div style="flex:1;border:1px solid var(--line);border-top:3px solid var(--warn);padding:9px 11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><div><div style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--warn);">Phase 3</div><div style="font-size:11px;font-weight:800;color:var(--ink);">Core Departments</div></div><span class="badge bv1">V1</span></div>
+        <ul class="lst" style="font-size:8px;">
+          <li>AML/CFT Supervision</li>
+          <li>Market Conduct &amp; FCP</li>
+          <li>Enforcement</li>
+          <li>Dept-level RBAC validated</li>
+          <li>Performance tuning under load</li>
+        </ul>
+      </div>
+      <div style="flex:1;border:1px solid var(--line);border-top:3px solid var(--g);padding:9px 11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><div><div style="font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gd);">Phase 4</div><div style="font-size:11px;font-weight:800;color:var(--ink);">Full CBUAE + V2</div></div><span class="badge bv2">V2</span></div>
+        <ul class="lst" style="font-size:8px;">
+          <li>Policy &amp; Research onboarded</li>
+          <li>Dept templates + knowledge</li>
+          <li>PII masking + Live DB</li>
+          <li>Parallel sub-questions</li>
+          <li>External API</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tw" style="flex:1;">
+      <table>
+        <thead>
+          <tr>
+            <th>Department</th>
+            <th>Primary Use Case</th>
+            <th>Key Data Sources (V1 Upload)</th>
+            <th>Insight</th>
+            <th>Research</th>
+            <th>Phase</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="hl">⭐ Fraud Prevention Supervision</td><td>LFI fraud benchmarking, typology analysis, APP fraud reviews</td><td>Fraud loss returns (CSV/Excel), LFI control assessments</td><td><span class="pill pg">✓ P1</span></td><td><span class="pill pg">✓ P1</span></td><td><span class="pill pb">1→2</span></td></tr>
+          <tr><td class="hl">AML / CFT Supervision</td><td>SAR/STR trend analysis, typology vs FATF benchmarks</td><td>SAR/STR records, transaction monitoring alert exports</td><td><span class="pill pg">✓ P3</span></td><td><span class="pill pg">✓ P3</span></td><td><span class="pill pa">3</span></td></tr>
+          <tr><td class="hl">Market Conduct &amp; FCP</td><td>Consumer complaint benchmarking, mis-selling thematic</td><td>Complaint registers, market surveillance records</td><td><span class="pill pg">✓ P3</span></td><td><span class="pill pg">✓ P3</span></td><td><span class="pill pa">3</span></td></tr>
+          <tr><td class="hl">Enforcement</td><td>Case evidence packages, compliance history analysis</td><td>Case files, penalty records, compliance data</td><td><span class="pill pg">✓ P3</span></td><td><span class="pill pg">✓ P3</span></td><td><span class="pill pa">3</span></td></tr>
+          <tr><td class="hl">Policy &amp; Research</td><td>Annual sector reports, GCC benchmarking, impact assessment</td><td>Aggregated sector stats, international comparison datasets</td><td><span class="pill pg">✓ P4</span></td><td><span class="pill pg">✓ P4</span></td><td><span class="pill pp">4</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:7px;flex-shrink:0;">
+      <div style="flex:1;border:1px solid var(--line);padding:6px 10px;"><div style="font-size:7px;font-weight:700;color:var(--ink2);text-transform:uppercase;margin-bottom:2px;">Frontend</div><div style="font-size:8px;color:var(--ink2);">React · Tailwind · ShadCN · Recharts · WebSocket</div></div>
+      <div style="flex:1;border:1px solid var(--line);padding:6px 10px;"><div style="font-size:7px;font-weight:700;color:var(--ink2);text-transform:uppercase;margin-bottom:2px;">Orchestration</div><div style="font-size:8px;color:var(--ink2);">LangGraph Server · PostgreSQL checkpoints · JWT auth</div></div>
+      <div style="flex:1;border:1px solid var(--line);padding:6px 10px;"><div style="font-size:7px;font-weight:700;color:var(--ink2);text-transform:uppercase;margin-bottom:2px;">Execution</div><div style="font-size:8px;color:var(--ink2);">Docker sandbox · Python · python-docx · LibreOffice</div></div>
+      <div style="flex:1;border:1px solid var(--line);padding:6px 10px;"><div style="font-size:7px;font-weight:700;color:var(--ink2);text-transform:uppercase;margin-bottom:2px;">LLM Adapter</div><div style="font-size:8px;color:var(--ink2);">Gemini / Ollama (air-gap) / Azure OpenAI</div></div>
+      <div style="flex:1;border:1px solid var(--line);padding:6px 10px;"><div style="font-size:7px;font-weight:700;color:var(--ink2);text-transform:uppercase;margin-bottom:2px;">Deployment</div><div style="font-size:8px;color:var(--ink2);">On-premise · Air-gapped · Kubernetes-ready</div></div>
+    </div>
+  </div>
+  <div class="ft"><div class="fts">Feature Discussion Log Topics 1–10 · PRD v1.0 §4 (Departments) · Architecture Decisions Log</div><div class="ftp">14 / 14</div></div>
+</div>
+
+</div><!-- #deck -->
+
+<div id="nav">
+  <button onclick="go(-1)">‹</button>
+  <div class="dots" id="dots"></div>
+  <div id="slide-info">1 / 14</div>
+  <button onclick="go(1)">›</button>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const N = slides.length;
+let cur = 0;
+
+function go(d){
+  slides[cur].classList.remove('active');
+  cur = (cur + d + N) % N;
+  slides[cur].classList.add('active');
+  updateNav();
+  if(cur === 10) setTimeout(sizeFrames, 80);
+}
+function jumpTo(i){
+  slides[cur].classList.remove('active');
+  cur = i;
+  slides[cur].classList.add('active');
+  updateNav();
+  if(cur === 10) setTimeout(sizeFrames, 80);
+}
+function updateNav(){
+  document.getElementById('slide-info').textContent = (cur+1)+' / '+N;
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===cur));
+}
+const dotRow = document.getElementById('dots');
+for(let i=0;i<N;i++){
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' on':'');
+  d.onclick=()=>jumpTo(i);
+  dotRow.appendChild(d);
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')go(1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp')go(-1);
+});
+function scaleCanvas(){
+  const s=Math.min(window.innerWidth/1280,window.innerHeight/720);
+  document.getElementById('deck').style.transform=`scale(${s})`;
+}
+window.addEventListener('resize',scaleCanvas);
+scaleCanvas();
+
+function sizeFrames(){
+  [['sw1','if1'],['sw2','if2'],['sw3','if3']].forEach(([wId,fId])=>{
+    const wrap=document.getElementById(wId);
+    const frame=document.getElementById(fId);
+    if(!wrap||!frame)return;
+    const W=wrap.clientWidth,H=wrap.clientHeight;
+    const s=W/1280;
+    frame.style.width='1280px';
+    frame.style.height=Math.round(H/s)+'px';
+    frame.style.transform=`scale(${s})`;
+    frame.style.transformOrigin='top left';
+  });
+}
+window.addEventListener('resize',()=>{if(cur===10)sizeFrames();});
+</script>
+</body>
+</html>

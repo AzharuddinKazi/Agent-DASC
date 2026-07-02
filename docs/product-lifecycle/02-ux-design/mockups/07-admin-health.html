@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP Admin — System Health</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root{
+  --bg:#f4f4f5;--bg-card:#ffffff;--bg-hover:#f0f0f1;--bg-active:#e9e9eb;
+  --border:#e4e4e7;--text:#09090b;--text-muted:#71717a;--text-subtle:#a1a1aa;
+  --sidebar:#ffffff;--sidebar-border:#e4e4e7;--nav-active:#f4f4f5;--nav-active-text:#09090b;
+  --card-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.dark{
+  --bg:#09090b;--bg-card:#111113;--bg-hover:#18181b;--bg-active:#27272a;
+  --border:#27272a;--text:#fafafa;--text-muted:#71717a;--text-subtle:#52525b;
+  --sidebar:#09090b;--sidebar-border:#27272a;--nav-active:#18181b;--nav-active-text:#fafafa;
+  --card-shadow:none;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.5;transition:background .2s,color .2s}
+
+.sidebar{width:220px;min-height:100vh;background:var(--sidebar);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10;transition:background .2s}
+.sidebar-logo{padding:14px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:28px;height:28px;background:var(--text);color:var(--bg-card);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+.logo-text{font-size:13px;font-weight:600;color:var(--text)}
+.admin-badge{font-size:9px;font-weight:600;color:var(--text-subtle);background:var(--bg-hover);border:1px solid var(--border);padding:1px 5px;border-radius:3px;margin-left:auto}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:14px 10px 5px;font-size:9px;color:var(--text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:12px;font-weight:500;transition:all .15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:var(--nav-active);color:var(--nav-active-text);font-weight:600}
+.nav-item:hover:not(.active){background:var(--bg-hover);color:var(--text)}
+.nav-item svg{width:14px;height:14px;flex-shrink:0}
+.sidebar-footer{padding:10px 12px;border-top:1px solid var(--sidebar-border);display:flex;align-items:center;gap:8px}
+.avatar{width:26px;height:26px;background:var(--bg-active);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--text-muted);flex-shrink:0}
+.user-name{font-size:11px;font-weight:500;color:var(--text)}
+.user-dept{font-size:10px;color:var(--text-subtle)}
+
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main-header{padding:11px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);transition:background .2s}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.header-right{display:flex;align-items:center;gap:8px}
+.status-chip{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:rgba(22,163,74,.1);color:#16a34a;border:1px solid rgba(22,163,74,.2)}
+.green-dot{width:6px;height:6px;border-radius:50%;background:#16a34a;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.icon-btn{width:30px;height:30px;background:transparent;border:1px solid var(--border);border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+.icon-btn svg{width:14px;height:14px}
+
+.content{flex:1;padding:20px 22px;display:flex;flex-direction:column;gap:16px}
+
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;box-shadow:var(--card-shadow)}
+.stat-label{font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.stat-label svg{width:11px;height:11px}
+.stat-value{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-.03em;margin-bottom:2px}
+.stat-sub{font-size:11px;color:var(--text-subtle)}
+.stat-sub.green{color:#16a34a}
+.stat-sub.amber{color:#d97706}
+
+/* Panels */
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.panel{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--card-shadow)}
+.panel-header{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:5px}
+.panel-title svg{width:12px;height:12px}
+.panel-body{padding:12px 14px}
+
+/* Resource bars */
+.resource-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.resource-row:last-child{margin-bottom:0}
+.res-label{font-size:11px;color:var(--text-muted);width:82px;flex-shrink:0}
+.res-bar-wrap{flex:1;height:5px;background:var(--bg-active);border-radius:9999px;overflow:hidden}
+.res-bar{height:100%;border-radius:9999px}
+.rb-green{background:#16a34a}
+.rb-blue{background:#2563eb}
+.rb-amber{background:#d97706}
+.res-val{font-size:11px;color:var(--text-muted);width:36px;text-align:right;flex-shrink:0}
+.res-ok{color:#16a34a;font-weight:600}
+.dark .rb-green{background:#22c55e}
+.dark .rb-blue{background:#3b82f6}
+
+/* DLQ */
+.dlq-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.dlq-row:last-child{border-bottom:none}
+.dlq-icon{width:26px;height:26px;border-radius:5px;background:rgba(220,38,38,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dlq-icon svg{width:12px;height:12px;color:#dc2626}
+.dlq-id{font-family:monospace;font-size:11px;color:var(--text-muted)}
+.dlq-msg{font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:2px}
+.dlq-time{font-size:10px;color:var(--text-subtle);margin-top:2px}
+.dlq-retry{font-size:11px;color:#2563eb;cursor:pointer;margin-left:auto;flex-shrink:0;padding-top:2px}
+
+/* Task table */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:8px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);background:var(--bg-card)}
+.tbl td{padding:8px 12px;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--bg-hover)}
+.td-id{font-family:monospace;color:var(--text-subtle);font-size:11px}
+.td-user{color:var(--text);font-weight:500}
+.task-badge{padding:1px 7px;border-radius:9999px;font-size:10px;font-weight:600}
+.tb-running{background:rgba(37,99,235,.1);color:#2563eb}
+.tb-queued{background:var(--bg-hover);color:var(--text-muted);border:1px solid var(--border)}
+.tb-error{background:rgba(220,38,38,.1);color:#dc2626}
+.mode-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px}
+.md-insight{background:#2563eb}
+.md-research{background:#9333ea}
+
+/* Mini bar chart */
+.bar-chart-wrap{display:flex;align-items:flex-end;gap:5px;height:64px;margin-top:6px}
+.mini-bar-col{display:flex;flex-direction:column;align-items:center;flex:1;gap:3px}
+.mini-bar{width:100%;border-radius:3px 3px 0 0;background:#2563eb;min-height:2px}
+.dark .mini-bar{background:#3b82f6}
+.mini-bar.low{background:#e4e4e7}
+.dark .mini-bar.low{background:#27272a}
+.mini-bar-lbl{font-size:9px;color:var(--text-subtle);text-align:center}
+
+/* Metric rows */
+.metric-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.metric-row:last-child{border-bottom:none}
+.metric-name{color:var(--text-muted)}
+.metric-val{font-weight:600;color:var(--text)}
+.metric-badge{padding:1px 7px;border-radius:9999px;font-size:10px;font-weight:600}
+.mb-green{background:rgba(22,163,74,.1);color:#16a34a}
+.mb-amber{background:rgba(217,119,6,.1);color:#d97706}
+.mb-blue{background:rgba(37,99,235,.1);color:#2563eb}
+
+/* Audit log */
+.log-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px}
+.log-row:last-child{border-bottom:none}
+.log-time{color:var(--text-subtle);flex-shrink:0;font-family:monospace;font-size:10px;width:78px}
+.log-user{color:var(--text-muted);flex-shrink:0;width:60px}
+.log-event{color:var(--text-muted);flex:1}
+.log-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.ld-blue{background:#2563eb}
+.ld-purple{background:#9333ea}
+.ld-green{background:#16a34a}
+.ld-red{background:#dc2626}
+
+.bottom-hint{font-size:11px;color:var(--text-subtle);text-align:center;padding:8px 0 12px}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div><div class="logo-text">FIP Admin</div></div>
+    <div class="admin-badge">ADMIN</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">System</div>
+    <a class="nav-item active" href="#"><i data-lucide="activity"></i> System Health</a>
+    <a class="nav-item" href="#"><i data-lucide="list-ordered"></i> Task Queue</a>
+    <a class="nav-item" href="#"><i data-lucide="alert-circle"></i> Dead Letter Queue</a>
+    <div class="nav-section">Data</div>
+    <a class="nav-item" href="#"><i data-lucide="database"></i> Dataset Library</a>
+    <a class="nav-item" href="#"><i data-lucide="building-2"></i> LFI Registry</a>
+    <div class="nav-section">Users</div>
+    <a class="nav-item" href="#"><i data-lucide="users"></i> User Management</a>
+    <a class="nav-item" href="#"><i data-lucide="shield"></i> Role & Permissions</a>
+    <div class="nav-section">Logs</div>
+    <a class="nav-item" href="#"><i data-lucide="scroll-text"></i> Audit Log</a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">AM</div>
+    <div><div class="user-name">Ahmed M.</div><div class="user-dept">System Admin</div></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="main-header">
+    <div class="header-title">System Health</div>
+    <div class="header-right">
+      <span class="status-chip"><span class="green-dot"></span> All systems operational</span>
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme"><i data-lucide="moon"></i></button>
+      <button class="icon-btn"><i data-lucide="refresh-cw"></i></button>
+      <button class="icon-btn"><i data-lucide="bell"></i></button>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label"><i data-lucide="zap"></i> Active Tasks</div>
+        <div class="stat-value">5</div>
+        <div class="stat-sub green">3 Insight · 2 Research</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><i data-lucide="clock"></i> Queued</div>
+        <div class="stat-value">2</div>
+        <div class="stat-sub">Avg wait: 14s</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><i data-lucide="check-circle"></i> Completed Today</div>
+        <div class="stat-value">38</div>
+        <div class="stat-sub green">↑ 12% vs. yesterday</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><i data-lucide="alert-triangle"></i> Error Rate (24h)</div>
+        <div class="stat-value" style="color:#d97706">1.3%</div>
+        <div class="stat-sub amber">2 tasks in DLQ</div>
+      </div>
+    </div>
+
+    <div class="three-col">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="cpu"></i> Compute Resources</div>
+          <div style="font-size:10px;color:var(--text-subtle)">Live</div>
+        </div>
+        <div class="panel-body">
+          <div class="resource-row"><div class="res-label">GPU Util.</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:68%"></div></div><div class="res-val">68%</div></div>
+          <div class="resource-row"><div class="res-label">GPU VRAM</div><div class="res-bar-wrap"><div class="res-bar rb-blue" style="width:54%"></div></div><div class="res-val">54%</div></div>
+          <div class="resource-row"><div class="res-label">CPU</div><div class="res-bar-wrap"><div class="res-bar rb-blue" style="width:41%"></div></div><div class="res-val">41%</div></div>
+          <div class="resource-row"><div class="res-label">RAM</div><div class="res-bar-wrap"><div class="res-bar rb-amber" style="width:73%"></div></div><div class="res-val">73%</div></div>
+          <div class="resource-row"><div class="res-label">Containers</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:62%"></div></div><div class="res-val">5/8</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="server"></i> Worker Health</div>
+        </div>
+        <div class="panel-body">
+          <div class="resource-row"><div class="res-label" style="width:100px">FIP-Worker-1</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:100%"></div></div><div class="res-val res-ok">OK</div></div>
+          <div class="resource-row"><div class="res-label" style="width:100px">FIP-Worker-2</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:100%"></div></div><div class="res-val res-ok">OK</div></div>
+          <div class="resource-row"><div class="res-label" style="width:100px">FIP-Worker-3</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:100%"></div></div><div class="res-val res-ok">OK</div></div>
+          <div class="resource-row"><div class="res-label" style="width:100px">LLM · Ollama</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:100%"></div></div><div class="res-val res-ok">OK</div></div>
+          <div class="resource-row"><div class="res-label" style="width:100px">PostgreSQL</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:100%"></div></div><div class="res-val res-ok">OK</div></div>
+          <div class="resource-row"><div class="res-label" style="width:100px">Redis Sentinel</div><div class="res-bar-wrap"><div class="res-bar rb-green" style="width:100%"></div></div><div class="res-val res-ok">OK</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="alert-circle"></i> Dead Letter Queue</div>
+          <div style="font-size:10px;color:#d97706;font-weight:600">2 tasks</div>
+        </div>
+        <div class="panel-body">
+          <div class="dlq-row">
+            <div class="dlq-icon"><i data-lucide="x"></i></div>
+            <div style="flex:1;min-width:0">
+              <div class="dlq-id">task_8f3a9c2e</div>
+              <div class="dlq-msg">Executor timeout after 3 debug attempts — sandbox OOM (2 GB limit)</div>
+              <div class="dlq-time">Today 09:14 · Sara Al Mansouri</div>
+            </div>
+            <div class="dlq-retry"><i data-lucide="refresh-cw" style="width:13px;height:13px"></i></div>
+          </div>
+          <div class="dlq-row">
+            <div class="dlq-icon"><i data-lucide="x"></i></div>
+            <div style="flex:1;min-width:0">
+              <div class="dlq-id">task_4b1c7d0f</div>
+              <div class="dlq-msg">LLM connection timeout · Ollama not responding after 3 retries</div>
+              <div class="dlq-time">Today 07:52 · Mohammed K.</div>
+            </div>
+            <div class="dlq-retry"><i data-lucide="refresh-cw" style="width:13px;height:13px"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="list-ordered"></i> Active Task Queue</div>
+          <div style="font-size:10px;color:var(--text-subtle)">7 tasks</div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Task ID</th><th>User</th><th>Mode</th><th>Status</th><th>Round</th></tr></thead>
+          <tbody>
+            <tr><td class="td-id">a1b2c3d4</td><td class="td-user">Sara A.</td><td><span class="mode-dot md-insight"></span>Insight</td><td><span class="task-badge tb-running">Running</span></td><td>3 / 6</td></tr>
+            <tr><td class="td-id">e5f6g7h8</td><td class="td-user">Fatima N.</td><td><span class="mode-dot md-research"></span>Research</td><td><span class="task-badge tb-running">Running</span></td><td>SQ 4/6</td></tr>
+            <tr><td class="td-id">i9j0k1l2</td><td class="td-user">Mohammed K.</td><td><span class="mode-dot md-insight"></span>Insight</td><td><span class="task-badge tb-running">Running</span></td><td>1 / 6</td></tr>
+            <tr><td class="td-id">m3n4o5p6</td><td class="td-user">Hessa A.</td><td><span class="mode-dot md-insight"></span>Insight</td><td><span class="task-badge tb-queued">Queued</span></td><td>—</td></tr>
+            <tr><td class="td-id">q7r8s9t0</td><td class="td-user">Khalid M.</td><td><span class="mode-dot md-research"></span>Research</td><td><span class="task-badge tb-queued">Queued</span></td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="scroll-text"></i> Recent Audit Events</div>
+          <div style="font-size:10px;color:#2563eb;cursor:pointer">View full log</div>
+        </div>
+        <div class="panel-body" style="padding:6px 14px">
+          <div class="log-row"><div class="log-time">09:31:04</div><div class="log-dot ld-blue"></div><div class="log-user">Sara A.</div><div class="log-event">Query submitted · task_a1b2c3d4 · FIP-Insight</div></div>
+          <div class="log-row"><div class="log-time">09:29:17</div><div class="log-dot ld-green"></div><div class="log-user">Fatima N.</div><div class="log-event">Result exported · PDF · task_pp8n3x2q</div></div>
+          <div class="log-row"><div class="log-time">09:18:55</div><div class="log-dot ld-purple"></div><div class="log-user">Mohammed K.</div><div class="log-event">Query submitted · task_i9j0k1l2 · FIP-Research</div></div>
+          <div class="log-row"><div class="log-time">09:14:02</div><div class="log-dot ld-red"></div><div class="log-user">Sara A.</div><div class="log-event">Task failed · DLQ · task_8f3a9c2e · OOM</div></div>
+          <div class="log-row"><div class="log-time">09:11:44</div><div class="log-dot ld-green"></div><div class="log-user">Hessa A.</div><div class="log-event">Dataset uploaded · fraud_q2_2025.csv · 1.2 MB</div></div>
+          <div class="log-row"><div class="log-time">08:55:21</div><div class="log-dot ld-blue"></div><div class="log-user">Admin</div><div class="log-event">Dataset assigned to Fraud Prevention, AML/CFT · lfi_master_2025.csv</div></div>
+          <div class="log-row"><div class="log-time">07:52:11</div><div class="log-dot ld-red"></div><div class="log-user">Mohammed K.</div><div class="log-event">Task failed · DLQ · task_4b1c7d0f · LLM timeout</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance metrics + LLM config + query volume -->
+    <div class="three-col">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="bar-chart-2"></i> Query Volume — Last 7 Days</div>
+          <div style="font-size:10px;color:var(--text-subtle)">Total: 214</div>
+        </div>
+        <div class="panel-body">
+          <div class="bar-chart-wrap">
+            <div class="mini-bar-col"><div class="mini-bar" style="height:55%"></div><div class="mini-bar-lbl">Mon</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:70%"></div><div class="mini-bar-lbl">Tue</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:48%"></div><div class="mini-bar-lbl">Wed</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:90%"></div><div class="mini-bar-lbl">Thu</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:62%"></div><div class="mini-bar-lbl">Fri</div></div>
+            <div class="mini-bar-col"><div class="mini-bar low" style="height:18%"></div><div class="mini-bar-lbl">Sat</div></div>
+            <div class="mini-bar-col"><div class="mini-bar" style="height:38%"></div><div class="mini-bar-lbl">Sun</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+            <div style="text-align:center">
+              <div style="font-size:15px;font-weight:700;color:var(--text)">156</div>
+              <div style="font-size:10px;color:var(--text-subtle)">FIP-Insight</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:15px;font-weight:700;color:#9333ea">58</div>
+              <div style="font-size:10px;color:var(--text-subtle)">FIP-Research</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:15px;font-weight:700;color:#16a34a">97.2%</div>
+              <div style="font-size:10px;color:var(--text-subtle)">Success rate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="gauge"></i> Performance Metrics</div>
+          <div style="font-size:10px;color:var(--text-subtle)">Last 24h</div>
+        </div>
+        <div class="panel-body" style="padding:6px 14px">
+          <div class="metric-row">
+            <span class="metric-name">Avg task duration</span>
+            <span class="metric-val">22.4s <span class="metric-badge mb-green">↓ 8%</span></span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Avg rounds (Insight)</span>
+            <span class="metric-val">3.8 / 20 max</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Avg sub-questions (Research)</span>
+            <span class="metric-val">5.2 / query</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Debugger activation rate</span>
+            <span class="metric-val">14.2% <span class="metric-badge mb-amber">↑ 3%</span></span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Verifier pass (1st round)</span>
+            <span class="metric-val">31% of tasks</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">LLM tokens / task (avg)</span>
+            <span class="metric-val">18,400</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><i data-lucide="brain-circuit"></i> LLM Configuration</div>
+          <span class="metric-badge mb-green" style="font-size:10px">Connected</span>
+        </div>
+        <div class="panel-body" style="padding:6px 14px">
+          <div class="metric-row">
+            <span class="metric-name">Provider</span>
+            <span class="metric-val">Ollama (local)</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Model</span>
+            <span class="metric-val" style="font-family:monospace;font-size:11px">llama3.3:70b-q4</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Endpoint</span>
+            <span class="metric-val" style="font-family:monospace;font-size:11px">10.0.0.42:11434</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Context window</span>
+            <span class="metric-val">128k tokens</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Throughput</span>
+            <span class="metric-val">46 tok/s <span class="metric-badge mb-blue">GPU</span></span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-name">Last health check</span>
+            <span class="metric-val" style="color:var(--text-subtle)">09:31:04</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP Admin · CBUAE Internal · Restricted Access · Air-gapped</div>
+  </div>
+</main>
+
+<script>
+lucide.createIcons();
+function toggleTheme(){
+  const d=document.body;const btn=document.getElementById('theme-btn');
+  const dark=d.classList.toggle('dark');
+  btn.innerHTML=dark?'<i data-lucide="sun"></i>':'<i data-lucide="moon"></i>';
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>
