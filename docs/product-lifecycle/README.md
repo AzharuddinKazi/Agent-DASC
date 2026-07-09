@@ -11,8 +11,8 @@ This directory tracks the full pre-code and post-code lifecycle for any new feat
 | 2 | `01-prd/` | PRD / Functional Spec — What are we building? | 🔄 Draft v0.2 — 2 open questions pending CBUAE IT input (OQ-1 auth, OQ-7 GPU specs) |
 | 3 | `02-ux-design/` | UX Design Spec — How does it look and feel? | ✅ Complete — 14-slide consulting-grade HTML presentation |
 | 4 | `03-tdd/` | TDD / Tech Spec — How do we build it? | 🔄 Draft v0.1 — In Review (2 pending sections: §15 auth, §18–19 deployment/perf) |
-| 5 | `04-security-privacy/` | Security & Privacy Review — Is it safe and compliant? | ⏳ Not started — **next step** |
-| 6 | `05-test-strategy/` | Test Strategy Doc — How do we know it works? | ⏳ Not started |
+| 5 | `04-security-privacy/` | Security & Privacy Review — Is it safe and compliant? | 🔄 Draft v0.1 — In Review (16 open security questions; 5 block build start) |
+| 6 | `05-test-strategy/` | Test Strategy Doc — How do we know it works? | ⏳ Not started — **next step** |
 | 7 | `06-work-breakdown/` | Work Breakdown / Sprint Plan — Who does what, when? | ⏳ Not started |
 | 8 | `07-launch-plan/` | Launch Plan — How do we ship it safely? | ⏳ Not started |
 | 9 | `08-post-launch/` | Post-Launch Review — Did it work? What's next? | ⏳ Not started |
@@ -69,4 +69,4 @@ Each document in this folder captures the state of thinking at a point in time. 
 
 ---
 
-*Last updated: 2026-07-01*
+*Last updated: 2026-07-02*
