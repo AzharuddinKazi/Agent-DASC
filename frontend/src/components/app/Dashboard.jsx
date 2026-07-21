@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { getTask, submitTask } from "../../api"
+import { brand } from "../../config/brand"
 import Sidebar from "./Sidebar"
 import ReportPanel from "./ReportPanel"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Menu, Pause, Square } from "lucide-react"
 
-export default function Dashboard({ query, taskId, taskType: initialTaskType, onNew }) {
+export default function Dashboard({ query, taskId, taskType: initialTaskType, onNew, onDomainPacks }) {
   const [task, setTask]                 = useState(null)
   const [activeQuery, setActiveQuery]   = useState(query)
   const [activeTaskId, setActiveTaskId] = useState(taskId)
@@ -48,7 +49,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
     : isComplete ? (isReport ? "Research Report" : "Analysis Result")
     : (isReport ? "Report Mode" : "Analysis In Progress")
 
-  const modeLabel = isReport ? "FIP-Research" : "FIP-Insight"
+  const modeLabel = isReport ? brand.modeLabels.report : brand.modeLabels.qa
   const statusLabel = isFailed ? "Failed" : isComplete ? "Complete" : "Running"
   const badgeColor = isFailed ? "bg-danger/10 text-danger border-danger/30"
     : isComplete ? "bg-success/10 text-success border-success/30"
@@ -60,7 +61,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
 
       {/* Permanent sidebar (desktop) */}
       <div className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-sidebar">
-        <Sidebar onNew={onNew} currentTaskId={activeTaskId} onSelect={handleSelect} />
+        <Sidebar onNew={onNew} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={onDomainPacks} />
       </div>
 
       {/* Main column */}
@@ -77,7 +78,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
               </SheetTrigger>
               <SheetContent side="left" className="w-[240px] p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} />
+                <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} />
               </SheetContent>
             </Sheet>
 

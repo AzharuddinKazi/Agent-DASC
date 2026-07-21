@@ -15,6 +15,7 @@
     "@fontsource/source-code-pro": "^5.2.7",
     "@hugeicons/core-free-icons": "^4.2.1",
     "@hugeicons/react": "^1.1.7",
+    "@supabase/supabase-js": "^2.110.7",
     "@tailwindcss/vite": "^4.3.1",
     "axios": "^1.18.0",
     "class-variance-authority": "^0.7.1",

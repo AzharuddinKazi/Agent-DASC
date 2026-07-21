@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react"
 import { getTasks } from "../../api"
+import { brand } from "../../config/brand"
+import { useAuth } from "../../hooks/useAuth"
+import { useHealth } from "../../hooks/useHealth"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { MessageSquare, LayoutGrid, User, Settings } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { MessageSquare, LayoutGrid, Package, LogOut } from "lucide-react"
+
+const CHECK_LABELS = { database: "Database", docker: "Sandbox", llm: "Model" }
 
 function elapsed(created_at) {
   if (!created_at) return "just now"
@@ -13,8 +19,12 @@ function elapsed(created_at) {
   return `${Math.floor(s / 3600)}h ago`
 }
 
-export default function Sidebar({ onNew, currentTaskId, onSelect }) {
+export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks, activeView }) {
   const [tasks, setTasks] = useState([])
+  const { user, signOut } = useAuth()
+  const { health, loading: healthLoading } = useHealth()
+  const email = user?.email || ""
+  const initials = email.slice(0, 2).toUpperCase()
 
   useEffect(() => {
     const load = async () => {
@@ -36,11 +46,11 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
       >
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-black text-white leading-none">FIP</span>
+            <span className="text-[11px] font-black text-white leading-none">{brand.appShortCode}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-foreground tracking-tight leading-none">FIP</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Financial Intelligence Platform</p>
+            <p className="text-sm font-bold text-foreground tracking-tight leading-none">{brand.appName}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{brand.tagline}</p>
           </div>
         </div>
       </button>
@@ -62,6 +72,19 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
           <LayoutGrid className="w-4 h-4 shrink-0" />
           Dashboard
         </button>
+        {onDomainPacks && (
+          <button
+            onClick={onDomainPacks}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-[14px] cursor-pointer transition-colors ${
+              activeView === "domainPacks"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+            }`}
+          >
+            <Package className="w-4 h-4 shrink-0" />
+            Domain Packs
+          </button>
+        )}
       </div>
 
       <Separator />
@@ -94,7 +117,7 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
                   <span className={`shrink-0 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold ${
                     isReport ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                   }`}>
-                    {isReport ? "R" : "I"}
+                    {(isReport ? brand.modeLabels.report : brand.modeLabels.qa)[0]}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
@@ -115,19 +138,48 @@ export default function Sidebar({ onNew, currentTaskId, onSelect }) {
 
       {/* User footer */}
       <div className="px-3 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-7 h-7 rounded-full bg-zinc-900 flex items-center justify-center shrink-0">
-            <span className="text-[10px] font-bold text-white">AK</span>
+            <span className="text-[10px] font-bold text-white">{initials}</span>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-foreground leading-none">Azharuddin Kazi</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Fraud Prevention</p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-foreground leading-none truncate">{email}</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
-          <Settings className="w-3.5 h-3.5" />
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" onClick={signOut} title="Sign out">
+          <LogOut className="w-3.5 h-3.5" />
         </Button>
       </div>
+
+      {/* System status */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="px-4 py-2 flex items-center gap-2 border-t border-sidebar-border shrink-0 cursor-default">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              healthLoading  ? "bg-zinc-400 animate-pulse" :
+              health?.status === "ok" ? "bg-success" : "bg-danger"
+            }`} />
+            <span className="text-[10.5px] text-muted-foreground">
+              {healthLoading ? "Checking systems…" : health?.status === "ok" ? "All systems normal" : "Degraded performance"}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <div className="flex flex-col gap-1">
+            {Object.keys(CHECK_LABELS).map(key => {
+              const check = health?.checks?.[key]
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    !check ? "bg-zinc-400" : check.status === "ok" ? "bg-success" : "bg-danger"
+                  }`} />
+                  <span>{CHECK_LABELS[key]}</span>
+                </div>
+              )
+            })}
+          </div>
+        </TooltipContent>
+      </Tooltip>
     </div>
   )
 }
