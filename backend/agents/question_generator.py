@@ -2,10 +2,11 @@ from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
+from domain_pack import SUBQUESTION_DIMENSIONS
 
 router = LLMRouter()
 
-QUESTION_GENERATOR_PROMPT = """You are a senior supervisory analyst and research director.
+QUESTION_GENERATOR_PROMPT = """You are a senior research analyst.
 Your task is to decompose a broad research query into a set of non-overlapping sub-questions,
 each covering a DISTINCT analytical dimension. Together they must give a complete picture.
 
@@ -14,27 +15,35 @@ each covering a DISTINCT analytical dimension. Together they must give a complet
 
 # Available Data
 {summaries}
-
-# Mandatory coverage rules
-You MUST produce exactly one sub-question per dimension listed below (where the data supports it).
-Do NOT produce two sub-questions on the same dimension — merge them into one.
-
-Dimensions to cover (pick the most relevant 5-6 given the query and available data):
-1. FRAUD / TRANSACTION RISK — fraud rates, volumes, types, hotspots
-2. COMPLIANCE / KYC RISK — KYC status gaps, expired verifications, pending reviews
-3. ENTITY / LFI RANKING — which institutions are highest risk overall, composite scores
-4. BEHAVIOURAL PATTERNS — transaction patterns, peak times, reversal/decline rates
-5. CUSTOMER SEGMENTATION — risk by account type, nationality, customer tier
-6. TEMPORAL TRENDS — how key metrics have changed over time (if date columns exist)
-7. CROSS-ENTITY COMPARISON — risk band vs actual behaviour mismatch, declared vs measured
-
+{dimensions_section}
 For each sub-question:
-- Be specific and quantitative ("Top 5 LFIs by fraud rate" not "Tell me about fraud")
+- Be specific and quantitative ("Top 5 entities by revenue growth" not "Tell me about revenue")
 - Confirm it is answerable from the available columns before including it
 - Each must address a DIFFERENT dimension — no duplicates
 
 Return ONLY a valid JSON array of strings. No preamble, no explanation, no markdown fences.
 ["Sub-question 1?", "Sub-question 2?", ...]"""
+
+# When SUBQUESTION_DIMENSIONS is configured (see domain_pack.py), nudge toward those
+# topics. Otherwise — the default — let the model choose its own dimensions, covering
+# whatever angles are actually relevant to the query and data at hand.
+if SUBQUESTION_DIMENSIONS:
+    _dims = "\n".join(f"{i}. {d}" for i, d in enumerate(SUBQUESTION_DIMENSIONS, 1))
+    DIMENSIONS_SECTION = f"""
+# Mandatory coverage rules
+You MUST produce exactly one sub-question per dimension listed below (where the data supports it).
+Do NOT produce two sub-questions on the same dimension — merge them into one.
+
+Dimensions to cover (pick the most relevant 5-6 given the query and available data):
+{_dims}
+"""
+else:
+    DIMENSIONS_SECTION = """
+# Your task
+Identify the distinct analytical dimensions most relevant to answering this query well,
+and generate as many sub-questions as needed to cover them — each sub-question must
+address a different dimension, with no duplicates.
+"""
 
 
 def question_generator(state: TaskState) -> dict:
@@ -51,6 +60,7 @@ def question_generator(state: TaskState) -> dict:
     prompt = QUESTION_GENERATOR_PROMPT.format(
         question=question,
         summaries=summaries_text,
+        dimensions_section=DIMENSIONS_SECTION,
     )
 
     result = router.complete(agent="question_generator", prompt=prompt)

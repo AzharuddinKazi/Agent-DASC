@@ -2,13 +2,19 @@ from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
+from domain_pack import REPORT_PERSONA, REPORT_CLASSIFICATION
 import json
 
 router = LLMRouter()
 
-WRITER_PROMPT = """You are a senior regulatory analyst at a central bank writing an official supervisory report.
+# Only ask for a classification field when one is actually configured — omitting it
+# from both the instructions and the JSON schema keeps unconfigured deployments from
+# getting a fabricated "CONFIDENTIAL"-style label they never asked for.
+_CLASSIFICATION_LINE = f'\n  "classification": "{REPORT_CLASSIFICATION}",' if REPORT_CLASSIFICATION else ""
+
+WRITER_PROMPT = REPORT_PERSONA + """
 You have completed {sub_q_count} targeted data analyses. Your job is to synthesise these into a
-formal, publication-quality supervisory report — NOT a list of data summaries.
+formal, publication-quality report — NOT a list of data summaries.
 
 # Research Query (the report must answer this)
 {question}
@@ -21,47 +27,47 @@ formal, publication-quality supervisory report — NOT a list of data summaries.
    coherent narrative. A section is NOT a summary of one sub-question — it is a thematic argument
    supported by data from across the analyses.
 2. CITE numbers precisely. Every claim must be backed by a specific figure from the data
-   (e.g. "LFI-07 recorded a fraud rate of 8.3%, nearly 3× the sector average of 2.9%").
-3. USE formal supervisory language. Avoid casual phrasing. Write as if this will be read
-   by a board of directors or a regulatory committee.
-4. STRUCTURE thematically. Group related findings under risk categories
-   (e.g. Transaction Risk, Compliance Risk, Operational Risk), not by sub-question.
+   (e.g. "Entity-07 recorded a 8.3% rate, nearly 3× the average of 2.9%").
+3. USE formal, professional language. Avoid casual phrasing. Write as if this will be read
+   by senior stakeholders making decisions based on it.
+4. STRUCTURE thematically. Group related findings under clear themes, not by sub-question.
 5. RECOMMEND actions. The conclusions section must end with 3-5 specific, actionable
-   supervisory recommendations addressed to institution management.
+   recommendations.
+6. Identify 2-4 evaluative dimensions most relevant to this query (e.g. for a sales query
+   that might be "Revenue Risk" / "Growth Trend"; for an operations query it might be
+   "Efficiency" / "Reliability") and use them consistently as the keys in each risk_matrix
+   entry's "dimensions" object.
 
 # Required Output Format (strict JSON — return ONLY this, no markdown fences)
 {{
-  "title": "Formal report title (e.g. 'Supervisory Risk Assessment: AML & Fraud Exposure Across Licensed Financial Institutions')",
-  "classification": "SUPERVISORY — CONFIDENTIAL",
-  "reporting_period": "Based on available transaction data",
-  "executive_summary": "4-6 sentences. State the most critical findings directly. Name the worst-performing entities. Quantify the risk. End with the overall supervisory stance.",
+  "title": "Formal report title",""" + _CLASSIFICATION_LINE + """
+  "reporting_period": "Based on available data",
+  "executive_summary": "4-6 sentences. State the most critical findings directly. Name the standout entities. Quantify the impact. End with the overall assessment.",
   "sections": [
     {{
-      "heading": "Thematic section heading (e.g. '1. Fraud Risk and Transaction Integrity')",
-      "body": "3-5 paragraphs of formal narrative. Must include specific LFI names/IDs, exact figures, comparisons to benchmarks, and cross-references to other risk dimensions. Use markdown for emphasis: **bold** for key entities, `code` for metric names.",
-      "key_stat": "Single most important number from this section (e.g. 'Sector fraud rate: 4.2%')"
+      "heading": "Thematic section heading (e.g. '1. Revenue Trends and Growth')",
+      "body": "3-5 paragraphs of formal narrative. Must include specific entity names/IDs, exact figures, comparisons to benchmarks, and cross-references to other dimensions. Use markdown for emphasis: **bold** for key entities, `code` for metric names.",
+      "key_stat": "Single most important number from this section (e.g. 'Average growth rate: 4.2%')"
     }}
   ],
   "risk_matrix": [
     {{
-      "entity": "LFI name or ID",
-      "fraud_risk": "High / Medium / Low",
-      "compliance_risk": "High / Medium / Low",
-      "operational_risk": "High / Medium / Low",
+      "entity": "Entity name or ID",
+      "dimensions": {{"Dimension Name": "High / Medium / Low", "Another Dimension": "High / Medium / Low"}},
       "overall": "High / Medium / Low",
       "priority_action": "One-line recommended action"
     }}
   ],
-  "conclusions": "5-7 sentences summarising overall supervisory findings and the urgency of action required.",
+  "conclusions": "5-7 sentences summarising overall findings and the urgency of action required.",
   "recommendations": [
-    "Specific recommendation 1 addressed to a named entity or all LFIs",
+    "Specific recommendation 1 addressed to a named entity or the whole population",
     "Specific recommendation 2",
     "Specific recommendation 3"
   ],
   "data_coverage": {{
     "sub_questions_answered": {sub_q_count},
     "total_records_analysed": <integer — sum of row counts from all sub-analyses>,
-    "datasets_used": [<list of distinct CSV filenames referenced in the analyses>]
+    "datasets_used": [<list of distinct filenames referenced in the analyses>]
   }}
 }}"""
 

@@ -199,13 +199,13 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     let entityIdx = 0
     for (let i = 0; i < columns.length; i++) {
       const c = columns[i].toLowerCase()
-      if (["bank","lfi","name","institution","house","exchange","entity"].some(k => c.includes(k))) { entityIdx = i; break }
+      if (["name","entity","id","category","label","account"].some(k => c.includes(k))) { entityIdx = i; break }
     }
     let metricIdx = -1
     for (let i = 0; i < columns.length; i++) {
       if (i === entityIdx) continue
       const c = columns[i].toLowerCase()
-      if (["score","risk","ratio","amount","volume","count","sum","txs","val","sar"].some(k => c.includes(k))) { metricIdx = i; break }
+      if (["score","risk","ratio","amount","volume","count","sum","total","value","rate"].some(k => c.includes(k))) { metricIdx = i; break }
     }
     if (metricIdx === -1) for (let i = 0; i < columns.length; i++) { if (i !== entityIdx && numericColumnMap[i]) { metricIdx = i; break } }
     const sortedByMetric = [...rows].sort((a, b) => {
@@ -425,7 +425,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
         </Card>
       )}
 
-      {/* ── Collapsible: Supervisory Plan ── */}
+      {/* ── Collapsible: Analysis Plan ── */}
       {plan && plan.length > 0 && (
         <Card>
           <button
@@ -435,7 +435,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
             <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
               {showPlan ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
               <ListTodo className="w-4 h-4 text-muted-foreground" />
-              Supervisory Plan
+              Analysis Plan
             </span>
             <Badge variant="secondary" className="text-[10px]">{plan.length} steps</Badge>
           </button>

@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { submitTask, getTasks } from "../../api"
+import { submitTask } from "../../api"
+import { brand } from "../../config/brand"
 import Sidebar from "./Sidebar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -7,27 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
-import {
-  ArrowUp, TrendingUp, Flag, BarChart3, ShieldCheck, Info,
-  Paperclip, SlidersHorizontal, Menu, BarChart2, AlertTriangle,
-  FileText, BookOpen, Search,
-} from "lucide-react"
-
-const CAPABILITIES = [
-  { icon: TrendingUp,  label: "SAR Analysis"  },
-  { icon: Flag,        label: "Risk Scoring"   },
-  { icon: BarChart3,   label: "Entity Ranking" },
-  { icon: ShieldCheck, label: "AML Detection"  },
-]
-
-const TEMPLATES = [
-  { icon: BarChart2,      color: "blue",   type: "qa",     text: "Which LFIs have the highest card fraud loss rate vs. the peer median this quarter?" },
-  { icon: TrendingUp,     color: "blue",   type: "qa",     text: "Show me fraud typology trends by channel across UAE banks over the past 12 months." },
-  { icon: AlertTriangle,  color: "blue",   type: "qa",     text: "Which LFIs are statistical outliers in their social engineering fraud detection rate?" },
-  { icon: FileText,       color: "purple", type: "report", text: "Generate a thematic analysis of APP fraud growth across UAE banks in 2024." },
-  { icon: BookOpen,       color: "purple", type: "report", text: "Produce a sector-wide fraud trend report for H1 2025 suitable for a supervisory letter annex." },
-  { icon: Search,         color: "amber",  type: "qa",     text: "Which LFIs have declining STR filing rates compared to the prior quarter?" },
-]
+import { ArrowUp, Paperclip, SlidersHorizontal, Menu } from "lucide-react"
 
 const ICON_BG = {
   blue:   "bg-blue-50 text-blue-600",
@@ -35,7 +16,7 @@ const ICON_BG = {
   amber:  "bg-amber-50 text-amber-600",
 }
 
-export default function EmptyState({ onSubmit }) {
+export default function EmptyState({ onSubmit, onDomainPacks }) {
   const [query, setQuery]               = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError]               = useState("")
@@ -67,7 +48,7 @@ export default function EmptyState({ onSubmit }) {
 
       {/* Permanent sidebar (desktop) */}
       <div className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-sidebar">
-        <Sidebar onNew={() => {}} currentTaskId={null} onSelect={handleSelect} />
+        <Sidebar onNew={() => {}} currentTaskId={null} onSelect={handleSelect} onDomainPacks={onDomainPacks} />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -83,7 +64,7 @@ export default function EmptyState({ onSubmit }) {
               </SheetTrigger>
               <SheetContent side="left" className="w-[240px] p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={handleSelect} />
+                <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} />
               </SheetContent>
             </Sheet>
             <h1 className="text-[15px] font-bold text-foreground leading-none">New Analysis</h1>
@@ -95,7 +76,7 @@ export default function EmptyState({ onSubmit }) {
           <div className="w-full max-w-[720px] flex flex-col gap-6 items-center">
 
             <div className="flex flex-wrap justify-center gap-2">
-              {CAPABILITIES.map(({ icon: Icon, label }) => (
+              {brand.capabilities.map(({ icon: Icon, label }) => (
                 <Badge key={label} variant="outline" className="gap-1.5 rounded-full px-3 py-1 font-medium whitespace-nowrap text-xs">
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   {label}
@@ -108,7 +89,7 @@ export default function EmptyState({ onSubmit }) {
                 What would you like to analyse?
               </h2>
               <p className="text-[14px] text-muted-foreground leading-relaxed max-w-lg mx-auto">
-                Ask a question about LFI data in plain English. FIP will plan, code, and verify the answer automatically.
+                Ask a question about your data in plain English. {brand.appName} will plan, code, and verify the answer automatically.
               </p>
             </div>
 
@@ -117,7 +98,7 @@ export default function EmptyState({ onSubmit }) {
                 <Textarea
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  placeholder="e.g. Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025?"
+                  placeholder="e.g. Which entities have the highest value in [metric] relative to [metric] this quarter?"
                   className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none px-5 pt-5 pb-3 text-[15px] rounded-b-none"
                   style={{ minHeight: '110px' }}
                   onKeyDown={e => {
@@ -134,7 +115,7 @@ export default function EmptyState({ onSubmit }) {
                         Drop files here or <span className="text-foreground underline cursor-pointer">browse</span>
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-1">CSV, Excel, JSON, PDF · up to 500 MB per file</p>
-                      <p className="text-[10px] text-muted-foreground/70 mt-1">Files are stored in your workspace and never leave CBUAE infrastructure</p>
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">Files are stored in your workspace and never leave this deployment</p>
                     </div>
                   </div>
                 )}
@@ -146,7 +127,7 @@ export default function EmptyState({ onSubmit }) {
                     <div className="grid grid-cols-3 gap-3 text-xs">
                       {[
                         { label: "Output style", opts: ["Auto", "Table", "Bullet summary", "Narrative"] },
-                        { label: "Number format", opts: ["Auto", "AED", "Percentage", "Index"] },
+                        { label: "Number format", opts: ["Auto", "Currency", "Percentage", "Index"] },
                         { label: "Include charts", opts: ["Auto", "Always", "Never"] },
                       ].map(g => (
                         <div key={g.label}>
@@ -192,7 +173,7 @@ export default function EmptyState({ onSubmit }) {
                 Start with a template
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {TEMPLATES.map((t, i) => {
+                {brand.templates.map((t, i) => {
                   const Icon = t.icon
                   return (
                     <button
@@ -211,7 +192,7 @@ export default function EmptyState({ onSubmit }) {
             </div>
 
             <p className="text-[11px] text-muted-foreground/70 text-center pt-2">
-              FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped
+              {brand.footerText}
             </p>
           </div>
         </div>

@@ -206,50 +206,66 @@ export default function ReportView({ task, query, onFollowUp }) {
       ))}
 
       {/* ── Risk matrix ── */}
-      {report.risk_matrix?.length > 0 && (
-        <Card>
-          <button
-            onClick={() => toggleSection("risk_matrix")}
-            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors cursor-pointer rounded-lg text-left"
-          >
-            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-              Entity Risk Matrix
-            </span>
-            {openSections["risk_matrix"]
-              ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-              : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-          </button>
-          {openSections["risk_matrix"] && (
-            <>
-              <Separator />
-              <CardContent className="pt-4 pb-2 overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-muted/50">
-                      {["Entity","Fraud Risk","Compliance","Operational","Overall","Priority Action"].map(h => (
-                        <th key={h} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.risk_matrix.map((row, i) => (
-                      <tr key={i} className="border-b border-border/50 hover:bg-muted/20">
-                        <td className="px-3 py-2 font-semibold text-foreground">{row.entity}</td>
-                        <td className="px-3 py-2"><RiskBadge level={row.fraud_risk} /></td>
-                        <td className="px-3 py-2"><RiskBadge level={row.compliance_risk} /></td>
-                        <td className="px-3 py-2"><RiskBadge level={row.operational_risk} /></td>
-                        <td className="px-3 py-2"><RiskBadge level={row.overall} /></td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{row.priority_action}</td>
+      {/* Dimension names come from the Writer's own output (report.risk_matrix[].dimensions),
+          not a hardcoded schema — this table adapts to whatever dimensions the LLM picked
+          for this query's domain. Falls back to the pre-domain-pack flat fraud_risk/
+          compliance_risk/operational_risk shape for reports generated before this change. */}
+      {report.risk_matrix?.length > 0 && (() => {
+        const rows = report.risk_matrix.map(row => ({
+          ...row,
+          dimensions: row.dimensions || {
+            "Fraud Risk":      row.fraud_risk,
+            "Compliance Risk": row.compliance_risk,
+            "Operational Risk": row.operational_risk,
+          },
+        }))
+        const dimensionNames = [...new Set(rows.flatMap(r => Object.keys(r.dimensions).filter(k => r.dimensions[k] != null)))]
+
+        return (
+          <Card>
+            <button
+              onClick={() => toggleSection("risk_matrix")}
+              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors cursor-pointer rounded-lg text-left"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                Entity Risk Matrix
+              </span>
+              {openSections["risk_matrix"]
+                ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+            </button>
+            {openSections["risk_matrix"] && (
+              <>
+                <Separator />
+                <CardContent className="pt-4 pb-2 overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-muted/50">
+                        {["Entity", ...dimensionNames, "Overall", "Priority Action"].map(h => (
+                          <th key={h} className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border">{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </>
-          )}
-        </Card>
-      )}
+                    </thead>
+                    <tbody>
+                      {rows.map((row, i) => (
+                        <tr key={i} className="border-b border-border/50 hover:bg-muted/20">
+                          <td className="px-3 py-2 font-semibold text-foreground">{row.entity}</td>
+                          {dimensionNames.map(dim => (
+                            <td key={dim} className="px-3 py-2"><RiskBadge level={row.dimensions[dim]} /></td>
+                          ))}
+                          <td className="px-3 py-2"><RiskBadge level={row.overall} /></td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{row.priority_action}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </>
+            )}
+          </Card>
+        )
+      })()}
 
       {/* ── Conclusions ── */}
       {report.conclusions && (
@@ -270,7 +286,7 @@ export default function ReportView({ task, query, onFollowUp }) {
       {report.recommendations?.length > 0 && (
         <Card className="border-success/20 bg-success/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-success">Supervisory Recommendations</CardTitle>
+            <CardTitle className="text-sm font-semibold text-success">Recommendations</CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="list-decimal pl-5 space-y-2">
