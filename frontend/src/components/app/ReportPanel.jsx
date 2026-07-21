@@ -1,36 +1,16 @@
+import { useState } from "react"
 import ReportSections from "./ReportSections.jsx"
 import ReportView from "./ReportView.jsx"
+import PipelineHeader from "./PipelineHeader.jsx"
+import PipelineTimeline from "./PipelineTimeline.jsx"
+import ResearchProgress from "./ResearchProgress.jsx"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { AlertTriangle, Zap } from "lucide-react"
-
-function getAgentDescription(agent) {
-  if (!agent) return "Initializing autonomous pipeline..."
-  if (agent.startsWith("planner")) {
-    const m = agent.match(/\d+/)
-    return m ? `Formulating plan for iteration ${m[0]}...` : "Formulating analytical plan..."
-  }
-  if (agent.startsWith("sub_result")) return "Collecting sub-analysis result..."
-  return {
-    analyzer:           "Analyzing dataset schemas and preparing context...",
-    question_generator: "Decomposing query into targeted sub-questions...",
-    coder:              "Translating plan into secure Pandas execution script...",
-    executor:           "Running code in isolated Docker sandbox...",
-    verifier:           "Evaluating results against the original query...",
-    router:             "Determining if further analysis is required...",
-    debugger:           "Execution failed — analysing traceback and patching code...",
-    finalizer:          "Formatting final answer as structured output...",
-    writer:             "Synthesising sub-analyses into research report...",
-    report_evaluator:   "Evaluating report quality and coverage...",
-    gap_question_generator: "Identifying gaps and generating additional sub-questions...",
-    report_finalizer:   "Finalising research report...",
-  }[agent] || `Agent active: ${agent}`
-}
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { AlertTriangle, MessageSquare } from "lucide-react"
 
 export default function ReportPanel({ task, query, onFollowUp }) {
-  const rawAgent  = task?.current_agent
-  const baseAgent = rawAgent?.startsWith("planner") ? "planner" : rawAgent
+  const [steerText, setSteerText] = useState("")
   const isReport  = task?.task_type === "report"
 
   if (task?.status === "completed" && task?.final_result) {
@@ -68,50 +48,45 @@ export default function ReportPanel({ task, query, onFollowUp }) {
   }
 
   /* Loading state */
-  return (
-    <div className="flex flex-col gap-6 w-full">
-      <div className="flex flex-col items-center justify-center py-10 gap-5">
-        <div className="relative flex items-center justify-center">
-          <div className="absolute w-16 h-16 rounded-full bg-foreground/5 animate-ping opacity-50" style={{ animationDuration: '2s' }} />
-          <div className="relative z-10 w-10 h-10 rounded-full bg-foreground flex items-center justify-center">
-            <Zap className="w-5 h-5 text-background" strokeWidth={2.5} />
-          </div>
-        </div>
-        <div className="text-center">
-          {baseAgent && (
-            <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider mb-2">
-              {baseAgent}
-            </Badge>
-          )}
-          <p className="text-sm font-semibold text-foreground">{getAgentDescription(rawAgent)}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {isReport ? "DS-STAR+ typically completes in 3–10 minutes" : "Typically completes in 30–90 seconds"}
-          </p>
-        </div>
-      </div>
+  const handleSteerSubmit = (e) => {
+    e.preventDefault()
+    // Not yet wired to the backend — the pipeline has no mid-run steering endpoint.
+    // Kept as a visible, honestly-disabled affordance until that lands.
+  }
 
-      {/* Skeleton — summary first, then table */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2">
-          <Card>
-            <CardContent className="p-5">
-              <Skeleton className="h-3 w-32 mb-4" />
-              <Skeleton className="h-3 w-full mb-2" />
-              <Skeleton className="h-3 w-5/6 mb-2" />
-              <Skeleton className="h-3 w-4/6" />
-            </CardContent>
-          </Card>
-        </div>
-        <Card>
-          <CardContent className="p-5">
-            <Skeleton className="h-3 w-24 mb-4" />
-            <Skeleton className="h-3 w-full mb-3" />
-            <Skeleton className="h-3 w-full mb-3" />
-            <Skeleton className="h-3 w-full" />
+  // The task row has no live "current_round" column — cumulative_plan grows by one
+  // entry per completed planner round, so its length is the best live proxy.
+  const currentRound = task?.cumulative_plan?.length || 0
+
+  return (
+    <div className="flex flex-col gap-4 w-full max-w-4xl mx-auto">
+      {isReport ? (
+        <>
+          <PipelineHeader query={query} currentRound={currentRound} isReport />
+          <ResearchProgress task={task} />
+        </>
+      ) : (
+        <>
+          <PipelineHeader query={query} currentRound={currentRound} isReport={false} />
+          <PipelineTimeline logs={task?.logs || []} currentScript={task?.current_script} isRunning />
+        </>
+      )}
+
+      <form onSubmit={handleSteerSubmit}>
+        <Card className="border-dashed">
+          <CardContent className="p-2.5 flex items-center gap-2">
+            <MessageSquare className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-1.5" />
+            <Input
+              value={steerText}
+              onChange={e => setSteerText(e.target.value)}
+              placeholder="Steer the analysis (optional) — not yet available mid-run"
+              disabled
+              className="border-none bg-transparent shadow-none focus-visible:ring-0 h-8 text-sm"
+            />
+            <Button type="submit" disabled size="sm" variant="outline" className="shrink-0">Send</Button>
           </CardContent>
         </Card>
-      </div>
-      <Skeleton className="h-72 w-full rounded-lg" />
+      </form>
     </div>
   )
 }

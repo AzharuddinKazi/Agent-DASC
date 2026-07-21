@@ -25,13 +25,15 @@ def execute_script(script: str) -> tuple:
             text=True,
             timeout=120
         )
-        return result.stdout[:3000], result.stderr[:500], result.returncode
+        # 3000 chars was truncating mid-JSON on the Finalizer's structured output
+        # whenever a result had more than a few table rows, producing invalid JSON
+        # that the frontend then fell back to rendering as raw text.
+        return result.stdout[:50_000], result.stderr[:2_000], result.returncode
     finally:
         os.unlink(script_path)
 
 def executor(state: TaskState) -> dict:
 
-    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": "executor"}).eq("task_id", state["task_id"]).execute()
 
     sub_questions   = state.get("sub_questions", [])

@@ -1,22 +1,11 @@
 import { useState, useEffect } from "react"
 import { getTask, submitTask } from "../../api"
 import Sidebar from "./Sidebar"
-import AgentPipeline from "./AgentPipeline"
 import ReportPanel from "./ReportPanel"
-import LogPanel from "./LogPanel"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Menu } from "lucide-react"
-
-const PROGRESS_BY_AGENT = {
-  analyzer: 8, question_generator: 15,
-  planner: 25, coder: 38, executor: 50,
-  debugger: 55, verifier: 65, router: 72,
-  sub_result_collector: 75, writer: 85, report_evaluator: 90,
-  gap_question_generator: 78, report_finalizer: 95, finalizer: 92,
-}
+import { Menu, Pause, Square } from "lucide-react"
 
 export default function Dashboard({ query, taskId, taskType: initialTaskType, onNew }) {
   const [task, setTask]                 = useState(null)
@@ -24,7 +13,6 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
   const [activeTaskId, setActiveTaskId] = useState(taskId)
   const [activeTaskType, setActiveTaskType] = useState(initialTaskType || "qa")
   const [drawerOpen, setDrawerOpen]     = useState(false)
-  const [elapsedTime, setElapsedTime]   = useState(0)
 
   useEffect(() => {
     if (!activeTaskId) return
@@ -41,58 +29,46 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
     return () => clearInterval(interval)
   }, [activeTaskId])
 
-  useEffect(() => {
-    if (!task) return
-    if (task.status === "running") {
-      const start = new Date(task.created_at || Date.now()).getTime()
-      const update = () => setElapsedTime(Math.max(0, Math.floor((Date.now() - start) / 1000)))
-      update()
-      const t = setInterval(update, 1000)
-      return () => clearInterval(t)
-    } else if (task.created_at && task.updated_at) {
-      setElapsedTime(Math.max(0, Math.floor((new Date(task.updated_at) - new Date(task.created_at)) / 1000)))
-    }
-  }, [task])
-
   const handleSelect = (id, q, type) => { setActiveTaskId(id); setActiveQuery(q); if (type) setActiveTaskType(type); setDrawerOpen(false) }
   const handleFollowUp = async (text, mode) => {
     if (!text.trim()) return
     const type = mode || activeTaskType
     try {
       const res = await submitTask(text, "", type)
-      setActiveTaskId(res.data.task_id); setActiveQuery(text); setActiveTaskType(type); setTask(null); setElapsedTime(0)
+      setActiveTaskId(res.data.task_id); setActiveQuery(text); setActiveTaskType(type); setTask(null)
     } catch (err) { console.error(err) }
   }
 
   const isRunning  = task?.status === "running"
   const isComplete = task?.status === "completed"
   const isFailed   = task?.status === "failed"
+  const isReport   = activeTaskType === "report"
 
-  const baseAgent = task?.current_agent?.startsWith("planner") ? "planner" : task?.current_agent
-  const progress  = isComplete ? 100 : isFailed ? 100 : PROGRESS_BY_AGENT[baseAgent] ?? 5
+  const headerTitle = isFailed ? "Analysis Failed"
+    : isComplete ? (isReport ? "Research Report" : "Analysis Result")
+    : (isReport ? "Report Mode" : "Analysis In Progress")
 
-  const formatTimer = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+  const modeLabel = isReport ? "FIP-Research" : "FIP-Insight"
+  const statusLabel = isFailed ? "Failed" : isComplete ? "Complete" : "Running"
+  const badgeColor = isFailed ? "bg-danger/10 text-danger border-danger/30"
+    : isComplete ? "bg-success/10 text-success border-success/30"
+    : isReport ? "bg-purple-50 text-purple-600 border-purple-200"
+    : "bg-blue-50 text-blue-600 border-blue-200"
 
   return (
     <div className="h-screen flex bg-background overflow-hidden font-sans">
 
-      {/* ── Permanent sidebar (desktop) ── */}
+      {/* Permanent sidebar (desktop) */}
       <div className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-sidebar">
-        <Sidebar
-          onNew={onNew}
-          currentTaskId={activeTaskId}
-          onSelect={handleSelect}
-        />
+        <Sidebar onNew={onNew} currentTaskId={activeTaskId} onSelect={handleSelect} />
       </div>
 
-      {/* ── Main column ── */}
+      {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* TOP BAR */}
-        <div className="relative h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-40">
+        <div className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Mobile hamburger */}
             <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden shrink-0">
@@ -105,50 +81,30 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
               </SheetContent>
             </Sheet>
 
-            {/* Page title */}
-            <div>
-              <h1 className="text-[15px] font-bold text-foreground leading-none">Analysis Dashboard</h1>
-              <p className="text-[13px] text-muted-foreground mt-0.5 truncate max-w-[420px]">{activeQuery}</p>
-            </div>
+            <h1 className="text-[15px] font-bold text-foreground leading-none shrink-0">{headerTitle}</h1>
+            <Badge variant="outline" className={`gap-1.5 text-[12px] shrink-0 ${badgeColor}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? "animate-pulse" : ""}`} style={{ backgroundColor: "currentColor" }} />
+              {modeLabel} · {statusLabel}
+            </Badge>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <span className="font-mono text-[13px] text-muted-foreground tabular-nums">
-              {formatTimer(elapsedTime)}
-            </span>
-
-            {isRunning  && <Badge variant="outline" className="gap-1.5 text-info border-info/30 bg-info-bg text-[12px]"><span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />Running</Badge>}
-            {isComplete && <Badge variant="outline" className="gap-1.5 text-success border-success/30 bg-success-bg text-[12px]"><span className="w-1.5 h-1.5 rounded-full bg-success" />Complete</Badge>}
-            {isFailed   && <Badge variant="destructive" className="gap-1.5 text-[12px]"><span className="w-1.5 h-1.5 rounded-full bg-white/80" />Failed</Badge>}
-
-            <Button size="sm" onClick={onNew} className="h-8 text-[13px] px-4">
-              + New Analysis
-            </Button>
+            {isRunning && (
+              <>
+                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-[13px] gap-1.5">
+                  <Pause className="w-3.5 h-3.5" /> Pause
+                </Button>
+                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-[13px] gap-1.5 text-destructive border-destructive/30">
+                  <Square className="w-3.5 h-3.5" /> Stop
+                </Button>
+              </>
+            )}
+            {/* Export controls live inline with the result (CSV in ReportSections,
+                print-to-PDF in ReportView) rather than duplicated here. */}
           </div>
-
-          {/* Progress bar */}
-          <div
-            className="absolute bottom-0 left-0 h-[2px] transition-all duration-700 ease-in-out"
-            style={{
-              width: `${progress}%`,
-              background: isComplete ? '#16a34a' : isFailed ? '#dc2626' : '#18181b'
-            }}
-          />
         </div>
 
-        {/* AGENT PIPELINE */}
-        <div className="h-12 border-b border-border bg-zinc-050 px-6 flex items-center shrink-0">
-          <AgentPipeline
-            currentAgent={task?.current_agent}
-            status={task?.status}
-            roundsTaken={task?.rounds_taken}
-          />
-        </div>
-
-        {/* ACTIVITY LOG */}
-        <LogPanel logs={task?.logs || []} isRunning={isRunning} />
-
-        {/* REPORT AREA */}
+        {/* CONTENT */}
         <div className="flex-1 overflow-y-auto bg-background">
           <div className="max-w-7xl mx-auto px-6 py-6">
             <ReportPanel task={task} query={activeQuery} onFollowUp={handleFollowUp} />

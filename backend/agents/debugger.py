@@ -31,7 +31,6 @@ There should be no additional headings or text in your response."""
 
 def debugger(state: TaskState) -> dict:
 
-    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": "debugger"}).eq("task_id", state["task_id"]).execute()
 
     attempt = state.get("debug_attempts", 0)

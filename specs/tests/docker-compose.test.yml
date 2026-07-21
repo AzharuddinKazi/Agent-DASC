@@ -1,0 +1,62 @@
+version: "3.9"
+
+# Spin up for integration and system tests.
+# Usage: docker compose -f specs/tests/docker-compose.test.yml up -d
+# Teardown: docker compose -f specs/tests/docker-compose.test.yml down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dsstar
+      POSTGRES_PASSWORD: dsstar_test
+      POSTGRES_DB: dsstar_test
+    ports:
+      - "5433:5432"   # 5433 to avoid clashing with a local pg instance
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dsstar -d dsstar_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pg_test_data:/var/lib/postgresql/data
+      # Apply schema migrations on startup
+      - ../../backend/migrations:/docker-entrypoint-initdb.d:ro
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: test_root
+      MYSQL_DATABASE: test_db
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: test_pass
+    ports:
+      - "3307:3306"   # 3307 to avoid clashing with a local mysql instance
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "test_user", "-ptest_pass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+      # Seed test data on startup
+      - ../fixtures/mysql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+
+  chroma:
+    image: chromadb/chroma:0.5.0
+    environment:
+      CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER: ""
+    ports:
+      - "8001:8000"   # 8001 to avoid clashing with a local chroma instance
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/heartbeat || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - chroma_test_data:/chroma/chroma
+
+volumes:
+  pg_test_data:
+  mysql_test_data:
+  chroma_test_data:

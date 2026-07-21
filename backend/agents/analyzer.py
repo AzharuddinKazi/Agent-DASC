@@ -71,9 +71,9 @@ def analyze_file(filename: str, filepath: str) -> str:
         )
 
         if exec_result.returncode == 0:
-            description = exec_result.stdout[:3000]
+            description = exec_result.stdout[:8_000]
         else:
-            description = f"Analysis failed: {exec_result.stderr[:500]}"
+            description = f"Analysis failed: {exec_result.stderr[:2_000]}"
 
         print(f"[Analyzer] {filename}: {len(description)} chars captured")
         return description
@@ -84,7 +84,6 @@ def analyze_file(filename: str, filepath: str) -> str:
 
 def analyzer(state: TaskState) -> dict:
     data_path    = f"{os.getenv('DSSTAR')}/data"
-    # supabase     = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     descriptions = {}
 
     supabase.table("tasks").update({"current_agent": "analyzer"}).eq("task_id", state["task_id"]).execute()

@@ -94,13 +94,16 @@ transactions = pd.DataFrame({
 })
 
 # ── Write files ───────────────────────────────────────────────────────────────
-lfis.to_csv(OUTPUT_DIR / "lfi_data.csv", index=False)
-users.to_csv(OUTPUT_DIR / "users_data.csv", index=False)
-cards.to_csv(OUTPUT_DIR / "cards_data.csv", index=False)
+# Deliberately spread across formats (CSV, Excel, JSON) to exercise the Analyzer's
+# multi-format parsing, not because any one format suits its table better. Transactions
+# stays CSV since it's by far the largest table and CSV parses fastest at that scale.
+lfis.to_excel(OUTPUT_DIR / "lfi_data.xlsx", index=False, sheet_name="LFIs")
+users.to_excel(OUTPUT_DIR / "users_data.xlsx", index=False, sheet_name="Users")
+cards.to_json(OUTPUT_DIR / "cards_data.json", orient="records", indent=2)
 transactions.to_csv(OUTPUT_DIR / "transactions_data.csv", index=False)
 
-print(f"✓ lfi_data.csv         — {len(lfis):,} rows")
-print(f"✓ users_data.csv       — {len(users):,} rows")
-print(f"✓ cards_data.csv       — {len(cards):,} rows")
+print(f"✓ lfi_data.xlsx         — {len(lfis):,} rows")
+print(f"✓ users_data.xlsx       — {len(users):,} rows")
+print(f"✓ cards_data.json       — {len(cards):,} rows")
 print(f"✓ transactions_data.csv — {len(transactions):,} rows")
 print(f"\nAll files written to {OUTPUT_DIR}")

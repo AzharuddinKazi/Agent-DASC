@@ -3,7 +3,6 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agents.graph import build_graph
-# from supabase import create_client, Client
 from db import supabase
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from dotenv import load_dotenv
@@ -11,13 +10,11 @@ import os, uuid, asyncio
 
 load_dotenv()
 
-# supabase: Client = None
 graph = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global supabase, graph
-    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
+    global graph
     async with AsyncPostgresSaver.from_conn_string(os.getenv("SUPABASE_DB_URL")) as checkpointer:
         await checkpointer.setup()
         graph = build_graph()
@@ -27,7 +24,7 @@ app = FastAPI(title="DSStar Backend API", version="1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5174", "http://127.0.0.1:5174"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

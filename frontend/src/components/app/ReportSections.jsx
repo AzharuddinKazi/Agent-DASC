@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   ChevronRight, ChevronDown, ChevronUp, ChevronsUpDown,
   Download, ListTodo, CheckCircle2, DollarSign, Activity, Coins,
-  TrendingUp, Send, Flame, Eye, ShieldCheck, Sparkles
+  TrendingUp, Send, Flame, Eye, ShieldCheck, Sparkles,
+  ThumbsUp, ThumbsDown, Flag
 } from "lucide-react"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism"
@@ -94,6 +95,38 @@ function KeyFindings({ findings }) {
   )
 }
 
+// ── Feedback bar ──────────────────────────────────────────────────────────────
+// Not yet persisted to a backend feedback store — the API has no endpoint for it.
+// Kept local-only (per-session) until that lands; the PRD calls for weekly review
+// of "Flag as incorrect" submissions, which needs real storage first.
+function FeedbackBar() {
+  const [vote, setVote] = useState(null)
+  return (
+    <div className="flex items-center justify-between px-1">
+      <p className="text-xs text-muted-foreground">Was this analysis helpful?</p>
+      <div className="flex items-center gap-2">
+        <Button
+          variant={vote === "up" ? "default" : "outline"} size="sm"
+          onClick={() => setVote(v => v === "up" ? null : "up")}
+          className="h-7 text-xs gap-1.5"
+        >
+          <ThumbsUp className="w-3 h-3" /> Helpful
+        </Button>
+        <Button
+          variant={vote === "down" ? "default" : "outline"} size="sm"
+          onClick={() => setVote(v => v === "down" ? null : "down")}
+          className="h-7 text-xs gap-1.5"
+        >
+          <ThumbsDown className="w-3 h-3" /> Not helpful
+        </Button>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 text-destructive hover:text-destructive">
+          <Flag className="w-3 h-3" /> Flag issue
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ReportSections({ result, query, script, plan = [], taskId, onFollowUp }) {
   const [showCode, setShowCode]         = useState(false)
@@ -114,12 +147,17 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     } catch { return null }
   }, [result])
 
-  const summary      = parsed?.summary      || (typeof result === "string" ? result : "Analysis complete.")
+  // If the Finalizer's output didn't parse as JSON, don't dump the raw string into
+  // the "Analysis Summary" card as if it were prose — that's confusing (looked like a
+  // rendering bug rather than what it actually was: unparseable output). Say so plainly
+  // and put the raw text in the monospace fallback block below instead.
+  const parseFailed  = !parsed && !!result
+  const summary      = parsed?.summary || (parseFailed ? "Could not parse structured output — see raw result below." : "Analysis complete.")
   const keyFindings  = parsed?.key_findings || []
   const columns      = parsed?.columns      || []
   const rows         = parsed?.rows         || []
   const chart        = parsed?.chart        || null
-  const rawText      = parsed?.raw          || ""
+  const rawText      = parsed?.raw || (parseFailed ? (typeof result === "string" ? result : JSON.stringify(result, null, 2)) : "")
   const hasTableData = columns.length > 0 && rows.length > 0
 
   const stats = useMemo(() => {
@@ -227,8 +265,33 @@ export default function ReportSections({ result, query, script, plan = [], taskI
 
   const handleSubmit = e => { e.preventDefault(); if (!followUpText.trim()) return; onFollowUp(followUpText); setFollowUpText("") }
 
+  const statTiles = useMemo(() => {
+    if (!hasTableData) return []
+    const topLabel = highlights[0]?.val
+    return [
+      { label: "Records Analysed", value: rows.length.toLocaleString() },
+      { label: "Data Columns",     value: columns.length.toString() },
+      { label: "Analysis Rounds",  value: stats.rounds.toString() },
+      { label: "Top Result",       value: topLabel || "—" },
+    ]
+  }, [hasTableData, rows, columns, stats, highlights])
+
   return (
     <div className="flex flex-col gap-5 pb-24 w-full">
+
+      {/* ── Stat tiles ── */}
+      {statTiles.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {statTiles.map(t => (
+            <Card key={t.label}>
+              <CardContent className="py-3.5">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">{t.label}</p>
+                <p className="text-xl font-bold text-foreground truncate">{t.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* ── Key Findings (dark card, top of page) ── */}
       <KeyFindings findings={keyFindings} />
@@ -461,6 +524,8 @@ export default function ReportSections({ result, query, script, plan = [], taskI
           </>
         )}
       </Card>
+
+      <FeedbackBar />
 
       {/* ── Follow-up bar ── */}
       <div className="sticky bottom-0 -mx-6 px-6 pb-4 pt-4 bg-gradient-to-t from-background via-background/95 to-transparent z-30">

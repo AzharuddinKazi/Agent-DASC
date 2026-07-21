@@ -61,7 +61,6 @@ There should be no additional headings or text in your response."""
 
 def coder(state: TaskState) -> dict:
 
-    # supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_KEY"))
     supabase.table("tasks").update({"current_agent": "coder"}).eq("task_id", state["task_id"]).execute()
 
     sub_questions   = state.get("sub_questions", [])
