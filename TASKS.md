@@ -1,135 +1,80 @@
 # DS-STAR Task Tracker
 
-## Checkpoint: 2026-07-18 — Specs locked, rebuilding from scratch (TDD)
+## Status: live-app remediation (post production-readiness audit)
 
-The `[x]` items below reflect a first-pass implementation that was written before the specs
-were reviewed and locked in. That review (2026-07-18) surfaced real deviations between the
-old code and the specs (e.g. Analyzer skipping Debugger repair, dict/dataclass mismatches,
-a network_mode contradiction in the sandbox executor) — see `specs/agents/*.md` and
-`specs/features/*.md` for the `[LOCKED]`-tagged sections, which are now the source of truth.
+This tracker reflects the actual FastAPI + React app running in this repo. Earlier content in
+this file described a from-scratch Next.js/Clerk/GraphRAG rebuild that was explored in a
+separate environment and abandoned once this repo was confirmed canonical — that content no
+longer matched reality and has been replaced; git history retains it if ever needed.
 
-**Decision: discard the old implementation and rebuild from scratch.** Order of work:
-1. Write tests first, against the locked specs — one agent/feature at a time.
-2. Only then implement the agent/feature to make those tests pass.
-3. Repeat per component, in pipeline order (see below).
+## Completed
 
-The checklist below is being reset to reflect this. Old `[x]` marks are kept struck through
-for history but do not mean "done" anymore — nothing is done until it's rebuilt against the
-locked specs.
+- [x] DS-STAR paper pipeline (Analyzer → Planner → Coder → Executor → Verifier → Router →
+      Finalizer) + DS-STAR+ report mode, LangGraph-based, Gemini via tiered LLM router
+- [x] React/Vite/Tailwind/shadcn frontend, live end-to-end against Supabase
+- [x] Dead-code cleanup (backend comments, 4 dead frontend files) — behavior-preserving only
+- [x] Supabase connection-pooler fix (session-mode for LangGraph checkpointer)
+- [x] White-labeling / domain-agnostic refactor — generic defaults + preserved fraud/AML
+      example (`backend/domain_pack.py`, `frontend/src/config/brand.js`)
+- [x] Domain Packs marketplace page — browse/download packs as zip
+      (`backend/domain_packs/catalog.py`, `frontend/.../DomainPacks.jsx`)
+- [x] Google-standard production readiness audit (published artifact, 41 findings, 9 P0
+      blockers)
+- [x] Audit remediation — **Auth**: Supabase Auth (self-serve signup + sign-in), per-user row
+      scoping (`user_id` + RLS) on `tasks`
+- [x] Audit remediation — **Health check**: `/health` now checks Supabase, Docker daemon,
+      Gemini reachability; frontend sidebar shows live system status with a per-check tooltip
 
----
+## Audit remediation — remaining (roadmap order)
 
-## Phase 0 — Scaffolding
-- [x] Repo structure (`pyproject.toml`, `.env.example`, `.pre-commit-config.yaml`, `config.yaml`)
-- [x] Config + settings (`backend/config.py`, `backend/database.py`)
-- [x] Prompts loader + `specs/prompts.yaml` (verbatim paper prompts)
-- [x] **2026-07-20**: `specs/database-schema.sql` reviewed and locked against all Phase-1
-      checkpoint decisions:
-  - Added `checkpoint_type = 'refine_round_review'`
-  - Split `checkpoints.status` (pending/resolved/abandoned) from a new `checkpoints.action`
-    column (the specific choice: approve/reject/hint/refine_further/finalize/
-    start_fresh_session — varies per checkpoint_type, see the file's inline comment)
-  - Added `subquestion_generator`, `writer` to `agent_steps.agent_name` CHECK (were missing
-    entirely — DS-STAR+ runs would never have been audit-logged)
-  - Added `analysis_sessions.forked_from_session_id` (self-referencing FK) for
-    `start_fresh_session` provenance
-- [x] **2026-07-20**: `backend/migrations/001_initial.sql` and `backend/models.py` deleted —
-      both had already drifted from `specs/database-schema.sql` (extra ad hoc columns like
-      `mode`/`final_result`, no `agent_name` CHECK, old 4-value checkpoint enum) independent
-      of the locked-decision gaps above. Both are part of the discarded first-pass backend
-      per the 2026-07-18 checkpoint — regenerate fresh from the now-locked spec when Phase 0
-      implementation actually starts, don't resurrect the old files.
+### P0 — before this leaves localhost
+- [ ] Finalizer can report a failed script as `status: "completed"` (`finalizer.py`)
+- [ ] No timeout on Gemini API calls (`llm_router.py`)
+- [ ] No CI/CD pipeline
+- [ ] No deployable artifact (backend/frontend Dockerfiles, compose)
+- [ ] No environment separation (single Supabase project for dev/test/prod)
+- [ ] No structured logging / error tracking
+- [ ] No concurrency limit on pipeline execution
 
-## Phase 1 — Agents (tests first, then implementation, in pipeline order)
+### P1 — before real users
+- [ ] Malformed LLM JSON silently defaulted in 3 places (`report_evaluator` defaults to
+      "sufficient" on parse failure)
+- [ ] No schema validation of LLM JSON before the frontend renders it
+- [ ] Dashboard stale-response race condition on rapid task switching
+- [ ] Global filename-only file-description cache can return the wrong dataset
+- [ ] Test suite red for a month (5 failing, live-DB calls in `test_planner.py`)
+- [ ] 13/16 backend agent files have zero test coverage
+- [ ] Zero frontend tests, no test framework configured
+- [ ] No React error boundary
+- [ ] Results table has no pagination/virtualization
+- [ ] Container from a timed-out script isn't guaranteed to be killed
+- [ ] No request size limits / rate limiting on task submission
 
-For each agent: write unit tests against the locked spec → implement → tests pass → move on.
+### P2 / P3 — hardening & polish
+- [ ] Sandbox missing CPU/pids limits, read-only rootfs, capability drop
+- [ ] Untrusted file content unescaped in LLM prompts (injection surface)
+- [ ] CORS hardcoded to dev origin
+- [ ] Raw stderr/tracebacks persisted and served through the API
+- [ ] `npm run lint` fails (26 errors) — mostly vendored shadcn boilerplate
+- [ ] README roadmap misrepresents current state
+- [ ] Unbounded read-modify-write on the logs array (race-prone)
+- [ ] No git tags / CHANGELOG / rollback mechanism
+- [ ] Loosely pinned backend deps, no upper bound
+- [ ] Sandbox base image not pinned to a digest
+- [ ] `task_id` not validated as UUID before query
+- [ ] Prompt-formatting duplication across 6 agent files
+- [ ] Duplicated JSON-parsing / chart-style / follow-up-bar code (`ReportView` vs
+      `ReportSections`)
+- [ ] Frontend bundle inflated 1.6MB by one icon package (`@hugeicons`, only 2 icons used)
+- [ ] Silent console-only failures on task-list/poll fetch errors
+- [ ] Sortable table headers not keyboard/screen-reader accessible
+- [ ] Completed task with an empty result gets stuck in the loading UI forever
+- [ ] Commented-out dead code + `router`/`router_agent` naming collision (backend)
+- [ ] 66 arbitrary Tailwind pixel values fragment the type scale
 
-- [x] Analyzer — tests, then implementation (spec: `specs/agents/analyzer.md`). **2026-07-20**:
-      9/9 unit tests passing (`tests/unit/agents/test_analyzer.py`,
-      `backend/agents/core/analyzer.py`). Debugger dependency is injected via `debug_fn`
-      (defaults to a lazy import of `backend.agents.core.debugger.run_debugger_analyzer_repair`,
-      only resolved on actual failure — Debugger itself isn't built yet, tests mock it).
-- [ ] Planner (init + next) — tests, then implementation (spec: `specs/agents/planner.md`)
-- [ ] Coder (init + next) — tests, then implementation (spec: `specs/agents/coder.md`)
-- [ ] Debugger (summarize + analyzer repair + coder repair) — tests, then implementation (spec: `specs/agents/debugger.md`)
-- [ ] Verifier — tests, then implementation (spec: `specs/agents/verifier.md`)
-- [ ] Router — tests, then implementation (spec: `specs/agents/router.md`)
-- [ ] Finalyzer + mode auto-detection/override — tests, then implementation (spec: `specs/agents/finalyzer.md`)
-- [ ] SubquestionGenerator (init + refine, 8/round cap) — tests, then implementation (spec: `specs/agents/subquestion-generator.md`)
-- [ ] Writer (init + refine) — tests, then implementation (spec: `specs/agents/writer.md`)
-
-## Phase 2 — Features
-
-- [ ] Sandbox executor — Docker (fixed network model) + Cloud Run backends (spec: `specs/features/sandbox-execution.md`)
-- [ ] Catalog scanner — MySQL (with enforced read-only check) + file sources (spec: `specs/features/catalog.md`)
-- [ ] Checkpoints/HITL handler — 5 checkpoint types incl. new `refine_round_review`, 2-round force-exit cap (spec: `specs/features/checkpoints-hitl.md`)
-- [ ] GraphRAG ingestion (incremental `update` on upload, full rebuild on delete) + retrieval (spec: `specs/features/graphrag-ingestion.md`)
-
-## Phase 3 — Orchestration
-
-- [ ] LangGraph graph wiring all agents + checkpoints together (`backend/graph/`)
-- [ ] FastAPI routes + WebSocket broadcast (`backend/main.py`, `backend/api/v1/`)
-
-## Phase 4 — Frontend (not started, not reviewed against a locked spec yet)
-- [~] Next.js 15 scaffold exists from the earlier pass — treat as unreviewed, revisit once backend is solid
-- [ ] Everything else — deferred until backend Phase 1-3 are done and specs for frontend behavior are reviewed the same way
-
-## Phase 5 — Infrastructure
-- [~] Docker/compose/CI files exist from the earlier pass — revisit once sandbox network fix (Phase 2) and checkpoint types (Phase 2) are implemented, since Dockerfiles/CI need to match
+## Deferred (explicit user decision)
+- [ ] Rotate exposed Supabase/Gemini credentials — deferred, not forgotten
 
 ---
-
-## Old checklist (pre-checkpoint, kept for reference only — not current status)
-
-<details>
-<summary>Expand: what the discarded first pass had claimed as done</summary>
-
-### Backend
-- [x] Scaffold repo structure
-- [x] Config + settings
-- [x] Database schema + ORM models
-- [x] Prompts loader
-- [x] Agent: Analyzer
-- [x] Agent: Planner (init + next)
-- [x] Agent: Coder (init + next)
-- [x] Agent: Debugger (summarize + analyzer + coder)
-- [x] Agent: Verifier
-- [x] Agent: Router
-- [x] Agent: Finalyzer + `detect_output_mode()`
-- [x] Agent: SubquestionGenerator (init + refine) [DSSTAR+]
-- [x] Agent: Writer (init + refine) [DSSTAR+]
-- [x] LangGraph graph
-- [x] Sandbox executor — Docker + Cloud Run backends
-- [x] Catalog scanner — MySQL + file sources, Fernet encryption
-- [x] GraphRAG ingestion + retrieval
-- [x] Checkpoint / HITL handler
-- [x] FastAPI app + all routes
-
-### Frontend
-- [x] Next.js 15 scaffold, Clerk auth, API client, WebSocket hook, shared types
-- [x] Pages: analyses list/new/detail, catalog, knowledge, reports list/detail
-- [x] Components: NavLayout, SessionList, StatusBadge, ActivityFeed, CheckpointPanel, CatalogPage, KnowledgePage, ReportView
-
-### Infrastructure
-- [x] Dockerfiles, docker-compose.yml, graphrag/settings.yaml
-- [x] GitHub Actions: unit / integration / system workflows
-
-### Tests
-- [x] `tests/conftest.py`, fixtures, unit/integration/system test files (37 failing, 71
-      passing, 1 error when last run — see checkpoint note above for why these are being
-      rewritten rather than patched)
-
-</details>
-
----
-
-## Pending / Next Steps (still relevant post-checkpoint)
-
-- [ ] Frontend unit tests (`vitest`) — no test files written yet
-- [ ] Alembic migration runner (optional — currently using raw SQL init script)
-- [ ] Keycloak auth wiring (on-prem deployment path — `AUTH_PROVIDER=keycloak`); also the
-      trigger to revisit the Writer's Tailwind CDN vs inline-CSS decision (see
-      `specs/agents/writer.md`)
-- [ ] Cloud Run executor integration test (requires GCP project)
-- [ ] Rate limiting / abuse protection on API routes
-- [ ] Playwright E2E browser tests
+Full findings detail: published audit artifact *"FIP / DS-STAR — Production Readiness & Code
+Health Audit"*.
