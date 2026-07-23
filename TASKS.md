@@ -98,12 +98,27 @@ longer matched reality and has been replaced; git history retains it if ever nee
       creating a Sentry account — flip it on whenever one exists by setting the env var, no code
       change needed. New `backend/.env.example` documents every env var the backend reads,
       including the two new optional ones (`SENTRY_DSN`, `LOG_LEVEL`).
+- [x] Audit remediation — **Concurrency limit**: `main.py` gets a module-level
+      `asyncio.Semaphore(MAX_CONCURRENT_PIPELINES)` (env-configurable, default `10`, leaving
+      headroom under the audit's own traced ~15-20 concurrent-execution failure threshold),
+      wrapping `run_graph`'s actual pipeline execution — not the whole function, so DB cleanup
+      writes never contend for a slot. Went with a semaphore over a task queue
+      (Celery/RQ/arq) — the roadmap named both as acceptable, and a queue needs a new broker
+      (Redis) for a problem this solves in-process. Two small additions so queuing is visible,
+      not just bounded (a bare semaphore reproduces the audit's own "shows running with no
+      signal it's actually queued" complaint in miniature): a queued task gets a `log_event`
+      entry ("Queued — waiting for an available worker slot") the moment it starts waiting —
+      reuses the exact `tasks.logs` mechanism the frontend already polls, so it's visible with
+      zero frontend changes — and `/health` gained a `concurrency: {active, max}` field.
+      Verified live: forced `MAX_CONCURRENT_PIPELINES=1`, submitted two tasks back to back,
+      confirmed `/health` showed `active: 1` while the first ran, the second's log timeline
+      showed the queued message, and `active` correctly cycled 0 → 1 → 1 (handoff) → 0 as both
+      completed in sequence rather than in parallel.
 
 ## Audit remediation — remaining (roadmap order)
 
 ### P0 — before this leaves localhost
 - [ ] No environment separation (single Supabase project for dev/test/prod)
-- [ ] No concurrency limit on pipeline execution
 
 ### P1 — before real users
 - [ ] Malformed LLM JSON silently defaulted in 3 places (`report_evaluator` defaults to
