@@ -1,4 +1,7 @@
+import os
+from db import supabase
 from agents.state import TaskState
+from agents.logger import log_event
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -28,6 +31,9 @@ Your response should only be Step 1 ... Step K or Add Step."""
 
 
 def router_agent(state: TaskState) -> dict:
+
+    supabase.table("tasks").update({"current_agent": "router"}).eq("task_id", state["task_id"]).execute()
+
     question        = state["query"]
     summaries       = state["data_descriptions"]
     cumulative_plan = state["cumulative_plan"]
@@ -58,14 +64,23 @@ def router_agent(state: TaskState) -> dict:
 
     print(f"[Router] Decision: {decision}")
 
+    sub_questions   = state.get("sub_questions", [])
+    current_sub_idx = state.get("current_sub_idx", 0)
+    label = f"Sub-Q {current_sub_idx + 1}/{len(sub_questions)} · " if sub_questions else ""
+
     if decision.lower().startswith("step"):
         try:
             step_num = int(decision.split()[1])
+            log_event(state["task_id"], "router",
+                      f"{label}Backtracking to step {step_num} — plan revised",
+                      "info", {"decision": f"backtrack:{step_num}"})
             return {
                 "router_decision": f"backtrack:{step_num}",
                 "cumulative_plan": cumulative_plan[:step_num - 1],
             }
         except (IndexError, ValueError):
+            log_event(state["task_id"], "router", f"{label}Adding next step", "info", {"decision": "add_step"})
             return {"router_decision": "add_step"}
     else:
+        log_event(state["task_id"], "router", f"{label}Adding next step", "info", {"decision": "add_step"})
         return {"router_decision": "add_step"}

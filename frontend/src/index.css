@@ -1,0 +1,116 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/manrope/800.css";
+@import "@fontsource/source-code-pro";
+
+@theme inline {
+  --font-sans: 'Manrope', sans-serif;
+  --font-mono: 'Source Code Pro', monospace;
+
+  /* ── Shadcn neutral/zinc palette (matches CRM screenshot) ── */
+  --color-background:           #f4f4f5; /* page canvas — cards sit on top in white */
+  --color-foreground:           #09090b;
+
+  --color-card:                 #ffffff;
+  --color-card-foreground:      #09090b;
+
+  --color-popover:              #ffffff;
+  --color-popover-foreground:   #09090b;
+
+  /* Primary = near-black (shadcn default neutral) */
+  --color-primary:              #18181b;
+  --color-primary-foreground:   #fafafa;
+
+  --color-secondary:            #f4f4f5;
+  --color-secondary-foreground: #18181b;
+
+  --color-muted:                #f4f4f5;
+  --color-muted-foreground:     #71717a;
+
+  --color-accent:               #f4f4f5;
+  --color-accent-foreground:    #18181b;
+
+  --color-destructive:          #ef4444;
+
+  --color-border:               #e4e4e7;
+  --color-input:                #e4e4e7;
+  --color-ring:                 #18181b;
+
+  /* Sidebar — white, bordered */
+  --color-sidebar:              #ffffff;
+  --color-sidebar-foreground:   #09090b;
+  --color-sidebar-primary:      #18181b;
+  --color-sidebar-primary-foreground: #fafafa;
+  --color-sidebar-accent:       #f4f4f5;
+  --color-sidebar-accent-foreground:  #18181b;
+  --color-sidebar-border:       #e4e4e7;
+  --color-sidebar-ring:         #18181b;
+
+  /* ── Brand accent — crimson (logo only + progress bar) ── */
+  --color-brand:                #C81D25;
+  --color-brand-light:          #FCE8E8;
+
+  /* ── Semantic ── */
+  --color-success:              #16a34a;
+  --color-success-bg:           #f0fdf4;
+  --color-warning:              #d97706;
+  --color-warning-bg:           #fffbeb;
+  --color-danger:               #dc2626;
+  --color-danger-bg:            #fef2f2;
+  --color-info:                 #2563eb;
+  --color-info-bg:              #eff6ff;
+
+  /* ── Zinc raw palette for direct use ── */
+  --color-zinc-950: #09090b;
+  --color-zinc-900: #18181b;
+  --color-zinc-800: #27272a;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-600: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-050: #fafafa;
+
+  /* Border radius */
+  --radius: 0.5rem;
+
+  /* Chart */
+  --color-chart-1: #18181b;
+  --color-chart-2: #52525b;
+  --color-chart-3: #16a34a;
+  --color-chart-4: #d97706;
+  --color-chart-5: #dc2626;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@media print {
+  /* Hide chrome, keep only report content */
+  .print\:hidden { display: none !important; }
+
+  body { background: white; color: black; font-size: 12pt; }
+
+  /* Expand all collapsed sections when printing */
+  [class*="overflow-hidden"] { overflow: visible !important; }
+
+  /* Avoid page breaks inside cards */
+  .rounded-lg, [class*="Card"] { break-inside: avoid; }
+
+  /* Remove shadows and borders that look bad in print */
+  * { box-shadow: none !important; }
+
+  /* Page margins */
+  @page { margin: 2cm; }
+}

@@ -1,0 +1,777 @@
+openapi: 3.1.0
+info:
+  title: DS-STAR Extended API
+  version: 1.0.0
+  description: |
+    FastAPI backend for DS-STAR Extended — a multi-agent data science workflow tool.
+    All endpoints require authentication (Clerk/Keycloak JWT in Authorization header)
+    unless auth is disabled via config.
+    All user-scoped resources are filtered by the authenticated user's ID.
+
+servers:
+  - url: /api/v1
+    description: Versioned API
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    # ─── Common ───────────────────────────────────────────
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:    { type: string }
+        message: { type: string }
+
+    UUID:
+      type: string
+      format: uuid
+
+    # ─── Users ────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, email, display_name, role, created_at]
+      properties:
+        id:           { $ref: '#/components/schemas/UUID' }
+        external_id:  { type: string }
+        email:        { type: string, format: email }
+        display_name: { type: string }
+        role:         { type: string, enum: [admin, analyst] }
+        created_at:   { type: string, format: date-time }
+
+    # ─── Data Catalog ─────────────────────────────────────
+    DataSource:
+      type: object
+      required: [id, name, source_type, created_at]
+      properties:
+        id:              { $ref: '#/components/schemas/UUID' }
+        name:            { type: string }
+        source_type:     { type: string, enum: [mysql, file] }
+        description:     { type: string, nullable: true }
+        last_scanned_at: { type: string, format: date-time, nullable: true }
+        created_at:      { type: string, format: date-time }
+
+    DataSourceCreate:
+      type: object
+      required: [name, source_type, connection_config]
+      properties:
+        name:             { type: string }
+        source_type:      { type: string, enum: [mysql, file] }
+        description:      { type: string }
+        connection_config:
+          type: object
+          description: |
+            For mysql: { host, port, database, username, password }
+            For file:  { path }
+          additionalProperties: true
+
+    CatalogTable:
+      type: object
+      required: [id, data_source_id, table_name, column_metadata, scanned_at]
+      properties:
+        id:               { $ref: '#/components/schemas/UUID' }
+        data_source_id:   { $ref: '#/components/schemas/UUID' }
+        table_name:       { type: string }
+        schema_name:      { type: string, nullable: true }
+        column_metadata:
+          type: array
+          items:
+            type: object
+            properties:
+              name:          { type: string }
+              type:          { type: string }
+              nullable:      { type: boolean }
+              sample_values: { type: array, items: {} }
+        row_count_estimate: { type: integer, nullable: true }
+        description:        { type: string, nullable: true }
+        scanned_at:         { type: string, format: date-time }
+
+    ScanResult:
+      type: object
+      required: [tables_found, tables_added, tables_updated, errors]
+      properties:
+        tables_found:   { type: integer }
+        tables_added:   { type: integer }
+        tables_updated: { type: integer }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              source_id: { $ref: '#/components/schemas/UUID' }
+              message:   { type: string }
+
+    # ─── Knowledge Base ────────────────────────────────────
+    KnowledgeDocument:
+      type: object
+      required: [id, file_name, graphrag_status, uploaded_at]
+      properties:
+        id:                 { $ref: '#/components/schemas/UUID' }
+        file_name:          { type: string }
+        file_size_bytes:    { type: integer }
+        mime_type:          { type: string }
+        graphrag_status:    { type: string, enum: [pending, indexing, indexed, failed] }
+        entity_count:       { type: integer, nullable: true }
+        relationship_count: { type: integer, nullable: true }
+        community_count:    { type: integer, nullable: true }
+        error_message:      { type: string, nullable: true }
+        uploaded_by:        { $ref: '#/components/schemas/UUID' }
+        uploaded_at:        { type: string, format: date-time }
+        indexed_at:         { type: string, format: date-time, nullable: true }
+
+    KnowledgeDocumentDetail:
+      allOf:
+        - $ref: '#/components/schemas/KnowledgeDocument'
+        - type: object
+          properties:
+            entities:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:          { $ref: '#/components/schemas/UUID' }
+                  entity_name: { type: string }
+                  entity_type: { type: string }
+                  description: { type: string, nullable: true }
+            communities:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:              { $ref: '#/components/schemas/UUID' }
+                  community_title: { type: string }
+                  summary:         { type: string }
+                  level:           { type: integer }
+                  entity_count:    { type: integer }
+
+    # ─── Analysis Sessions ────────────────────────────────
+    AnalysisSession:
+      type: object
+      required: [id, user_id, title, user_query, status, created_at]
+      properties:
+        id:              { $ref: '#/components/schemas/UUID' }
+        user_id:         { $ref: '#/components/schemas/UUID' }
+        title:           { type: string }
+        user_query:      { type: string }
+        status:          { type: string, enum: [active, completed, failed, abandoned] }
+        data_source_ids: { type: array, items: { $ref: '#/components/schemas/UUID' } }
+        is_shared:       { type: boolean }
+        created_at:      { type: string, format: date-time }
+        updated_at:      { type: string, format: date-time }
+        completed_at:    { type: string, format: date-time, nullable: true }
+
+    AnalysisSessionCreate:
+      type: object
+      required: [user_query]
+      properties:
+        user_query:      { type: string, minLength: 1 }
+        data_source_ids:
+          type: array
+          items: { $ref: '#/components/schemas/UUID' }
+          description: If empty, agent will use all active catalog entries.
+
+    AgentStep:
+      type: object
+      required: [id, session_id, agent_name, iteration, status, created_at]
+      properties:
+        id:               { $ref: '#/components/schemas/UUID' }
+        session_id:       { $ref: '#/components/schemas/UUID' }
+        agent_name:
+          type: string
+          enum: [analyzer, planner, coder, debugger, verifier, router, finalyzer,
+                 subquestion_generator, writer]
+        iteration:        { type: integer }
+        generated_code:   { type: string, nullable: true }
+        execution_result: { type: string, nullable: true }
+        duration_ms:      { type: integer, nullable: true }
+        status:           { type: string, enum: [running, completed, failed] }
+        error_message:    { type: string, nullable: true }
+        created_at:       { type: string, format: date-time }
+
+    # ─── Checkpoints ──────────────────────────────────────
+    Checkpoint:
+      type: object
+      required: [id, session_id, checkpoint_type, status, payload, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        checkpoint_type:
+          type: string
+          enum: [plan_approval, force_exit, result_confirmation, report_approval]
+        status:
+          type: string
+          enum: [pending, approved, rejected, hint_provided]
+        payload:
+          type: object
+          description: |
+            plan_approval:       { first_step: str, summaries_preview: str }
+            force_exit:          { iteration: int, max_iterations: int, last_result: str, verifier_verdict: str }
+            result_confirmation: { question: str, plan: [str], result: str, code: str }
+            report_approval:     { mode: "base"|"plus", preview: str, report_title: str|null }
+          additionalProperties: true
+        user_hint:    { type: string, nullable: true }
+        created_at:   { type: string, format: date-time }
+        responded_at: { type: string, format: date-time, nullable: true }
+
+    CheckpointResponse:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [approve, reject, hint]
+          description: |
+            approve — proceed to next stage
+            reject  — abandon the session
+            hint    — provide guidance and retry (force_exit only)
+        hint:
+          type: string
+          nullable: true
+          description: Required when action == "hint"
+
+    # ─── Reports ──────────────────────────────────────────
+    Report:
+      type: object
+      required: [id, session_id, user_id, title, is_shared, created_at]
+      properties:
+        id:                { $ref: '#/components/schemas/UUID' }
+        session_id:        { $ref: '#/components/schemas/UUID' }
+        user_id:           { $ref: '#/components/schemas/UUID' }
+        title:             { type: string }
+        is_shared:         { type: boolean }
+        html_file_path:    { type: string, nullable: true }
+        pdf_file_path:     { type: string, nullable: true }
+        created_at:        { type: string, format: date-time }
+        pdf_generated_at:  { type: string, format: date-time, nullable: true }
+
+    # ─── WebSocket Events ─────────────────────────────────
+    WSEvent:
+      type: object
+      required: [event, data]
+      properties:
+        event:
+          type: string
+          enum:
+            - agent_started       # agent node began executing
+            - agent_completed     # agent node finished
+            - step_ticked         # a plan step completed
+            - code_executing      # Docker sandbox started
+            - code_result         # Docker sandbox finished
+            - checkpoint_pending  # waiting for human input
+            - session_completed   # all agents done
+            - session_failed      # unrecoverable error
+        data:
+          type: object
+          additionalProperties: true
+
+# ─── Paths ────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Auth / Me ──────────────────────────────────────────
+  /me:
+    get:
+      operationId: getMe
+      summary: Get current user profile
+      tags: [auth]
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { description: Unauthorized }
+
+    put:
+      operationId: updateMe
+      summary: Update current user display name
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { description: Unauthorized }
+
+  # ── Data Catalog ───────────────────────────────────────
+  /catalog:
+    get:
+      operationId: listDataSources
+      summary: List all data sources (shared org-wide)
+      tags: [catalog]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DataSource' }
+
+    post:
+      operationId: createDataSource
+      summary: Add a new data source to the catalog
+      tags: [catalog]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DataSourceCreate' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataSource' }
+        '409':
+          description: Data source with this name already exists
+
+  /catalog/scan:
+    post:
+      operationId: scanCatalog
+      summary: Manually trigger catalog scan across all data sources
+      tags: [catalog]
+      responses:
+        '200':
+          description: Scan completed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanResult' }
+
+  /catalog/{source_id}:
+    get:
+      operationId: getDataSource
+      summary: Get data source with its tables
+      tags: [catalog]
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/DataSource'
+                  - type: object
+                    properties:
+                      tables:
+                        type: array
+                        items: { $ref: '#/components/schemas/CatalogTable' }
+        '404': { description: Not found }
+
+    delete:
+      operationId: deleteDataSource
+      summary: Remove a data source from the catalog
+      tags: [catalog]
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Not found }
+
+  /catalog/{source_id}/scan:
+    post:
+      operationId: scanDataSource
+      summary: Manually scan a single data source
+      tags: [catalog]
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanResult' }
+        '404': { description: Not found }
+
+  # ── Knowledge Base ─────────────────────────────────────
+  /knowledge:
+    get:
+      operationId: listKnowledgeDocuments
+      summary: List all uploaded SME documents (shared org-wide)
+      tags: [knowledge]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/KnowledgeDocument' }
+
+  /knowledge/upload:
+    post:
+      operationId: uploadKnowledgeDocument
+      summary: Upload an SME document for GraphRAG indexing
+      tags: [knowledge]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF, DOCX, TXT, or Markdown file
+      responses:
+        '202':
+          description: Upload accepted, GraphRAG indexing started asynchronously
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeDocument' }
+        '415':
+          description: Unsupported file type
+
+  /knowledge/{doc_id}:
+    get:
+      operationId: getKnowledgeDocument
+      summary: Get document with extracted entities and communities
+      tags: [knowledge]
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeDocumentDetail' }
+        '404': { description: Not found }
+
+    delete:
+      operationId: deleteKnowledgeDocument
+      summary: Remove a document and its GraphRAG data
+      tags: [knowledge]
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Not found }
+
+  # ── Analysis Sessions ──────────────────────────────────
+  /analyses:
+    get:
+      operationId: listAnalyses
+      summary: List current user's analysis sessions
+      tags: [analyses]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Full-text search across title and query
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, completed, failed, abandoned]
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AnalysisSession' }
+                  total: { type: integer }
+
+    post:
+      operationId: createAnalysis
+      summary: Start a new analysis session
+      tags: [analyses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnalysisSessionCreate' }
+      responses:
+        '201':
+          description: Session created, agents running asynchronously. Connect to WS for progress.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisSession' }
+
+  /analyses/{session_id}:
+    get:
+      operationId: getAnalysis
+      summary: Get analysis session with full agent step history
+      tags: [analyses]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AnalysisSession'
+                  - type: object
+                    properties:
+                      steps:
+                        type: array
+                        items: { $ref: '#/components/schemas/AgentStep' }
+                      pending_checkpoint:
+                        $ref: '#/components/schemas/Checkpoint'
+                        nullable: true
+        '403': { description: Not your session }
+        '404': { description: Not found }
+
+    delete:
+      operationId: abandonAnalysis
+      summary: Abandon an active analysis session
+      tags: [analyses]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '204': { description: Abandoned }
+        '403': { description: Not your session }
+        '404': { description: Not found }
+
+  /analyses/{session_id}/share:
+    put:
+      operationId: setAnalysisSharing
+      summary: Toggle session sharing (makes it visible to all users)
+      tags: [analyses]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_shared]
+              properties:
+                is_shared: { type: boolean }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisSession' }
+
+  # ── Checkpoints ────────────────────────────────────────
+  /analyses/{session_id}/checkpoint:
+    get:
+      operationId: getPendingCheckpoint
+      summary: Get the current pending checkpoint (if any)
+      tags: [checkpoints]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Checkpoint' }
+        '204':
+          description: No pending checkpoint
+        '403': { description: Not your session }
+
+    post:
+      operationId: respondToCheckpoint
+      summary: Respond to the pending checkpoint (approve / reject / hint)
+      tags: [checkpoints]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckpointResponse' }
+      responses:
+        '200':
+          description: Response accepted, agents resuming
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Checkpoint' }
+        '400':
+          description: Invalid action for this checkpoint type
+        '404':
+          description: No pending checkpoint found
+        '403': { description: Not your session }
+
+  # ── Reports ────────────────────────────────────────────
+  /reports:
+    get:
+      operationId: listReports
+      summary: List current user's reports
+      tags: [reports]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Report' }
+                  total: { type: integer }
+
+  /reports/{report_id}:
+    get:
+      operationId: getReport
+      summary: Get report with full HTML content
+      tags: [reports]
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Report'
+                  - type: object
+                    properties:
+                      html_content: { type: string }
+        '403': { description: Not your report }
+        '404': { description: Not found }
+
+  /reports/{report_id}/export-pdf:
+    post:
+      operationId: exportReportPdf
+      summary: Trigger PDF export via Playwright (async)
+      tags: [reports]
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '202':
+          description: PDF export started
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Report' }
+        '409':
+          description: PDF already generated
+
+  /reports/{report_id}/share:
+    put:
+      operationId: setReportSharing
+      summary: Toggle report sharing
+      tags: [reports]
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_shared]
+              properties:
+                is_shared: { type: boolean }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Report' }
+
+  /reports/{report_id}/refine:
+    post:
+      operationId: refineReport
+      summary: Trigger an additional DSSTAR+ refinement round on demand
+      tags: [reports]
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+      responses:
+        '202':
+          description: Refinement round started, connect to WS for progress
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Report' }
+        '400':
+          description: Report is not a DSSTAR+ report or session is not in completed state
+
+  # ── WebSocket ──────────────────────────────────────────
+  /ws/analyses/{session_id}:
+    get:
+      operationId: analysisWebSocket
+      summary: |
+        WebSocket endpoint for real-time agent progress.
+        Upgrade to WS — streams WSEvent objects as JSON.
+        Auth: pass JWT as query param `token=<jwt>` (WS headers not supported by browsers).
+      tags: [websocket]
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/UUID' }
+        - name: token
+          in: query
+          required: false
+          schema: { type: string }
+          description: JWT token (for browser WebSocket clients that cannot set headers)
+      responses:
+        '101': { description: Switching Protocols }
+        '403': { description: Not your session }

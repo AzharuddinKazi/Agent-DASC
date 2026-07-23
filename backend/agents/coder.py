@@ -1,3 +1,6 @@
+from db import supabase
+from agents.logger import log_event
+import os
 from agents.state import TaskState
 from llm_router import LLMRouter
 
@@ -57,6 +60,18 @@ There should be no additional headings or text in your response."""
 
 
 def coder(state: TaskState) -> dict:
+
+    supabase.table("tasks").update({"current_agent": "coder"}).eq("task_id", state["task_id"]).execute()
+
+    sub_questions   = state.get("sub_questions", [])
+    current_sub_idx = state.get("current_sub_idx", 0)
+    label = f"Sub-Q {current_sub_idx + 1}/{len(sub_questions)} · " if sub_questions else ""
+    log_event(state["task_id"], "coder",
+              f"{label}Writing Python script · Round {state['current_round']}",
+              "running",
+              {"round": state["current_round"],
+               **({"sub_q_idx": current_sub_idx + 1, "sub_q_total": len(sub_questions)} if sub_questions else {})})
+
     summaries = state["data_descriptions"]
     cumulative_plan = state["cumulative_plan"]
     prior_script = state.get("current_script", "")

@@ -11,6 +11,7 @@ Typical usage:
 """
 
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 import os
 import time
@@ -18,6 +19,12 @@ import time
 
 
 load_dotenv()
+
+# Applied to every Gemini call (see complete() below). Matches the sandbox executor's own
+# 120s ceiling (executor.py) — without this, a hung API call (network partition, provider
+# stall) leaves a task running forever with no error and no way to tell "still working"
+# from "silently dead".
+LLM_TIMEOUT_MS = 120_000
 
 
 class LLMRouter:
@@ -61,6 +68,13 @@ class LLMRouter:
         "finalizer":     "medium",  # formats a known result into output structure
         "query_clarity": "low",     # classifies ambiguity + mode — runs before every task
         "analyzer":      "low",     # generates file profiling scripts — runs once per file
+        # DS-STAR+ report pipeline agents
+        "question_generator":     "medium",
+        "writer":                 "high",
+        "report_evaluator":       "medium",
+        "gap_question_generator": "medium",
+        "report_finalizer":       "medium",
+        "sub_result_collector":   "low",
     }
 
     def __init__(self):
@@ -110,13 +124,17 @@ class LLMRouter:
         start = time.time()
 
         try:
-            # Make the API call to Gemini to generate content.
+            # Make the API call to Gemini to generate content, bounded by LLM_TIMEOUT_MS
+            # so a hung request fails loudly instead of stalling the task forever.
             response = self.client.models.generate_content(
                 model=model,
-                contents=prompt
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    http_options=types.HttpOptions(timeout=LLM_TIMEOUT_MS)
+                ),
             )
-        except genai.errors.APIError as e:
-            raise genai.errors.APIError(
+        except Exception as e:
+            raise RuntimeError(
                 f"LLMRouter API call failed for agent '{agent}' with model '{model}': {str(e)}") from e
         
         duration_ms = int((time.time() - start) * 1000)

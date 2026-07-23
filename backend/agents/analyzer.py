@@ -2,6 +2,9 @@ import os
 import subprocess
 import tempfile
 from agents.state import TaskState
+from agents.logger import log_event
+from db import supabase
+import json
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -68,9 +71,9 @@ def analyze_file(filename: str, filepath: str) -> str:
         )
 
         if exec_result.returncode == 0:
-            description = exec_result.stdout[:3000]
+            description = exec_result.stdout[:8_000]
         else:
-            description = f"Analysis failed: {exec_result.stderr[:500]}"
+            description = f"Analysis failed: {exec_result.stderr[:2_000]}"
 
         print(f"[Analyzer] {filename}: {len(description)} chars captured")
         return description
@@ -80,18 +83,45 @@ def analyze_file(filename: str, filepath: str) -> str:
 
 
 def analyzer(state: TaskState) -> dict:
-    data_path = f"{os.getenv('DSSTAR')}/data"
+    data_path    = f"{os.getenv('DSSTAR')}/data"
     descriptions = {}
+
+    supabase.table("tasks").update({"current_agent": "analyzer"}).eq("task_id", state["task_id"]).execute()
+    log_event(state["task_id"], "analyzer", "Scanning data files...", "running")
 
     for fname in os.listdir(data_path):
         if fname.startswith("."):
             continue
-
         filepath = os.path.join(data_path, fname)
         if not os.path.isfile(filepath):
             continue
 
-        print(f"[Analyzer] Analyzing {fname}...")
-        descriptions[fname] = analyze_file(fname, filepath)
+        file_size = os.path.getsize(filepath)
 
+        # check cache
+        cached = supabase.table("file_descriptions") \
+            .select("description, file_size_bytes") \
+            .eq("filename", fname) \
+            .execute()
+
+        if cached.data and cached.data[0]["file_size_bytes"] == file_size:
+            print(f"[Analyzer] {fname}: using cached description")
+            descriptions[fname] = cached.data[0]["description"]
+            continue
+
+        # analyze and cache
+        print(f"[Analyzer] Analyzing {fname}...")
+        description = analyze_file(fname, filepath)
+        descriptions[fname] = description
+
+        supabase.table("file_descriptions").upsert({
+            "filename":        fname,
+            "description":     description,
+            "file_size_bytes": file_size,
+        }).execute()
+
+    file_names = list(descriptions.keys())
+    log_event(state["task_id"], "analyzer",
+              f"Analyzed {len(file_names)} file(s): {', '.join(file_names)}",
+              "success", {"files": file_names})
     return {"data_descriptions": descriptions}
