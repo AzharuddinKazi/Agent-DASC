@@ -1,99 +1,141 @@
-# DS-STAR: Data Science - Stateful Task & Reasoning
+# DS-STAR Backend
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/release/python-3100/)
+FastAPI service that exposes the DS-STAR agent pipeline over HTTP. See the
+[repo-level README](../README.md) for the overall architecture and a diagram of the agent
+graph; this file covers backend-specific setup, structure, and the API surface.
 
-DS-STAR is an autonomous platform that translates natural language queries into executable data science workflows. By leveraging FastAPI and LangGraph, the system coordinates a team of specialized AI agents to analyze datasets, plan multi-step processes, write Python code, and safely execute it within an isolated Docker sandbox.
+## Layout
 
-## Table of Contents
-- [Features](#features)
-- [Architecture](#architecture)
-- [Technologies Used](#technologies-used)
-- [Installation & Setup](#installation--setup)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
+```
+backend/
+├── main.py                 FastAPI app: routes, task lifecycle, health checks
+├── auth.py                 Bearer-token auth via Supabase (validates the JWT, returns the user)
+├── db.py                   Supabase client (service-role key — used for all DB writes)
+├── llm_router.py           Single gateway for all Gemini calls; tier→model mapping, timeouts
+├── domain_pack.py          Reads/writes the currently active domain pack setting
+├── knowledge.py            Ingests uploaded documents into the domain-pack knowledge base (RAG)
+├── observability.py        Structured logging + optional Sentry error tracking setup
+├── generate_synthetic_data.py  Generates example datasets for domain packs
+├── agents/                 The LangGraph pipeline — one file per node (see below)
+├── domain_packs/           Domain pack catalog + example packs (e.g. fraud/AML)
+├── scripts/manual_e2e_smoke_test.py  Manual smoke test against a running stack
+└── tests/                  pytest suite
+```
 
-## Features
+## The agent graph (`agents/`)
 
-- **Agentic Workflow Orchestration:** Implements a state machine using LangGraph to sequence and manage Analyzer, Planner, Coder, Verifier, and Debugger agents.
-- **Self-Correcting Execution Loop:** Automatically catches runtime exceptions, analyzes tracebacks, patches the generated code, and re-executes until the output satisfies verification criteria.
-- **Secure Sandbox Environment:** All generated Python scripts execute inside an ephemeral, network-isolated Docker container with read-only data mounts to ensure system security and data integrity.
-- **Tiered LLM Routing:** Optimizes operational cost and response latency by routing complex reasoning tasks to `gemini-2.5-pro` and classification/formatting tasks to `gemini-2.5-flash`.
-- **Persistent State Management:** Utilizes a Supabase backend to track task queries, execution plans, and outcomes across distributed agent sessions.
+`agents/graph.py` wires these nodes into the state machine described in the
+[repo README](../README.md#how-it-works). `agents/state.py` defines `TaskState`, the single
+dict every node reads and returns partial updates to — nodes never call each other directly.
 
-## Architecture
+| File | Node(s) | Responsibility |
+|---|---|---|
+| `analyzer.py` | `analyzer` | Describes each dataset in `data/`; entry point of every task |
+| `question_generator.py` | `question_generator` | Report mode only: splits the query into sub-questions |
+| `planner.py` | `planner` | Proposes the next plan step in plain English (max `max_rounds`) |
+| `coder.py` | `coder` | Turns the current plan step into a Python script |
+| `executor.py` | `executor` | Runs the script in the `dsstar-sandbox` container, captures stdout/exit code |
+| `debugger.py` | `debugger` | Patches a failing script from its traceback (max 2 attempts) |
+| `verifier.py` | `verifier` | Judges whether the output answers the query |
+| `router_agent.py` | `router_agent` | Decides whether to add a plan step or backtrack |
+| `finalizer.py` | `finalizer` | Writes `final_result`, marks the task `completed`/`failed` |
+| `graph.py` | `sub_result_collector`, `gap_question_generator`, `report_finalizer` | Report-mode bookkeeping: store each sub-answer, turn evaluator gaps into new sub-questions, store the final report |
+| `writer.py` | `writer` | Report mode only: drafts the combined report from all sub-results |
+| `report_evaluator.py` | `report_evaluator` | Report mode only: critiques the draft, lists gaps or approves it |
+| `logger.py` | — | `log_event()` — every node calls this to append a timestamped entry to the task's `logs` in Supabase, which the frontend polls for the live pipeline timeline |
 
-The backend architecture consists of four primary components:
+## API
 
-1. **API Layer (`main.py`)**: A FastAPI application exposing endpoints for task submission and status polling.
-2. **LLM Router (`llm_router.py`)**: A centralized gateway for all external LLM API calls, enforcing tier-based model assignment.
-3. **Graph Engine (`agents/graph.py`)**: The core LangGraph state machine maintaining the `TaskState` single source of truth throughout the execution lifecycle.
-4. **Execution Sandbox (`agents/executor.py`)**: An integration layer that manages the lifecycle of the `dsstar-sandbox:latest` Docker container for secure script execution.
+All `/api/v1/*` routes except domain-pack downloads require `Authorization: Bearer <supabase-jwt>`.
 
-## Technologies Used
+| Method & path | Purpose |
+|---|---|
+| `GET /health` | Pings DB, Docker daemon, and the Gemini API in parallel; returns per-check latency and current pipeline concurrency. 503 if any check fails. |
+| `POST /api/v1/submit_task` | Body: `{query, formatting_guidelines?, task_type?: "qa"\|"report"}`. Inserts a `running` task row, kicks off the graph as a background task, returns immediately (202) with the `task_id`. |
+| `GET /api/v1/get_tasks` | List the current user's tasks, newest first. |
+| `GET /api/v1/get_task/{task_id}` | Full task row, including `logs` and (report mode) `sub_results`. |
+| `GET /api/v1/domain_packs` | List available domain packs with the currently active one flagged. |
+| `POST /api/v1/domain_packs/{pack_id}/activate` | Switch the active pack (`"generic"` deactivates); takes effect immediately, no restart. |
+| `GET /api/v1/domain_packs/{pack_id}/download` | Zip containing the pack's config as plain Python + its synthetic-data generator, for use outside this deployment. |
+| `POST /api/v1/domain_packs/{pack_id}/documents` | Upload a document; ingested into the pack's RAG knowledge base in the background. |
+| `GET /api/v1/domain_packs/{pack_id}/documents` | List uploaded documents and their ingestion status. |
+| `DELETE /api/v1/domain_packs/{pack_id}/documents/{doc_id}` | Remove a document. |
 
-- **Backend:** Python, FastAPI
-- **AI/Orchestration:** LangGraph, LangChain, Google GenAI (Gemini 2.5 Pro / Flash)
-- **Database:** Supabase (PostgreSQL)
-- **Infrastructure:** Docker
+Task submission is bounded by `MAX_CONCURRENT_PIPELINES` (default 10) — each run spins up a
+2GB-capped sandbox container at the executor step, and unbounded concurrency was observed to
+exhaust the Docker daemon/host memory around 15-20 simultaneous runs. Submissions above the
+limit still get an immediate 202 and queue until a slot frees up.
 
-## Installation & Setup
+Graph state is checkpointed to Postgres via `AsyncPostgresSaver` (keyed by `task_id` as the
+LangGraph thread id), so an in-flight task survives a backend restart.
 
-### Prerequisites
-- Python 3.10 or higher
-- Docker (daemon must be running)
-- Supabase account and API credentials
-- Google Gemini API Key
+## Prerequisites
 
-### Setup Instructions
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
+- Docker daemon running (for the sandbox — see [repo README](../README.md#sandbox))
+- A Supabase project — schema in [`../specs/database-schema.sql`](../specs/database-schema.sql)
+- A Gemini API key
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/AzharuddinKazi/Agent-DASC.git
-   cd Agent-DASC
-   ```
+## Setup
 
-2. **Configure Environment Variables**
-   Create a `.env` file in the `backend/` directory with the following variables:
-   ```env
-   SUPABASE_URL="your-supabase-url"
-   SUPABASE_SERVICE_KEY="your-supabase-key"
-   GEMINI_API_KEY="your-gemini-key"
-   DSSTAR="/absolute/path/to/DSStar"
-   ```
+```bash
+cp .env.example .env   # fill in the values below
+uv sync
+```
 
-3. **Build the Execution Sandbox**
-   ```bash
-   cd sandbox
-   docker build -t dsstar-sandbox:latest .
-   ```
+`.env` variables (see `.env.example` for the full annotated list):
 
-4. **Run the API Server**
-   ```bash
-   cd backend
-   uv run uvicorn main:app --reload
-   ```
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` — Supabase project + keys
+- `SUPABASE_DB_URL` — direct Postgres connection string, used for the LangGraph checkpointer
+- `GEMINI_API_KEY` — Google Gemini API key
+- `DSSTAR` — absolute path to the repo root (analyzer/executor mount `$DSSTAR/data` into the
+  sandbox container, resolved against the *host* filesystem)
+- `ALLOWED_ORIGINS` (optional) — comma-separated CORS origins
+- `LOG_LEVEL` (optional) — see `observability.py`
+- `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` (optional) — error tracking; unset disables it
+  entirely, no external calls made
+- `MAX_CONCURRENT_PIPELINES` (optional, default `10`)
 
-   Or run the whole stack (backend + frontend) via Docker, after building the sandbox image
-   above: copy `.env.example` at the repo root to `.env`, fill it in, then
-   `docker compose up --build` from the repo root.
+## Running
 
-## Roadmap
+```bash
+# Build the sandbox image once — required before any task can execute
+docker build -t dsstar-sandbox:latest ../sandbox
 
-- [x] **Phase 1:** Docker sandbox setup and isolation testing
-- [x] **Phase 2:** FastAPI + Supabase integration for task persistence
-- [x] **Phase 3:** LLM Router implementation and Gemini API testing
-- [x] **Phase 4:** LangGraph agent wiring and end-to-end testing
-- [ ] **Phase 5:** Asynchronous FastAPI integration for the DS-STAR loop
-- [ ] **Phase 6:** WebSocket streaming and real-time task status updates
-- [ ] **Phase 7:** Automated data ingestion pipeline (inbox watcher, restructure script)
-- [ ] **Phase 8:** React frontend interface development
-- [ ] **Phase 9:** DS-STAR+ integration and automated document generation
-- [ ] **Phase 10:** System hardening, observability implementation, and cost controls
+uv run uvicorn main:app --reload
+```
 
-## Contributing
-Contributions, issues, and feature requests are welcome. Feel free to check the issues page if you want to contribute.
+Or run the full stack via Docker Compose — see [repo README](../README.md#option-a--docker-compose-backend--frontend-together).
 
-## License
-Distributed under the MIT License. See `LICENSE` for more information.
+## Testing
+
+```bash
+uv run pytest
+```
+
+Runs `agents/`, `main.py`, and state tests (21 tests as of this writing) against mocked
+LLM/Supabase calls — no live Gemini or Docker calls. Logs and a JSON test report are written to
+`tests/logs/` (gitignored).
+
+For an end-to-end check against a real running stack (real LLM calls, real sandbox execution):
+
+```bash
+uv run python scripts/manual_e2e_smoke_test.py
+```
+
+## LLM routing
+
+`llm_router.py` is the only place that calls the Gemini API. Each agent is assigned a tier
+(`heavy` → `gemini-2.5-pro`, `light` → `gemini-2.5-flash`) so reasoning-heavy nodes (planner,
+coder, verifier) get the stronger model while cheap/structured tasks (routing, classification)
+use the faster one. Every call goes through a shared timeout and gets wrapped as a
+`RuntimeError` on failure so nodes don't need to handle provider-specific exceptions.
+
+## Domain packs
+
+A domain pack customizes the report persona, classification, and sub-question dimensions the
+agents use — e.g. `domain_packs/fraud_aml_example.py` biases the pipeline toward fraud/AML
+analysis framing. `domain_packs/catalog.py` lists available packs; the active one is stored in
+Supabase (`app_settings`) and read by `domain_pack.py` on each task. `knowledge.py` handles
+ingesting uploaded documents into a pack's RAG knowledge base so agents can ground answers in
+uploaded reference material.
