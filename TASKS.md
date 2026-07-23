@@ -33,11 +33,16 @@ longer matched reality and has been replaced; git history retains it if ever nee
       silently started failing (401) since the auth work landed — never re-ran after adding
       auth. Suite is now 4 failing / 14 passing (was 8/9 before this pass, all remaining
       failures are the pre-existing `test_planner.py` live-DB-call issue below).
+- [x] Audit remediation — **No timeout on Gemini calls**: every `generate_content` call now
+      has a 120s bound (`llm_router.py`, matches the sandbox executor's own ceiling), embedding
+      calls a 30s bound (`knowledge.py`). Timeouts raise `httpx.ConnectTimeout`, not
+      `genai.errors.APIError` — broadened the except clause so they're still caught and wrapped
+      cleanly instead of propagating unhandled. Two new regression tests in
+      `tests/test_llm_router.py`.
 
 ## Audit remediation — remaining (roadmap order)
 
 ### P0 — before this leaves localhost
-- [ ] No timeout on Gemini API calls (`llm_router.py`)
 - [ ] No CI/CD pipeline
 - [ ] No deployable artifact (backend/frontend Dockerfiles, compose)
 - [ ] No environment separation (single Supabase project for dev/test/prod)

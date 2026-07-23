@@ -15,6 +15,10 @@ from db import supabase
 
 _EMBED_MODEL = "gemini-embedding-001"
 _EMBED_DIM = 768
+# Embedding calls are small/fast — a much tighter bound than the 120s used for full
+# generation calls (llm_router.py) is appropriate, but the point is the same: never let
+# an API call hang the ingestion background task or a live Planner call indefinitely.
+_EMBED_TIMEOUT_MS = 30_000
 
 _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -53,7 +57,10 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         resp = _client.models.embed_content(
             model=_EMBED_MODEL,
             contents=text,
-            config=types.EmbedContentConfig(output_dimensionality=_EMBED_DIM),
+            config=types.EmbedContentConfig(
+                output_dimensionality=_EMBED_DIM,
+                http_options=types.HttpOptions(timeout=_EMBED_TIMEOUT_MS),
+            ),
         )
         embeddings.append(resp.embeddings[0].values)
     return embeddings

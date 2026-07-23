@@ -63,3 +63,38 @@ def test_complete_uses_correct_model_for_tier():
 
         call_kwargs = mock_client.models.generate_content.call_args
         assert "gemini-2.5-pro" in str(call_kwargs)
+
+
+def test_complete_applies_call_timeout():
+    """Regression test: every Gemini call must be bounded (no timeout meant a hung
+    request could stall a task forever with no error and no signal)."""
+    import llm_router as llm_router_module
+
+    with patch("llm_router.genai.Client") as mock_client_class:
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.models.generate_content.return_value = make_mock_response()
+
+        router = LLMRouter()
+        router.complete(agent="planner", prompt="Test")
+
+        _, kwargs = mock_client.models.generate_content.call_args
+        assert kwargs["config"].http_options.timeout == llm_router_module.LLM_TIMEOUT_MS
+
+
+def test_complete_wraps_timeout_error_as_runtime_error():
+    """Timeouts raise httpx.ConnectTimeout, not genai.errors.APIError — the except
+    clause must catch broadly enough to still wrap it, or it propagates unhandled."""
+    import httpx
+
+    with patch("llm_router.genai.Client") as mock_client_class:
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.models.generate_content.side_effect = httpx.ConnectTimeout("timed out")
+
+        router = LLMRouter()
+        try:
+            router.complete(agent="planner", prompt="Test")
+            assert False, "expected RuntimeError"
+        except RuntimeError as e:
+            assert "planner" in str(e)
