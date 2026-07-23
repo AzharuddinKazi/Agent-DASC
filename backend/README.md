@@ -75,6 +75,10 @@ The backend architecture consists of four primary components:
    uv run uvicorn main:app --reload
    ```
 
+   Or run the whole stack (backend + frontend) via Docker, after building the sandbox image
+   above: copy `.env.example` at the repo root to `.env`, fill it in, then
+   `docker compose up --build` from the repo root.
+
 ## Roadmap
 
 - [x] **Phase 1:** Docker sandbox setup and isolation testing

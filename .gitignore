@@ -17,6 +17,9 @@ data/*.pdf
 # Sandbox
 sandbox/seccomp_profile.json
 
+# Docker Compose: bind-mounted tempdir for sibling-container script mounts (see docker-compose.yml)
+.dsstar-tmp/
+
 # Test logs
 backend/tests/logs/*.log
 backend/tests/logs/*.json

@@ -59,11 +59,31 @@ longer matched reality and has been replaced; git history retains it if ever nee
       placeholder env vars, the exact command CI uses. Lint runs in CI but is non-blocking
       (`continue-on-error`) since its ~25 pre-existing errors are a separately-tracked item
       below, not something this task should silently gate on.
+- [x] Audit remediation — **Deployable artifact**: `backend/Dockerfile`, `frontend/Dockerfile`
+      (multi-stage, nginx), root `docker-compose.yml`. Two hardcoding fixes needed to make the
+      artifact actually portable, not just containerized-but-still-localhost-only:
+      `frontend/src/api.js`'s `API_BASE` and `main.py`'s CORS `allow_origins` are now both
+      env-configurable (`VITE_API_BASE` build arg, `ALLOWED_ORIGINS` runtime env). Three real
+      issues found and fixed while verifying live (not just "the containers start", the actual
+      pipeline running end-to-end through them):
+      1. `docker.io`'s Debian package only *Recommends* `docker-cli`, doesn't require it —
+         `--no-install-recommends` silently produced a backend image with no `docker` binary.
+      2. `analyzer.py` reads `$DSSTAR/data` directly in Python inside the backend process, not
+         just via the sibling sandbox mount — the backend container needs that directory
+         bind-mounted at the *same host path*, not just passed as an env var.
+      3. `executor.py`/`analyzer.py` write the LLM-generated script via `tempfile`, then mount
+         that path into the sibling sandbox container — but sibling-container mounts are always
+         resolved against the *host* filesystem, and Python's default tempdir is private to the
+         backend container. Fixed by pointing `TMPDIR` at a bind-mounted directory
+         (`.dsstar-tmp/`), zero agent-code changes needed.
+      Verified live: a real query through the fully containerized stack (frontend → backend →
+      sibling sandbox container) completed correctly end-to-end, `/health` reports Docker
+      reachable from inside the backend container, and the frontend image was rebuilt with two
+      different `VITE_API_BASE` values to confirm it's genuinely configurable, not coincidence.
 
 ## Audit remediation — remaining (roadmap order)
 
 ### P0 — before this leaves localhost
-- [ ] No deployable artifact (backend/frontend Dockerfiles, compose)
 - [ ] No environment separation (single Supabase project for dev/test/prod)
 - [ ] No structured logging / error tracking
 - [ ] No concurrency limit on pipeline execution
@@ -85,7 +105,6 @@ longer matched reality and has been replaced; git history retains it if ever nee
 ### P2 / P3 — hardening & polish
 - [ ] Sandbox missing CPU/pids limits, read-only rootfs, capability drop
 - [ ] Untrusted file content unescaped in LLM prompts (injection surface)
-- [ ] CORS hardcoded to dev origin
 - [ ] Raw stderr/tracebacks persisted and served through the API
 - [ ] `npm run lint` fails (26 errors) — mostly vendored shadcn boilerplate
 - [ ] README roadmap misrepresents current state
