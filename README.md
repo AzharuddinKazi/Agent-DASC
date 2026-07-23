@@ -1,5 +1,8 @@
 # DS-STAR
 
+[![CI](https://github.com/AzharuddinKazi/Agent-DASC/actions/workflows/ci.yml/badge.svg)](https://github.com/AzharuddinKazi/Agent-DASC/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 DS-STAR turns a natural-language question about a dataset into an executable, self-correcting
 data analysis pipeline. A user submits a query; a graph of specialized LLM agents plans an
 analysis, writes Python to carry it out, runs that code in an isolated Docker sandbox, checks
@@ -133,3 +136,11 @@ The frontend currently has no automated test suite (see `TASKS.md`).
 Tracked in [`TASKS.md`](TASKS.md), prioritized P0 (data-loss/security risk) through P3
 (polish). Notable deferred item: Supabase credentials are shared across dev/test/prod (a
 deliberate, documented tradeoff — see the "Deferred" section of `TASKS.md`).
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, branching, and PR expectations.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
