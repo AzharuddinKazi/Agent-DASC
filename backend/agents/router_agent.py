@@ -1,10 +1,11 @@
-import os
+import logging, os
 from db import supabase
 from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 ROUTER_PROMPT = """You are an expert data analyst.
 Since the current plan is insufficient to answer the question, your task is to decide how to refine the plan.
@@ -62,7 +63,7 @@ def router_agent(state: TaskState) -> dict:
     result   = router.complete(agent="router", prompt=prompt)
     decision = result["text"].strip()
 
-    print(f"[Router] Decision: {decision}")
+    logger.info(f"Decision: {decision}")
 
     sub_questions   = state.get("sub_questions", [])
     current_sub_idx = state.get("current_sub_idx", 0)

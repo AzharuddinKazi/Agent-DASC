@@ -1,3 +1,4 @@
+import logging
 from agents.state import TaskState
 from agents.executor import execute_script
 from agents.logger import log_event
@@ -5,6 +6,7 @@ from llm_router import LLMRouter
 from db import supabase
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 # Paper-exact prompt (Appendix) extended for rich structured output
 FINALIZER_PROMPT = """You are an expert data analyst.
@@ -100,7 +102,10 @@ def finalizer(state: TaskState) -> dict:
 
     stdout, stderr, exit_code = execute_script(final_script)
     final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
-    print(f"[Finalizer] exit={exit_code}")
+    if exit_code == 0:
+        logger.info(f"exit={exit_code}")
+    else:
+        logger.error(f"exit={exit_code}: {stderr[:200]}")
     log_event(state["task_id"], "finalizer",
               "Analysis complete ✓" if exit_code == 0 else f"Finalizer script failed: {stderr[:120]}",
               "success" if exit_code == 0 else "error")

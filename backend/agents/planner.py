@@ -1,3 +1,4 @@
+import logging
 import os
 
 from agents.state import TaskState
@@ -7,6 +8,7 @@ from db import supabase
 from domain_pack import get_active_pack_config
 from knowledge import retrieve_domain_knowledge
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 PLANNER_INIT = """You are an expert data analyst.
     In order to answer factoid questions based on the given data, you have to first plan effectively.
@@ -114,7 +116,7 @@ def planner(state: TaskState) -> dict:
     result = router.complete(agent="planner", prompt=prompt)
     new_step = result["text"].strip()
 
-    print(f"[Planner] Round {current_round + 1}: {new_step}")
+    logger.info(f"Round {current_round + 1}: {new_step}")
 
     updated_plan = cumulative_plan + [new_step]
     supabase.table("tasks").update({

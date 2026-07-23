@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import tempfile
 import os
@@ -5,6 +6,8 @@ import os
 from db import supabase
 from agents.logger import log_event
 from agents.state import TaskState
+
+logger = logging.getLogger(__name__)
 
 def execute_script(script: str) -> tuple:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -46,11 +49,11 @@ def executor(state: TaskState) -> dict:
                **({"sub_q_idx": current_sub_idx + 1, "sub_q_total": len(sub_questions)} if sub_questions else {})})
 
     stdout, stderr, exit_code = execute_script(state["current_script"])
-    print(f"[Executor] Exit code: {exit_code}")
+    logger.info(f"Exit code: {exit_code}")
     if stdout:
-        print(f"[Executor] Output: {stdout}")
+        logger.info(f"Output: {stdout}")
     if stderr and exit_code != 0:
-        print(f"[Executor] Error: {stderr[:200]}")
+        logger.error(f"Error: {stderr[:200]}")
 
     if exit_code == 0:
         log_event(state["task_id"], "executor",

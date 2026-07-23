@@ -1,3 +1,4 @@
+import logging
 from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
@@ -6,6 +7,7 @@ from domain_pack import get_active_pack_config
 import json
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 # Split around the persona and the optional classification line, both of which come from
 # the active domain pack's config and can change at runtime — see _build_prompt() below.
@@ -121,7 +123,7 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
     if report_text.startswith("```"):
         report_text = re.sub(r"^```[a-z]*\n?", "", report_text).rstrip("`").strip()
 
-    print(f"[Writer] Report generated ({result['output_tokens']} tokens)")
+    logger.info(f"Report generated ({result['output_tokens']} tokens)")
     log_event(state["task_id"], "writer", "Draft report generated — sending for evaluation", "success")
 
     return {"draft_report": report_text}
