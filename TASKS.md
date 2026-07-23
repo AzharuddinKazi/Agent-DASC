@@ -117,8 +117,8 @@ longer matched reality and has been replaced; git history retains it if ever nee
 
 ## Audit remediation — remaining (roadmap order)
 
-### P0 — before this leaves localhost
-- [ ] No environment separation (single Supabase project for dev/test/prod)
+All 9 original P0 launch blockers are now closed except environment separation, which is an
+explicit, accepted deferral (see below) rather than outstanding work.
 
 ### P1 — before real users
 - [ ] Malformed LLM JSON silently defaulted in 3 places (`report_evaluator` defaults to
@@ -157,6 +157,11 @@ longer matched reality and has been replaced; git history retains it if ever nee
 
 ## Deferred (explicit user decision)
 - [ ] Rotate exposed Supabase/Gemini credentials — deferred, not forgotten
+- [ ] No environment separation (single Supabase project for dev/test/prod) — Supabase's free
+      tier caps active projects at 2 (paused ones don't count), which is enough for a real
+      dev/prod split, but the user chose to stay on a single project for now. Revisit if this
+      goes anywhere near real user data — CI itself is unaffected either way, it already runs
+      against mocked/dummy credentials, never a real project.
 
 ---
 Full findings detail: published audit artifact *"FIP / DS-STAR — Production Readiness & Code
