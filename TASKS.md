@@ -80,12 +80,29 @@ longer matched reality and has been replaced; git history retains it if ever nee
       sibling sandbox container) completed correctly end-to-end, `/health` reports Docker
       reachable from inside the backend container, and the frontend image was rebuilt with two
       different `VITE_API_BASE` values to confirm it's genuinely configurable, not coincidence.
+- [x] Audit remediation — **Structured logging + error tracking**: `backend/observability.py`,
+      called once at `main.py` startup. All 24 real runtime `print()` calls (every `agents/*.py`
+      file, `main.py`'s top-level exception handler) replaced with `logging.getLogger(__name__)`
+      calls — JSON to stdout (timestamp, level, logger name, message, traceback when present),
+      the standard pattern for a containerized app (matches the Docker deployment already
+      shipped). Left `agents/logger.py`'s `log_event()` untouched — that's a distinct concern,
+      user-facing pipeline *progress* stored in `tasks.logs` and polled by the frontend, not
+      engineering/operational logging.
+
+      Error tracking (Sentry) built and fully wired — FastAPI integration, plus an explicit
+      `sentry_sdk.capture_exception()` in `run_graph`'s except block since that runs as a
+      background task outside the request/response cycle the FastAPI integration instruments —
+      but gated entirely on a `SENTRY_DSN` env var. Unset by default: verified live that with
+      no DSN, `sentry_sdk.get_client().is_active()` is `False` and nothing changes; with a fake
+      DSN set, the client activates and startup doesn't crash. Ships today with zero blocking on
+      creating a Sentry account — flip it on whenever one exists by setting the env var, no code
+      change needed. New `backend/.env.example` documents every env var the backend reads,
+      including the two new optional ones (`SENTRY_DSN`, `LOG_LEVEL`).
 
 ## Audit remediation — remaining (roadmap order)
 
 ### P0 — before this leaves localhost
 - [ ] No environment separation (single Supabase project for dev/test/prod)
-- [ ] No structured logging / error tracking
 - [ ] No concurrency limit on pipeline execution
 
 ### P1 — before real users

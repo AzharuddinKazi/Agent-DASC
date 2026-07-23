@@ -1,10 +1,11 @@
 from db import supabase
 from agents.logger import log_event
-import os
+import logging, os
 from agents.state import TaskState
 from llm_router import LLMRouter
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 CODER_INIT = """# Given data:
 {summaries}
@@ -108,6 +109,6 @@ def coder(state: TaskState) -> dict:
         lines = script.split("\n")
         script = "\n".join(lines[1:-1])
 
-    print(f"[Coder] Script generated ({result['output_tokens']} tokens)")
+    logger.info(f"Script generated ({result['output_tokens']} tokens)")
 
     return {"current_script": script}

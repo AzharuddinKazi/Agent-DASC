@@ -2,8 +2,9 @@ from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
-import os
+import logging, os
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 DEBUGGER_PROMPT = """# Given data files (available at /workspace/data/):
 {filenames}
@@ -61,6 +62,6 @@ def debugger(state: TaskState) -> dict:
         lines        = fixed_script.split("\n")
         fixed_script = "\n".join(lines[1:-1])
 
-    print(f"[Debugger] Fixed script generated")
+    logger.info("Fixed script generated")
 
     return {"current_script": fixed_script}

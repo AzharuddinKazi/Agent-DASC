@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import tempfile
@@ -8,6 +9,7 @@ import json
 from llm_router import LLMRouter
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 ANALYZER_PROMPT = """You are an expert data analyst.
 
@@ -75,7 +77,7 @@ def analyze_file(filename: str, filepath: str) -> str:
         else:
             description = f"Analysis failed: {exec_result.stderr[:2_000]}"
 
-        print(f"[Analyzer] {filename}: {len(description)} chars captured")
+        logger.info(f"{filename}: {len(description)} chars captured")
         return description
 
     finally:
@@ -105,12 +107,12 @@ def analyzer(state: TaskState) -> dict:
             .execute()
 
         if cached.data and cached.data[0]["file_size_bytes"] == file_size:
-            print(f"[Analyzer] {fname}: using cached description")
+            logger.info(f"{fname}: using cached description")
             descriptions[fname] = cached.data[0]["description"]
             continue
 
         # analyze and cache
-        print(f"[Analyzer] Analyzing {fname}...")
+        logger.info(f"Analyzing {fname}...")
         description = analyze_file(fname, filepath)
         descriptions[fname] = description
 

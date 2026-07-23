@@ -7,8 +7,11 @@ the frontend every 2 seconds alongside the task status.
 """
 
 import json
+import logging
 from datetime import datetime, timezone
 from db import supabase
+
+logger = logging.getLogger(__name__)
 
 
 def log_event(
@@ -44,4 +47,4 @@ def log_event(
         supabase.table("tasks").update({"logs": current}).eq("task_id", task_id).execute()
     except Exception as e:
         # Never let logging kill the pipeline
-        print(f"[logger] WARNING: failed to write log entry: {e}")
+        logger.warning(f"failed to write log entry: {e}")

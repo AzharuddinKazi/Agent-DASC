@@ -2,9 +2,10 @@ from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
-import os
+import logging, os
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 VERIFIER_PROMPT = """You are an expert data analyst.
 Your task is to check whether the current plan and its code implementation is enough to answer the question.
@@ -73,7 +74,7 @@ def verifier(state: TaskState) -> dict:
     answer  = result["text"].strip().lower()
     verdict = "sufficient" if "yes" in answer else "insufficient"
 
-    print(f"[Verifier] Verdict: {verdict}")
+    logger.info(f"Verdict: {verdict}")
 
     sub_questions   = state.get("sub_questions", [])
     current_sub_idx = state.get("current_sub_idx", 0)

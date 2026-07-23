@@ -1,9 +1,11 @@
+import logging
 from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 REPORT_EVALUATOR_PROMPT = """You are an expert research quality reviewer.
 Your task is to evaluate whether a generated research report sufficiently answers the original research query.
@@ -60,7 +62,7 @@ def report_evaluator(state: TaskState) -> dict:
         verdict = "sufficient"
         gaps    = []
 
-    print(f"[ReportEvaluator] Verdict: {verdict}, gaps: {gaps}")
+    logger.info(f"Verdict: {verdict}, gaps: {gaps}")
     gap_text = f" — gaps: {'; '.join(gaps[:3])}" if gaps else ""
     log_event(state["task_id"], "report_evaluator",
               f"Report quality: {'sufficient ✓' if verdict == 'sufficient' else f'insufficient{gap_text}'}",

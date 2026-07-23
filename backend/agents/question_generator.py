@@ -1,3 +1,4 @@
+import logging
 from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
@@ -5,6 +6,7 @@ from db import supabase
 from domain_pack import get_active_pack_config
 
 router = LLMRouter()
+logger = logging.getLogger(__name__)
 
 QUESTION_GENERATOR_PROMPT = """You are a senior research analyst.
 Your task is to decompose a broad research query into a set of non-overlapping sub-questions,
@@ -88,7 +90,7 @@ def question_generator(state: TaskState) -> dict:
             unique.append(q)
     sub_questions = unique
 
-    print(f"[QuestionGenerator] Generated {len(sub_questions)} sub-questions")
+    logger.info(f"Generated {len(sub_questions)} sub-questions")
     log_event(state["task_id"], "question_generator",
               f"Generated {len(sub_questions)} sub-questions for the report",
               "success", {"sub_questions": sub_questions})

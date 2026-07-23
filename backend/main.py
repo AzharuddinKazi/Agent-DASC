@@ -5,15 +5,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from google import genai
+import sentry_sdk
 from agents.graph import build_graph
 from auth import get_current_user
 from db import supabase
+from observability import configure_logging, configure_error_tracking
 import domain_pack
 from domain_packs.catalog import get_pack, public_catalog
 from knowledge import ingest_document
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from dotenv import load_dotenv
-import os, uuid, asyncio, io, zipfile, subprocess, time
+import logging, os, uuid, asyncio, io, zipfile, subprocess, time
+
+load_dotenv()
+configure_logging()
+configure_error_tracking()
+logger = logging.getLogger(__name__)
 
 BACKEND_DIR = Path(__file__).parent
 
@@ -39,7 +46,6 @@ REPORT_CLASSIFICATION = {report_classification!r}
 SUBQUESTION_DIMENSIONS = {subquestion_dimensions!r}
 '''
 
-load_dotenv()
 _genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 graph = None
@@ -85,8 +91,8 @@ async def run_graph(task_id: str, initial_state: dict):
             "sub_results":  _json.dumps(result.get("sub_results") or {}),
         }).eq("task_id", task_id).execute()
     except Exception as e:
-        import traceback
-        print(f"[Error] Task {task_id} failed: {traceback.format_exc()}")
+        logger.exception(f"Task {task_id} failed")
+        sentry_sdk.capture_exception(e)
         supabase.table("tasks").update({
             "status": "failed", "final_result": str(e)
         }).eq("task_id", task_id).execute()
