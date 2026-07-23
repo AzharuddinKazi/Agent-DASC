@@ -1,5 +1,19 @@
+import pytest
 from unittest.mock import patch, MagicMock
 from agents.planner import planner
+
+
+@pytest.fixture(autouse=True)
+def mock_live_dependencies():
+    """planner() writes task progress to Supabase and retrieves domain-pack knowledge
+    (Supabase + Gemini) on every call — mock both so these tests never hit live
+    infrastructure. Without this, task_id="test-123" fails Postgres UUID validation
+    against the real tasks table (the pre-existing failure these tests used to have).
+    """
+    with patch("agents.planner.supabase") as mock_supabase, \
+         patch("agents.planner._domain_knowledge_section", return_value=""):
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        yield
 
 
 def make_mock_llm_result(text="Load the transactions CSV file."):

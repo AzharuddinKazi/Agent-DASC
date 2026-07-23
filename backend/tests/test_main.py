@@ -16,9 +16,25 @@ app.dependency_overrides[get_current_user] = lambda: FakeUser()
 
 
 def test_health_check():
-    response = client.get("/health")
+    """Mocks all three dependency pings — /health legitimately returns 503 when a real
+    dependency is unreachable (by design), so asserting 200 unconditionally means this
+    test was accidentally dependent on live Supabase/Gemini/Docker being reachable.
+    """
+    with patch("main.supabase") as mock_sb, \
+         patch("main._genai_client") as mock_genai, \
+         patch("main.subprocess.run") as mock_docker:
+        mock_sb.table.return_value.select.return_value.limit.return_value.execute.return_value = MagicMock()
+        mock_genai.models.list.return_value = []
+        mock_docker.return_value = MagicMock()
+
+        response = client.get("/health")
+
     assert response.status_code == 200
-    assert response.json()["status"] in ("ok", "degraded")
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["checks"]["database"]["status"] == "ok"
+    assert body["checks"]["docker"]["status"] == "ok"
+    assert body["checks"]["llm"]["status"] == "ok"
 
 
 def test_submit_task_returns_task_id():

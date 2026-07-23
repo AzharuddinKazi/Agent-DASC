@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Placeholder values only — the test suite is fully mocked and never makes real
+      # network calls. If a test ever needs these to be real, that test is wrong.
+      SUPABASE_URL: "https://dummy.supabase.co"
+      SUPABASE_ANON_KEY: "dummy-anon-key"
+      SUPABASE_SERVICE_KEY: "dummy-service-key"
+      SUPABASE_DB_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+      GEMINI_API_KEY: "dummy-gemini-key"
+      DSSTAR: "/tmp"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest
+
+  frontend:
+    name: Frontend build & lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint (report only — known pre-existing errors, see TASKS.md)
+        run: npm run lint
+        continue-on-error: true

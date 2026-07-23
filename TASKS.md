@@ -39,11 +39,30 @@ longer matched reality and has been replaced; git history retains it if ever nee
       `genai.errors.APIError` — broadened the except clause so they're still caught and wrapped
       cleanly instead of propagating unhandled. Two new regression tests in
       `tests/test_llm_router.py`.
+- [x] Audit remediation — **CI**: `.github/workflows/ci.yml` (backend pytest + frontend
+      build/lint) on every push and PR to `main`. Found and fixed something more urgent while
+      wiring this up: `tests/test_end_to_end.py` had no `test_`-prefixed functions — it was a
+      standalone script with `graph.invoke(...)` at module top level, and pytest *imports*
+      every `test_*.py` file during collection, so **every pytest run in this repo, including
+      many run manually this session, was silently executing a full live pipeline run**: real
+      billed Gemini calls, real Docker sandbox execution, real writes to the production `tasks`
+      table. Confirmed live — `pytest --collect-only` took 47s and hit the real API/DB before
+      the fix, 1.1s after. Moved it to `backend/scripts/manual_e2e_smoke_test.py` behind
+      `if __name__ == "__main__":`. Also fixed the same smaller pattern in
+      `test_graph_build.py` (no live calls, but same "fake test file" anti-pattern), and two
+      genuinely-live tests found while checking what a credential-free CI run would hit:
+      `test_planner.py` (only mocked the LLM router, not `supabase` — this was the actual
+      root cause of the `test_planner.py` failures/credential-leak-in-logs issue below, not
+      just a symptom) and `test_main.py::test_health_check` (asserted 200 unconditionally, but
+      `/health` legitimately returns 503 when a dependency is down). Suite is now **21 passed,
+      0 failed**, runs in ~1.2s, needs zero real secrets — verified via `uv run pytest` with
+      placeholder env vars, the exact command CI uses. Lint runs in CI but is non-blocking
+      (`continue-on-error`) since its ~25 pre-existing errors are a separately-tracked item
+      below, not something this task should silently gate on.
 
 ## Audit remediation — remaining (roadmap order)
 
 ### P0 — before this leaves localhost
-- [ ] No CI/CD pipeline
 - [ ] No deployable artifact (backend/frontend Dockerfiles, compose)
 - [ ] No environment separation (single Supabase project for dev/test/prod)
 - [ ] No structured logging / error tracking
@@ -55,9 +74,8 @@ longer matched reality and has been replaced; git history retains it if ever nee
 - [ ] No schema validation of LLM JSON before the frontend renders it
 - [ ] Dashboard stale-response race condition on rapid task switching
 - [ ] Global filename-only file-description cache can return the wrong dataset
-- [ ] `test_planner.py` makes live, unmocked DB calls — 4 tests fail on a UUID validation
-      error (root cause of the credential-leak-in-logs issue noted in the original audit)
-- [ ] 12/16 backend agent files have zero test coverage (`finalizer.py` now has coverage)
+- [ ] 11/16 backend agent files have zero test coverage (`finalizer.py`, `planner.py` now
+      covered)
 - [ ] Zero frontend tests, no test framework configured
 - [ ] No React error boundary
 - [ ] Results table has no pagination/virtualization
