@@ -107,5 +107,5 @@ def finalizer(state: TaskState) -> dict:
 
     return {
         "final_result": final_output,
-        "status":       "completed"
+        "status":       "completed" if exit_code == 0 else "failed"
     }

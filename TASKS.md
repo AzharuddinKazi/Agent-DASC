@@ -24,11 +24,19 @@ longer matched reality and has been replaced; git history retains it if ever nee
       scoping (`user_id` + RLS) on `tasks`
 - [x] Audit remediation — **Health check**: `/health` now checks Supabase, Docker daemon,
       Gemini reachability; frontend sidebar shows live system status with a per-check tooltip
+- [x] Domain pack knowledge base (RAG) + real in-app pack activation (DB-backed, no restart)
+      — feeds the Planner subject-matter context from uploaded docs, scoped to whichever
+      pack is active
+- [x] Audit remediation — **Finalizer false-success bug**: a failed generated script now
+      correctly sets `status: "failed"` instead of `"completed"` (`finalizer.py`), with a
+      regression test (`tests/test_finalizer.py`). Also fixed 4 `test_main.py` tests that had
+      silently started failing (401) since the auth work landed — never re-ran after adding
+      auth. Suite is now 4 failing / 14 passing (was 8/9 before this pass, all remaining
+      failures are the pre-existing `test_planner.py` live-DB-call issue below).
 
 ## Audit remediation — remaining (roadmap order)
 
 ### P0 — before this leaves localhost
-- [ ] Finalizer can report a failed script as `status: "completed"` (`finalizer.py`)
 - [ ] No timeout on Gemini API calls (`llm_router.py`)
 - [ ] No CI/CD pipeline
 - [ ] No deployable artifact (backend/frontend Dockerfiles, compose)
@@ -42,8 +50,9 @@ longer matched reality and has been replaced; git history retains it if ever nee
 - [ ] No schema validation of LLM JSON before the frontend renders it
 - [ ] Dashboard stale-response race condition on rapid task switching
 - [ ] Global filename-only file-description cache can return the wrong dataset
-- [ ] Test suite red for a month (5 failing, live-DB calls in `test_planner.py`)
-- [ ] 13/16 backend agent files have zero test coverage
+- [ ] `test_planner.py` makes live, unmocked DB calls — 4 tests fail on a UUID validation
+      error (root cause of the credential-leak-in-logs issue noted in the original audit)
+- [ ] 12/16 backend agent files have zero test coverage (`finalizer.py` now has coverage)
 - [ ] Zero frontend tests, no test framework configured
 - [ ] No React error boundary
 - [ ] Results table has no pagination/virtualization
