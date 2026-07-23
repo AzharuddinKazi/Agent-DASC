@@ -16,6 +16,15 @@ and critique a combined report until it's judged complete.
 This repo is a monorepo: a Python/FastAPI backend that runs the agent graph, and a React
 frontend that submits tasks and renders results.
 
+<table>
+<tr><td><img src="docs/screenshots/landing.png" alt="Query landing page"></td></tr>
+<tr><td align="center"><em>Submitting a query</em></td></tr>
+<tr><td><img src="docs/screenshots/pipeline.png" alt="Live agent pipeline"></td></tr>
+<tr><td align="center"><em>Watching the agent pipeline run in real time</em></td></tr>
+<tr><td><img src="docs/screenshots/results.png" alt="Completed analysis result"></td></tr>
+<tr><td align="center"><em>Completed analysis: key findings, risk highlights, and a chart</em></td></tr>
+</table>
+
 ```
 DSStar/
 ├── backend/       FastAPI API + LangGraph agent pipeline — see backend/README.md
