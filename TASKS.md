@@ -133,6 +133,9 @@ explicit, accepted deferral (see below) rather than outstanding work.
 - [ ] Results table has no pagination/virtualization
 - [ ] Container from a timed-out script isn't guaranteed to be killed
 - [ ] No request size limits / rate limiting on task submission
+- [ ] LLM-generated scripts can emit invalid f-string format specs (observed: `{x:, .2f}` — a
+      stray comma before the format spec, from the Finalizer's formatting step) and crash with
+      `ValueError` at execution time, failing the task outright
 
 ### P2 / P3 — hardening & polish
 - [ ] Sandbox missing CPU/pids limits, read-only rootfs, capability drop
