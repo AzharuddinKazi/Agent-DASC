@@ -4,11 +4,13 @@ from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
+from domain_pack import get_active_pack_config
+from knowledge import retrieve_domain_knowledge
 router = LLMRouter()
 
 PLANNER_INIT = """You are an expert data analyst.
     In order to answer factoid questions based on the given data, you have to first plan effectively.
-
+{domain_knowledge}
     # Question
     {question}
 
@@ -24,7 +26,7 @@ PLANNER_INIT = """You are an expert data analyst.
 PLANNER_NEXT = """You are an expert data analyst.
     In order to answer factoid questions based on the given data, you have to first plan effectively.
     Your task is to suggest the next plan to answer the question.
-
+{domain_knowledge}
     # Question
     {question}
 
@@ -48,6 +50,28 @@ PLANNER_NEXT = """You are an expert data analyst.
     Your response should only contain a next step without any explanation."""
 
 
+def _domain_knowledge_section(question: str) -> str:
+    """Retrieves relevant chunks from the active domain pack's knowledge base, if any.
+
+    Returns an empty string when no pack is active or nothing relevant is indexed —
+    the Planner then reasons purely from the data, same as before this existed.
+    """
+    try:
+        pack_id = get_active_pack_config()["pack_id"]
+        chunks = retrieve_domain_knowledge(pack_id, question)
+    except Exception:
+        chunks = []
+    if not chunks:
+        return ""
+    joined = "\n\n".join(chunks)
+    return f"""
+    # Domain knowledge
+    Reference material for this domain — use it to plan like a subject-matter expert,
+    not just a technical one:
+    {joined}
+"""
+
+
 def planner(state: TaskState) -> dict:
     
     supabase.table("tasks").update({"current_agent": f"planner_round_{state['current_round']}"}).eq("task_id", state["task_id"]).execute()
@@ -68,10 +92,13 @@ def planner(state: TaskState) -> dict:
         for i, step in enumerate(cumulative_plan)
     )
 
+    domain_knowledge = _domain_knowledge_section(question)
+
     if current_round == 0:
         prompt = PLANNER_INIT.format(
             question=question,
-            summaries=summaries_text
+            summaries=summaries_text,
+            domain_knowledge=domain_knowledge
         )
     else:
         current_step = cumulative_plan[-1] if cumulative_plan else ""
@@ -80,7 +107,8 @@ def planner(state: TaskState) -> dict:
             summaries=summaries_text,
             plan=plan_text,
             current_step=current_step,
-            result=last_result if last_result else "No result yet."
+            result=last_result if last_result else "No result yet.",
+            domain_knowledge=domain_knowledge
         )
 
     result = router.complete(agent="planner", prompt=prompt)

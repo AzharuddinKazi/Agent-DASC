@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import Depends, FastAPI, HTTPException, BackgroundTasks, Response
+from fastapi import Depends, FastAPI, HTTPException, BackgroundTasks, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -8,7 +8,9 @@ from google import genai
 from agents.graph import build_graph
 from auth import get_current_user
 from db import supabase
+import domain_pack
 from domain_packs.catalog import get_pack, public_catalog
+from knowledge import ingest_document
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from dotenv import load_dotenv
 import os, uuid, asyncio, io, zipfile, subprocess, time
@@ -18,16 +20,24 @@ BACKEND_DIR = Path(__file__).parent
 DOMAIN_PACK_README = """# {name} — Domain Pack
 
 ## What's in this zip
-- `domain_pack.py` — drop-in replacement for `backend/domain_pack.py`. Configures the
-  report persona, classification header, and sub-question dimensions for this domain.
+- `domain_pack_config.py` — a plain-Python export of this pack's current persona,
+  classification, and sub-question dimensions, for reference or use outside this deployment.
 - `generate_synthetic_data.py` — generates a matching example dataset into your `data/` folder.
 
-## Install
-1. Replace `backend/domain_pack.py` in your DS-STAR installation with the
-   `domain_pack.py` from this zip.
-2. (Optional) Run `generate_synthetic_data.py` to produce an example dataset.
-3. Restart the backend.
+Activation within this deployment doesn't require this zip — use the "Activate" button on
+the Domain Packs page instead, which takes effect immediately with no restart.
 """
+
+_DOMAIN_PACK_CONFIG_TEMPLATE = '''"""Exported domain pack config: {name} (pack_id={pack_id}).
+
+Generated from this deployment's database at download time — for reference, or to
+manually seed another deployment's domain_pack_configs table.
+"""
+
+REPORT_PERSONA = {report_persona!r}
+REPORT_CLASSIFICATION = {report_classification!r}
+SUBQUESTION_DIMENSIONS = {subquestion_dimensions!r}
+'''
 
 load_dotenv()
 _genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -192,7 +202,19 @@ async def get_task(task_id: str, user=Depends(get_current_user)):
 
 @app.get("/api/v1/domain_packs", summary="List Domain Packs", tags=["Domain Packs"])
 async def list_domain_packs():
-    return public_catalog()
+    active_id = domain_pack.get_active_pack_config()["pack_id"]
+    return [
+        {**pack, "active": pack["id"] == active_id}
+        for pack in public_catalog()
+    ]
+
+
+@app.post("/api/v1/domain_packs/{pack_id}/activate", summary="Activate Domain Pack", tags=["Domain Packs"])
+async def activate_domain_pack(pack_id: str, user=Depends(get_current_user)):
+    if pack_id != "generic" and not get_pack(pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+    supabase.table("app_settings").upsert({"key": "active_domain_pack", "value": pack_id}).execute()
+    return {"active": pack_id}
 
 
 @app.get("/api/v1/domain_packs/{pack_id}/download", summary="Download Domain Pack", tags=["Domain Packs"])
@@ -201,9 +223,20 @@ async def download_domain_pack(pack_id: str):
     if not pack:
         raise HTTPException(status_code=404, detail="Domain pack not found")
 
+    config_row = supabase.table("domain_pack_configs").select("*").eq("pack_id", pack_id).execute()
+    if not config_row.data:
+        raise HTTPException(status_code=404, detail="Domain pack config not found")
+    cfg = config_row.data[0]
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(BACKEND_DIR / pack["config_file"], "domain_pack.py")
+        zf.writestr("domain_pack_config.py", _DOMAIN_PACK_CONFIG_TEMPLATE.format(
+            name=pack["name"],
+            pack_id=pack_id,
+            report_persona=cfg["report_persona"],
+            report_classification=cfg["report_classification"],
+            subquestion_dimensions=cfg["subquestion_dimensions"] or [],
+        ))
         zf.write(BACKEND_DIR / pack["dataset_generator"], "generate_synthetic_data.py")
         zf.writestr("README.md", DOMAIN_PACK_README.format(name=pack["name"]))
     buf.seek(0)
@@ -213,3 +246,43 @@ async def download_domain_pack(pack_id: str):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{pack_id}-domain-pack.zip"'},
     )
+
+
+@app.post("/api/v1/domain_packs/{pack_id}/documents", summary="Upload Knowledge Document", tags=["Domain Packs"])
+async def upload_domain_pack_document(pack_id: str, file: UploadFile, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+    if not get_pack(pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+
+    raw_bytes = await file.read()
+    document_id = str(uuid.uuid4())
+    supabase.table("domain_pack_documents").insert({
+        "id":          document_id,
+        "pack_id":     pack_id,
+        "filename":    file.filename,
+        "status":      "processing",
+        "uploaded_by": user.id,
+    }).execute()
+
+    background_tasks.add_task(ingest_document, pack_id, document_id, file.filename, raw_bytes)
+
+    return {"id": document_id, "filename": file.filename, "status": "processing"}
+
+
+@app.get("/api/v1/domain_packs/{pack_id}/documents", summary="List Knowledge Documents", tags=["Domain Packs"])
+async def list_domain_pack_documents(pack_id: str, user=Depends(get_current_user)):
+    if not get_pack(pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+    response = (
+        supabase.table("domain_pack_documents")
+        .select("id, filename, status, error, chunk_count, created_at")
+        .eq("pack_id", pack_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return response.data
+
+
+@app.delete("/api/v1/domain_packs/{pack_id}/documents/{doc_id}", summary="Delete Knowledge Document", tags=["Domain Packs"])
+async def delete_domain_pack_document(pack_id: str, doc_id: str, user=Depends(get_current_user)):
+    supabase.table("domain_pack_documents").delete().eq("id", doc_id).eq("pack_id", pack_id).execute()
+    return {"status": "deleted"}

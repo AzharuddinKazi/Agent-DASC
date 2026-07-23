@@ -2,7 +2,7 @@ from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
-from domain_pack import SUBQUESTION_DIMENSIONS
+from domain_pack import get_active_pack_config
 
 router = LLMRouter()
 
@@ -24,21 +24,25 @@ For each sub-question:
 Return ONLY a valid JSON array of strings. No preamble, no explanation, no markdown fences.
 ["Sub-question 1?", "Sub-question 2?", ...]"""
 
-# When SUBQUESTION_DIMENSIONS is configured (see domain_pack.py), nudge toward those
-# topics. Otherwise — the default — let the model choose its own dimensions, covering
-# whatever angles are actually relevant to the query and data at hand.
-if SUBQUESTION_DIMENSIONS:
-    _dims = "\n".join(f"{i}. {d}" for i, d in enumerate(SUBQUESTION_DIMENSIONS, 1))
-    DIMENSIONS_SECTION = f"""
+
+def _dimensions_section() -> str:
+    """Built per-call from the active domain pack's config (switchable at runtime — see
+    domain_pack.py). When configured, nudges toward those topics; otherwise — the
+    default — lets the model choose its own dimensions, covering whatever angles are
+    actually relevant to the query and data at hand.
+    """
+    dimensions = get_active_pack_config()["subquestion_dimensions"]
+    if dimensions:
+        dims = "\n".join(f"{i}. {d}" for i, d in enumerate(dimensions, 1))
+        return f"""
 # Mandatory coverage rules
 You MUST produce exactly one sub-question per dimension listed below (where the data supports it).
 Do NOT produce two sub-questions on the same dimension — merge them into one.
 
 Dimensions to cover (pick the most relevant 5-6 given the query and available data):
-{_dims}
+{dims}
 """
-else:
-    DIMENSIONS_SECTION = """
+    return """
 # Your task
 Identify the distinct analytical dimensions most relevant to answering this query well,
 and generate as many sub-questions as needed to cover them — each sub-question must
@@ -60,7 +64,7 @@ def question_generator(state: TaskState) -> dict:
     prompt = QUESTION_GENERATOR_PROMPT.format(
         question=question,
         summaries=summaries_text,
-        dimensions_section=DIMENSIONS_SECTION,
+        dimensions_section=_dimensions_section(),
     )
 
     result = router.complete(agent="question_generator", prompt=prompt)

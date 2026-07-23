@@ -2,17 +2,14 @@ from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
-from domain_pack import REPORT_PERSONA, REPORT_CLASSIFICATION
+from domain_pack import get_active_pack_config
 import json
 
 router = LLMRouter()
 
-# Only ask for a classification field when one is actually configured — omitting it
-# from both the instructions and the JSON schema keeps unconfigured deployments from
-# getting a fabricated "CONFIDENTIAL"-style label they never asked for.
-_CLASSIFICATION_LINE = f'\n  "classification": "{REPORT_CLASSIFICATION}",' if REPORT_CLASSIFICATION else ""
-
-WRITER_PROMPT = REPORT_PERSONA + """
+# Split around the persona and the optional classification line, both of which come from
+# the active domain pack's config and can change at runtime — see _build_prompt() below.
+_PROMPT_HEAD = """
 You have completed {sub_q_count} targeted data analyses. Your job is to synthesise these into a
 formal, publication-quality report — NOT a list of data summaries.
 
@@ -40,7 +37,9 @@ formal, publication-quality report — NOT a list of data summaries.
 
 # Required Output Format (strict JSON — return ONLY this, no markdown fences)
 {{
-  "title": "Formal report title",""" + _CLASSIFICATION_LINE + """
+  "title": "Formal report title","""
+
+_PROMPT_TAIL = """
   "reporting_period": "Based on available data",
   "executive_summary": "4-6 sentences. State the most critical findings directly. Name the standout entities. Quantify the impact. End with the overall assessment.",
   "sections": [
@@ -72,6 +71,21 @@ formal, publication-quality report — NOT a list of data summaries.
 }}"""
 
 
+def _writer_prompt_template() -> str:
+    """Assembles the Writer's prompt template from the active domain pack's config,
+    built per-call since the active pack can change at runtime (see domain_pack.py).
+    Only asks for a classification field when one is actually configured — omitting it
+    from both the instructions and the JSON schema keeps unconfigured deployments from
+    getting a fabricated "CONFIDENTIAL"-style label they never asked for.
+    """
+    config = get_active_pack_config()
+    classification_line = (
+        f'\n  "classification": "{config["report_classification"]}",'
+        if config["report_classification"] else ""
+    )
+    return config["report_persona"] + _PROMPT_HEAD + classification_line + _PROMPT_TAIL
+
+
 def writer(state: TaskState) -> dict:
     supabase.table("tasks").update({"current_agent": "writer"}).eq("task_id", state["task_id"]).execute()
     log_event(state["task_id"], "writer",
@@ -94,7 +108,7 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
 
     sub_analyses_text = "\n\n".join(sub_analyses_parts)
 
-    prompt = WRITER_PROMPT.format(
+    prompt = _writer_prompt_template().format(
         question=question,
         sub_analyses=sub_analyses_text,
         sub_q_count=len(sub_questions),

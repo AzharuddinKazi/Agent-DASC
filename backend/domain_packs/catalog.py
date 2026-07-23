@@ -1,8 +1,9 @@
-"""Registry of downloadable domain packs.
+"""Registry of browsable domain packs.
 
-Each entry points at an existing domain_pack.py-shaped config file and an
-optional synthetic dataset generator. Adding a new pack means adding a new
-dict here — no other backend code changes.
+Metadata only (what a pack is, for browsing/activating) — the pack's actual prompt
+config (persona, classification, dimensions) lives in the domain_pack_configs table,
+switchable at runtime via the Domain Packs page. Adding a new pack means adding a new
+dict here plus a row in domain_pack_configs — no other backend code changes.
 """
 
 DOMAIN_PACKS = [
@@ -16,7 +17,6 @@ DOMAIN_PACKS = [
             "transactions, users, cards)."
         ),
         "tags": ["Financial Services", "Compliance", "Risk"],
-        "config_file": "domain_packs/fraud_aml_example.py",
         "dataset_generator": "generate_synthetic_data.py",
     },
 ]
@@ -28,6 +28,6 @@ def get_pack(pack_id: str):
 
 def public_catalog():
     return [
-        {k: v for k, v in p.items() if k not in ("config_file", "dataset_generator")}
+        {k: v for k, v in p.items() if k not in ("dataset_generator",)}
         for p in DOMAIN_PACKS
     ]
