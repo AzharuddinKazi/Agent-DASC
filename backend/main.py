@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from google import genai
 import sentry_sdk
 from agents.graph import build_graph
+from agents.logger import log_event
 from auth import get_current_user
 from db import supabase
 from observability import configure_logging, configure_error_tracking
@@ -48,6 +49,15 @@ SUBQUESTION_DIMENSIONS = {subquestion_dimensions!r}
 
 _genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
+# Bounds how many pipeline runs (each spinning up 2GB-capped Docker sandbox containers at
+# their Executor step) can actually execute at once. Without this, submit_task's implicit
+# default ThreadPoolExecutor (sized min(32, cpu_count+4), nobody chose that number) lets
+# unbounded concurrent runs pile up — traced concretely to Docker-daemon/host-memory
+# exhaustion around 15-20 simultaneous analyses. Extra submissions above this limit still get
+# an immediate 202 and queue, they just don't start executing until a slot frees up.
+MAX_CONCURRENT_PIPELINES = int(os.getenv("MAX_CONCURRENT_PIPELINES", "10"))
+_pipeline_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PIPELINES)
+
 graph = None
 
 @asynccontextmanager
@@ -78,9 +88,13 @@ class TaskSubmission(BaseModel):
 async def run_graph(task_id: str, initial_state: dict):
     config = {"configurable": {"thread_id": task_id}}
     try:
-        result = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: graph.invoke(initial_state, config=config)
-        )
+        if _pipeline_semaphore.locked():
+            log_event(task_id, "system", "Queued — waiting for an available worker slot", "info")
+
+        async with _pipeline_semaphore:
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: graph.invoke(initial_state, config=config)
+            )
         import json as _json
         supabase.table("tasks").update({
             "status":       result["status"],
@@ -131,7 +145,14 @@ async def health(response: Response):
     healthy = all(c["status"] == "ok" for c in checks.values())
     if not healthy:
         response.status_code = 503
-    return {"status": "ok" if healthy else "degraded", "checks": checks}
+    # asyncio.Semaphore has no public accessor for available permits — _value is the
+    # standard way to introspect it, just for reporting here, never used to gate logic.
+    active = MAX_CONCURRENT_PIPELINES - _pipeline_semaphore._value
+    return {
+        "status": "ok" if healthy else "degraded",
+        "checks": checks,
+        "concurrency": {"active": active, "max": MAX_CONCURRENT_PIPELINES},
+    }
 
 
 @app.post("/api/v1/submit_task", summary="Submit Task", tags=["Tasks"], status_code=202)
