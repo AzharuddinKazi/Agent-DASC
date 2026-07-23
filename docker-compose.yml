@@ -1,0 +1,37 @@
+# Before first run, build the sandbox image once (not a long-running service, so it's not
+# defined here as one — see backend/README.md):
+#   docker build -t dsstar-sandbox:latest ./sandbox
+
+services:
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    env_file: ./backend/.env
+    environment:
+      DSSTAR: ${PWD}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5174}
+      # executor.py/analyzer.py write the LLM-generated script to a tempfile, then pass that
+      # path to the host daemon via `docker run -v <path>:...` for the sibling sandbox
+      # container. Since that mount is always resolved against the *host* filesystem, Python's
+      # default tempdir (private to this container) doesn't work — redirect it to a
+      # bind-mounted directory that's real on the host too, same fix as the data mount below.
+      TMPDIR: ${PWD}/.dsstar-tmp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mounted at the identical host path (not a container-relative one): analyzer.py reads
+      # $DSSTAR/data directly in Python inside this container, *and* executor.py/analyzer.py
+      # pass that same path to the host daemon via `docker run -v $DSSTAR/data:...` for the
+      # sibling sandbox container — since that mount is always resolved against the host
+      # filesystem (see plan context), both uses need $DSSTAR/data to mean the same real path.
+      - ${PWD}/data:${PWD}/data:ro
+      - ${PWD}/.dsstar-tmp:${PWD}/.dsstar-tmp
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
+        VITE_SUPABASE_URL: ${SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    ports: ["5174:80"]
+    depends_on: [backend]
