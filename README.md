@@ -87,7 +87,16 @@ Full agent-by-agent and API detail: [`backend/README.md`](backend/README.md). Fr
 
 ## Running it
 
-### Option A — Docker Compose (backend + frontend together)
+### Option A — GitHub Codespaces
+
+Open this repo in a Codespace and `.devcontainer/` handles Python/uv, Node, and the sandbox
+Docker image automatically (see `postCreate.sh` for exactly what it does). Before creating the
+Codespace, add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `SUPABASE_DB_URL`,
+and `OPENROUTER_API_KEY` as Codespaces secrets (repo Settings → Secrets and variables →
+Codespaces) — they land in the environment automatically, no `.env` file needed. Ports 8000
+(backend) and 5174 (frontend) are forwarded automatically once both dev servers are running.
+
+### Option B — Docker Compose (backend + frontend together)
 
 ```bash
 # 1. Build the sandbox image once (not managed by compose — see "Sandbox" below)
@@ -104,7 +113,7 @@ docker compose up --build
 
 Backend is served on `http://localhost:8000`, frontend on `http://localhost:5174`.
 
-### Option B — Run backend and frontend natively
+### Option C — Run backend and frontend natively
 
 ```bash
 # Sandbox image (still required — the backend launches it as a sibling container)
