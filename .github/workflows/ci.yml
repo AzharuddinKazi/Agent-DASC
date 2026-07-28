@@ -19,7 +19,7 @@ jobs:
       SUPABASE_ANON_KEY: "dummy-anon-key"
       SUPABASE_SERVICE_KEY: "dummy-service-key"
       SUPABASE_DB_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
-      GEMINI_API_KEY: "dummy-gemini-key"
+      OPENROUTER_API_KEY: "dummy-openrouter-key"
       DSSTAR: "/tmp"
     steps:
       - uses: actions/checkout@v7
