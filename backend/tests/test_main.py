@@ -21,10 +21,10 @@ def test_health_check():
     test was accidentally dependent on live Supabase/Gemini/Docker being reachable.
     """
     with patch("main.supabase") as mock_sb, \
-         patch("main._genai_client") as mock_genai, \
+         patch("main.requests.get") as mock_llm_get, \
          patch("main.subprocess.run") as mock_docker:
         mock_sb.table.return_value.select.return_value.limit.return_value.execute.return_value = MagicMock()
-        mock_genai.models.list.return_value = []
+        mock_llm_get.return_value = MagicMock(raise_for_status=MagicMock())
         mock_docker.return_value = MagicMock()
 
         response = client.get("/health")
