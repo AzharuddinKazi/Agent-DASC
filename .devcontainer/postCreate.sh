@@ -59,3 +59,5 @@ fi
 echo "==> Done. Start the backend with: cd backend && uv run uvicorn main:app --reload"
 echo "==> Start the frontend with:      cd frontend && npm run dev"
 echo "==> Log into Claude Code with:    claude"
+echo "==> data/ is empty by design (gitignored) — run scripts/fetch_datasets.sh to repopulate it"
+echo "    (needs KAGGLE_USERNAME/KAGGLE_KEY secrets — see the script header)"
