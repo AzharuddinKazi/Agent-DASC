@@ -2,7 +2,11 @@
   "name": "DS-STAR",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    // installYarnUsingApt: false — this feature's Yarn apt repo ships a GPG key that
+    // fails to verify (NO_PUBKEY) on this base image, which then aborts every later
+    // feature's `apt-get update` (docker-in-docker included) and fails the whole build.
+    // We don't use Yarn (package.json uses npm), so just skip registering that repo.
+    "ghcr.io/devcontainers/features/node:1": { "version": "20", "installYarnUsingApt": false },
     // Sandbox execution (agents/executor.py) runs LLM-generated code in a sibling
     // `dsstar-sandbox` container via the host docker daemon — this feature gives the
     // devcontainer a real dockerd to talk to, same role /var/run/docker.sock plays locally.
