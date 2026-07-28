@@ -57,11 +57,11 @@ function KnowledgeBase({ packId, active }) {
   return (
     <div className="border-t border-border pt-3 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <p className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="text-label font-semibold uppercase tracking-widest text-muted-foreground">
           Knowledge base
         </p>
         <Button
-          size="sm" variant="outline" className="h-6 gap-1 text-[11px] px-2"
+          size="sm" variant="outline" className="h-6 gap-1 text-label px-2"
           disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
         >
@@ -75,17 +75,17 @@ function KnowledgeBase({ packId, active }) {
         />
       </div>
 
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
+      {error && <p className="text-label text-destructive">{error}</p>}
 
       {!active && (
-        <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+        <p className="text-label text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
           This pack isn't active yet — documents upload and index fine, but only the
           active pack's knowledge base feeds the Planner. Click Activate above to switch to it.
         </p>
       )}
 
       {!loading && docs.length === 0 && (
-        <p className="text-[11.5px] text-muted-foreground/70">
+        <p className="text-label text-muted-foreground/70">
           No reference documents yet — PDFs, Word docs, or text/markdown files feed the
           Planner as subject-matter context.
         </p>
@@ -95,8 +95,8 @@ function KnowledgeBase({ packId, active }) {
         {docs.map(doc => (
           <div key={doc.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/40">
             <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <span className="text-[12px] text-foreground truncate flex-1" title={doc.filename}>{doc.filename}</span>
-            <Badge variant="outline" className={`text-[9.5px] font-bold shrink-0 ${STATUS_STYLE[doc.status] || ""}`}>
+            <span className="text-caption text-foreground truncate flex-1" title={doc.filename}>{doc.filename}</span>
+            <Badge variant="outline" className={`text-label font-bold shrink-0 ${STATUS_STYLE[doc.status] || ""}`}>
               {doc.status === "ready" ? `${doc.chunk_count} chunks` : doc.status}
             </Badge>
             <button onClick={() => handleDelete(doc.id)} className="text-muted-foreground hover:text-destructive shrink-0 cursor-pointer">
@@ -140,7 +140,7 @@ export default function DomainPacks({ onNew, onSelect }) {
     <div className="h-screen flex bg-background overflow-hidden font-sans">
 
       {/* Permanent sidebar (desktop) */}
-      <div className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-sidebar">
+      <div className="hidden md:flex w-60 shrink-0 border-r border-border flex-col bg-sidebar">
         <Sidebar onNew={onNew} currentTaskId={null} onSelect={onSelect} onDomainPacks={() => {}} activeView="domainPacks" />
       </div>
 
@@ -155,12 +155,12 @@ export default function DomainPacks({ onNew, onSelect }) {
                   <Menu className="w-4 h-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[240px] p-0 border-r border-border bg-sidebar" showCloseButton={false}>
+              <SheetContent side="left" className="w-60 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={onSelect} onDomainPacks={() => setDrawerOpen(false)} activeView="domainPacks" />
               </SheetContent>
             </Sheet>
-            <h1 className="text-[15px] font-bold text-foreground leading-none">Domain Packs</h1>
+            <h1 className="text-heading text-foreground leading-none">Domain Packs</h1>
           </div>
         </div>
 
@@ -169,10 +169,10 @@ export default function DomainPacks({ onNew, onSelect }) {
           <div className="max-w-4xl mx-auto flex flex-col gap-6">
 
             <div>
-              <h2 className="text-[1.5rem] font-bold text-foreground tracking-tight leading-tight mb-1.5">
+              <h2 className="text-display-sm font-bold text-foreground tracking-tight leading-tight mb-1.5">
                 Browse domain packs
               </h2>
-              <p className="text-[14px] text-muted-foreground leading-relaxed max-w-2xl">
+              <p className="text-body text-muted-foreground leading-relaxed max-w-2xl">
                 Domain packs configure this app's analysis prompts and risk dimensions for a specific
                 industry, and include a matching example dataset generator. Their knowledge base feeds
                 the Planner subject-matter context — add reference documents below.
@@ -195,21 +195,21 @@ export default function DomainPacks({ onNew, onSelect }) {
                         <Package className="w-4.5 h-4.5 text-foreground" />
                       </div>
                       {pack.active && (
-                        <Badge className="gap-1 text-[10px] font-bold bg-success/10 text-success border-success/20">
+                        <Badge className="gap-1 text-label font-bold bg-success/10 text-success border-success/20">
                           <CheckCircle2 className="w-3 h-3" />
                           Active
                         </Badge>
                       )}
                     </div>
-                    <CardTitle className="text-[15px] font-bold">{pack.name}</CardTitle>
+                    <CardTitle className="text-heading">{pack.name}</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0 flex flex-col gap-4 flex-1">
-                    <p className="text-[13px] text-muted-foreground leading-relaxed flex-1">
+                    <p className="text-body text-muted-foreground leading-relaxed flex-1">
                       {pack.description}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {pack.tags?.map(tag => (
-                        <Badge key={tag} variant="outline" className="text-[10px] font-medium">{tag}</Badge>
+                        <Badge key={tag} variant="outline" className="text-label font-medium">{tag}</Badge>
                       ))}
                     </div>
                     <div className="flex items-center gap-2">

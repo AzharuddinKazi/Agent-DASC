@@ -68,7 +68,7 @@ export default function PipelineTimeline({ logs = [], currentScript, isRunning }
   return (
     <Card>
       <CardContent className="pt-5 pb-4">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4">
+        <p className="text-label font-semibold uppercase tracking-widest text-muted-foreground mb-4">
           Agent Pipeline
         </p>
         <div className="flex flex-col">
@@ -81,7 +81,7 @@ export default function PipelineTimeline({ logs = [], currentScript, isRunning }
             return (
               <div key={i} className="flex gap-3">
                 <div className="flex flex-col items-center shrink-0">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-label font-bold shrink-0 mt-0.5 ${
                     failed ? "bg-danger/10 text-danger border border-danger/30" :
                     running ? "bg-blue-50 text-blue-600 border border-blue-200" :
                     "bg-success/10 text-success border border-success/30"
@@ -93,11 +93,11 @@ export default function PipelineTimeline({ logs = [], currentScript, isRunning }
                 <div className={`flex-1 min-w-0 ${i < steps.length - 1 ? "pb-4" : ""}`}>
                   <div className="flex items-center justify-between gap-2">
                     <p className={`text-sm font-semibold ${running ? "text-blue-600" : "text-foreground"}`}>{agentLabel(step)}</p>
-                    {dur && <span className="text-[11px] text-muted-foreground font-mono shrink-0">{dur}</span>}
+                    {dur && <span className="text-label text-muted-foreground tabular-nums shrink-0">{dur}</span>}
                   </div>
                   <p className={`text-xs mt-0.5 leading-snug ${running ? "text-blue-600" : "text-muted-foreground"}`}>{step.message}</p>
                   {showCode && (
-                    <pre className="mt-2 bg-muted/50 border border-border rounded-md p-2.5 text-[11px] font-mono text-muted-foreground overflow-x-auto max-h-24 overflow-y-auto">
+                    <pre className="mt-2 bg-muted/50 border border-border rounded-md p-2.5 text-label font-mono text-muted-foreground overflow-x-auto max-h-24 overflow-y-auto">
                       {currentScript.split("\n").slice(0, 4).join("\n")}
                       {currentScript.split("\n").length > 4 ? "\n…" : ""}
                     </pre>

@@ -39,11 +39,11 @@ export default function Login() {
     <div className="h-screen flex items-center justify-center bg-background font-sans px-6">
       <div className="w-full max-w-[380px] flex flex-col gap-6">
         <div className="text-center">
-          <div className="w-10 h-10 rounded-lg bg-zinc-900 flex items-center justify-center mx-auto mb-3">
-            <span className="text-[12px] font-black text-white leading-none">{brand.appShortCode}</span>
+          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center mx-auto mb-3">
+            <span className="text-label font-black text-primary-foreground leading-none">{brand.appShortCode}</span>
           </div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">{brand.appName}</h1>
-          <p className="text-[13px] text-muted-foreground mt-1">{brand.tagline}</p>
+          <h1 className="text-display-sm text-foreground tracking-tight">{brand.appName}</h1>
+          <p className="text-body text-muted-foreground mt-1">{brand.tagline}</p>
         </div>
 
         <Card className="shadow-sm border-border">
@@ -68,15 +68,15 @@ export default function Login() {
                 />
               </div>
 
-              {error && <p className="text-[12px] text-destructive">{error}</p>}
-              {notice && <p className="text-[12px] text-success">{notice}</p>}
+              {error && <p className="text-caption text-destructive">{error}</p>}
+              {notice && <p className="text-caption text-success">{notice}</p>}
 
               <Button type="submit" disabled={isSubmitting} className="w-full">
                 {isSubmitting ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
               </Button>
             </form>
 
-            <p className="text-[12.5px] text-muted-foreground text-center mt-4">
+            <p className="text-caption text-muted-foreground text-center mt-4">
               {mode === "signin" ? "Don't have an account?" : "Already have an account?"}{" "}
               <button
                 type="button"

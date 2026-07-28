@@ -19,8 +19,14 @@ from db import supabase
 _GENERIC_ID = "generic"
 
 
-def get_active_pack_config() -> dict:
-    """Reads the currently active domain pack's config from the database.
+def get_active_pack_config(override_pack_id: str | None = None) -> dict:
+    """Reads a domain pack's config from the database.
+
+    Args:
+        override_pack_id: when given, use this pack instead of the globally active one —
+            lets a single task submission pin its own pack without changing the
+            deployment-wide setting other users/tasks see. None (the default) preserves
+            the original behaviour of reading `app_settings.active_domain_pack`.
 
     Returns:
         A dict with report_persona, report_classification, subquestion_dimensions, and
@@ -30,8 +36,11 @@ def get_active_pack_config() -> dict:
         "no domain pack" rather than crashing the pipeline.
     """
     try:
-        settings = supabase.table("app_settings").select("value").eq("key", "active_domain_pack").execute()
-        pack_id = (settings.data[0]["value"] if settings.data else None) or _GENERIC_ID
+        if override_pack_id:
+            pack_id = override_pack_id
+        else:
+            settings = supabase.table("app_settings").select("value").eq("key", "active_domain_pack").execute()
+            pack_id = (settings.data[0]["value"] if settings.data else None) or _GENERIC_ID
 
         row = supabase.table("domain_pack_configs").select("*").eq("pack_id", pack_id).execute()
         if not row.data:

@@ -20,7 +20,7 @@ export const checkHealth = () => API.get("/health")
 export const getDomainPacks       = () => API.get("/api/v1/domain_packs")
 export const domainPackDownloadUrl = (id) => `${API_BASE}/api/v1/domain_packs/${id}/download`
 export const activateDomainPack   = (id) => API.post(`/api/v1/domain_packs/${id}/activate`)
-export const deactivateDomainPack = () => API.post(`/api/v1/domain_packs/generic/activate`)
+export const deactivateDomainPack = () => API.post(`/api/v1/domain_packs/deactivate`)
 
 export const getPackDocuments = (packId) => API.get(`/api/v1/domain_packs/${packId}/documents`)
 export const uploadPackDocument = (packId, file) => {

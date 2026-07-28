@@ -9,9 +9,12 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
 
-const CHART_COLORS = ["#18181b", "#52525b", "#16a34a", "#d97706", "#dc2626", "#2563eb"]
-const TICK_STYLE  = { fontSize: 11, fill: "#71717a", fontFamily: "var(--font-sans)" }
-const TIP_STYLE   = { fontSize: 12, border: "1px solid #e4e4e7", borderRadius: 6, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }
+const CHART_COLORS = [
+  "var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)",
+  "var(--color-chart-4)", "var(--color-chart-5)", "var(--color-info)",
+]
+const TICK_STYLE  = { fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-sans)" }
+const TIP_STYLE   = { fontSize: 12, border: "1px solid var(--color-border)", borderRadius: 6, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }
 
 const RISK_COLORS = {
   High:   "text-destructive bg-destructive/10 border-destructive/30",
@@ -32,7 +35,7 @@ function ReportProse({ text }) {
         ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
         li: ({ children }) => <li className="text-sm text-foreground/80 leading-relaxed">{children}</li>,
         strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-        code: ({ children }) => <code className="text-[12px] font-mono bg-muted px-1 py-0.5 rounded text-foreground">{children}</code>,
+        code: ({ children }) => <code className="text-caption font-mono bg-muted px-1 py-0.5 rounded text-foreground">{children}</code>,
         blockquote: ({ children }) => (
           <blockquote className="border-l-4 border-border pl-4 my-3 text-muted-foreground italic text-sm">{children}</blockquote>
         ),
@@ -64,7 +67,7 @@ function MiniChart({ rows, columns }) {
   return (
     <ResponsiveContainer width="100%" height={160}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
         <XAxis type="number" tick={TICK_STYLE} />
         <YAxis dataKey={xKey} type="category" tick={TICK_STYLE} width={120} />
         <Tooltip contentStyle={TIP_STYLE} />
@@ -78,7 +81,7 @@ function MiniChart({ rows, columns }) {
 
 function RiskBadge({ level }) {
   return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${RISK_COLORS[level] || "text-muted-foreground bg-muted border-border"}`}>
+    <span className={`text-label font-bold px-2 py-0.5 rounded border ${RISK_COLORS[level] || "text-muted-foreground bg-muted border-border"}`}>
       {level || "—"}
     </span>
   )
@@ -127,9 +130,9 @@ export default function ReportView({ task, query, onFollowUp }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-            <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">DS-STAR+ Report</Badge>
+            <Badge variant="secondary" className="text-label font-bold uppercase tracking-wider">DS-STAR+ Report</Badge>
             {report.classification && (
-              <Badge variant="outline" className="text-[10px] font-bold text-destructive border-destructive/30">
+              <Badge variant="outline" className="text-label font-bold text-destructive border-destructive/30">
                 {report.classification}
               </Badge>
             )}
@@ -152,7 +155,7 @@ export default function ReportView({ task, query, onFollowUp }) {
               </div>
             </div>
           )}
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 h-8 text-[12px]">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 h-8 text-caption">
             <Download className="w-3 h-3" />
             Export PDF
           </Button>
@@ -181,12 +184,12 @@ export default function ReportView({ task, query, onFollowUp }) {
           >
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-foreground flex items-center justify-center shrink-0">
-                <span className="text-[10px] font-bold text-background">{i + 1}</span>
+                <span className="text-label font-bold text-background">{i + 1}</span>
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">{section.heading}</p>
                 {section.key_stat && (
-                  <p className="text-xs font-mono text-muted-foreground mt-0.5">{section.key_stat}</p>
+                  <p className="text-xs tabular-nums text-muted-foreground mt-0.5">{section.key_stat}</p>
                 )}
               </div>
             </div>
@@ -309,7 +312,7 @@ export default function ReportView({ task, query, onFollowUp }) {
               <Database className="w-4 h-4 text-muted-foreground" />
               Underlying Sub-analysis Data
             </span>
-            <Badge variant="secondary" className="text-[10px]">{Object.keys(task.sub_results).length} analyses</Badge>
+            <Badge variant="secondary" className="text-label">{Object.keys(task.sub_results).length} analyses</Badge>
           </button>
           {openSections["sub_data"] && (
             <>
@@ -339,9 +342,9 @@ export default function ReportView({ task, query, onFollowUp }) {
       {/* ── Dataset footer ── */}
       {report.data_coverage?.datasets_used?.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap px-1">
-          <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Datasets:</span>
+          <span className="text-label text-muted-foreground font-medium uppercase tracking-wider">Datasets:</span>
           {report.data_coverage.datasets_used.map(d => (
-            <Badge key={d} variant="secondary" className="text-[10px] font-mono">{d}</Badge>
+            <Badge key={d} variant="secondary" className="text-label font-mono">{d}</Badge>
           ))}
         </div>
       )}
@@ -353,11 +356,11 @@ export default function ReportView({ task, query, onFollowUp }) {
             <CardContent className="p-2 flex items-center gap-2">
               <div className="flex items-center gap-1 shrink-0">
                 <button type="button" onClick={() => setFollowUpMode("qa")}
-                  className={`text-[11px] px-2 py-1 rounded font-medium transition-colors ${followUpMode === "qa" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+                  className={`text-label px-2 py-1 rounded font-medium transition-colors ${followUpMode === "qa" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
                   QA
                 </button>
                 <button type="button" onClick={() => setFollowUpMode("report")}
-                  className={`text-[11px] px-2 py-1 rounded font-medium transition-colors ${followUpMode === "report" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+                  className={`text-label px-2 py-1 rounded font-medium transition-colors ${followUpMode === "report" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
                   Report
                 </button>
               </div>

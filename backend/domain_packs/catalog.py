@@ -19,6 +19,18 @@ DOMAIN_PACKS = [
         "tags": ["Financial Services", "Compliance", "Risk"],
         "dataset_generator": "generate_synthetic_data.py",
     },
+    {
+        "id": "medicare-claims",
+        "name": "Medicare Claims & Coding",
+        "description": (
+            "Program-integrity analysis pack for Medicare fee-for-service claims: "
+            "HCPCS/procedure coding, improper-payment risk, and provider/beneficiary "
+            "utilization dimensions, grounded in official CMS guidance and "
+            "peer-reviewed Medicare fraud-detection research. Built on real CMS "
+            "DE-SynPUF claims data — no synthetic generator."
+        ),
+        "tags": ["Healthcare", "Compliance", "Fraud"],
+    },
 ]
 
 

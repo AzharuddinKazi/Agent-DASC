@@ -40,12 +40,12 @@ If nrows is not 'all', use pd.read_csv('/workspace/data/{filename}', nrows={nrow
 - Your response should only contain a single Python code block"""
 
 
-def analyze_file(filename: str, filepath: str) -> str:
+def analyze_file(filename: str, filepath: str, task_id: str) -> str:
     file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
     nrows = 10000 if file_size_mb > 50 else None
     prompt = ANALYZER_PROMPT.format(filename=filename, nrows=nrows or "all")
 
-    result = router.complete(agent="analyzer", prompt=prompt)
+    result = router.complete(agent="analyzer", prompt=prompt, task_id=task_id)
     script = result["text"].strip()
 
     if script.startswith("```"):
@@ -113,7 +113,7 @@ def analyzer(state: TaskState) -> dict:
 
         # analyze and cache
         logger.info(f"Analyzing {fname}...")
-        description = analyze_file(fname, filepath)
+        description = analyze_file(fname, filepath, state["task_id"])
         descriptions[fname] = description
 
         supabase.table("file_descriptions").upsert({

@@ -27,13 +27,14 @@ Return ONLY a valid JSON array of strings. No preamble, no explanation, no markd
 ["Sub-question 1?", "Sub-question 2?", ...]"""
 
 
-def _dimensions_section() -> str:
-    """Built per-call from the active domain pack's config (switchable at runtime — see
-    domain_pack.py). When configured, nudges toward those topics; otherwise — the
-    default — lets the model choose its own dimensions, covering whatever angles are
-    actually relevant to the query and data at hand.
+def _dimensions_section(domain_pack_id: str | None) -> str:
+    """Built per-call from a domain pack's config (switchable at runtime — see
+    domain_pack.py). domain_pack_id pins a specific pack for this task; None uses
+    whichever pack is globally active. When configured, nudges toward those topics;
+    otherwise — the default — lets the model choose its own dimensions, covering
+    whatever angles are actually relevant to the query and data at hand.
     """
-    dimensions = get_active_pack_config()["subquestion_dimensions"]
+    dimensions = get_active_pack_config(domain_pack_id)["subquestion_dimensions"]
     if dimensions:
         dims = "\n".join(f"{i}. {d}" for i, d in enumerate(dimensions, 1))
         return f"""
@@ -66,10 +67,10 @@ def question_generator(state: TaskState) -> dict:
     prompt = QUESTION_GENERATOR_PROMPT.format(
         question=question,
         summaries=summaries_text,
-        dimensions_section=_dimensions_section(),
+        dimensions_section=_dimensions_section(state.get("domain_pack_id")),
     )
 
-    result = router.complete(agent="question_generator", prompt=prompt)
+    result = router.complete(agent="question_generator", prompt=prompt, task_id=state["task_id"])
     text   = result["text"].strip()
 
     import json, re

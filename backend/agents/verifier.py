@@ -70,7 +70,7 @@ def verifier(state: TaskState) -> dict:
         result=execution_result
     )
 
-    result  = router.complete(agent="verifier", prompt=prompt)
+    result  = router.complete(agent="verifier", prompt=prompt, task_id=state["task_id"])
     answer  = result["text"].strip().lower()
     verdict = "sufficient" if "yes" in answer else "insufficient"
 

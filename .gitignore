@@ -4,12 +4,12 @@ __pycache__/
 .venv/
 .env
 
-# Data files — never commit real LFI data
-data/*.csv
-data/*.json
-data/*.xlsx
-data/*.parquet
-data/*.pdf
+# Data files — never commit datasets, including in nested backup dirs
+data/**/*.csv
+data/**/*.json
+data/**/*.xlsx
+data/**/*.parquet
+data/**/*.pdf
 
 # Keep test.csv for development
 !data/test.csv

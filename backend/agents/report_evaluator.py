@@ -47,7 +47,7 @@ def report_evaluator(state: TaskState) -> dict:
         report=draft_report,
     )
 
-    result = router.complete(agent="report_evaluator", prompt=prompt)
+    result = router.complete(agent="report_evaluator", prompt=prompt, task_id=state["task_id"])
     text   = result["text"].strip()
 
     import json, re

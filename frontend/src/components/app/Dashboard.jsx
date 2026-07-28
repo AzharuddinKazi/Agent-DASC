@@ -60,7 +60,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
     <div className="h-screen flex bg-background overflow-hidden font-sans">
 
       {/* Permanent sidebar (desktop) */}
-      <div className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-sidebar">
+      <div className="hidden md:flex w-60 shrink-0 border-r border-border flex-col bg-sidebar">
         <Sidebar onNew={onNew} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={onDomainPacks} />
       </div>
 
@@ -76,14 +76,14 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
                   <Menu className="w-4 h-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[240px] p-0 border-r border-border bg-sidebar" showCloseButton={false}>
+              <SheetContent side="left" className="w-60 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} />
               </SheetContent>
             </Sheet>
 
-            <h1 className="text-[15px] font-bold text-foreground leading-none shrink-0">{headerTitle}</h1>
-            <Badge variant="outline" className={`gap-1.5 text-[12px] shrink-0 ${badgeColor}`}>
+            <h1 className="text-heading text-foreground leading-none shrink-0">{headerTitle}</h1>
+            <Badge variant="outline" className={`gap-1.5 text-caption shrink-0 ${badgeColor}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? "animate-pulse" : ""}`} style={{ backgroundColor: "currentColor" }} />
               {modeLabel} · {statusLabel}
             </Badge>
@@ -92,10 +92,10 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
           <div className="flex items-center gap-2 shrink-0">
             {isRunning && (
               <>
-                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-[13px] gap-1.5">
+                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-body gap-1.5">
                   <Pause className="w-3.5 h-3.5" /> Pause
                 </Button>
-                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-[13px] gap-1.5 text-destructive border-destructive/30">
+                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-body gap-1.5 text-destructive border-destructive/30">
                   <Square className="w-3.5 h-3.5" /> Stop
                 </Button>
               </>

@@ -52,14 +52,22 @@ PLANNER_NEXT = """You are an expert data analyst.
     Your response should only contain a next step without any explanation."""
 
 
-def _domain_knowledge_section(question: str) -> str:
+def _domain_knowledge_section(question: str, state: TaskState) -> str:
     """Retrieves relevant chunks from the active domain pack's knowledge base, if any.
 
-    Returns an empty string when no pack is active or nothing relevant is indexed —
-    the Planner then reasons purely from the data, same as before this existed.
+    Gated by state["use_domain_knowledge"] (default True) — this per-round KB lookup and
+    the chunks it injects into the prompt are the actual token/cost driver of "domain
+    knowledge", so opting out skips the retrieval call entirely rather than just hiding
+    the result.
+
+    Returns an empty string when knowledge is opted out, no pack is active, or nothing
+    relevant is indexed — the Planner then reasons purely from the data, same as before
+    this existed.
     """
+    if not state.get("use_domain_knowledge", True):
+        return ""
     try:
-        pack_id = get_active_pack_config()["pack_id"]
+        pack_id = get_active_pack_config(state.get("domain_pack_id"))["pack_id"]
         chunks = retrieve_domain_knowledge(pack_id, question)
     except Exception:
         chunks = []
@@ -94,7 +102,7 @@ def planner(state: TaskState) -> dict:
         for i, step in enumerate(cumulative_plan)
     )
 
-    domain_knowledge = _domain_knowledge_section(question)
+    domain_knowledge = _domain_knowledge_section(question, state)
 
     if current_round == 0:
         prompt = PLANNER_INIT.format(
@@ -113,7 +121,7 @@ def planner(state: TaskState) -> dict:
             domain_knowledge=domain_knowledge
         )
 
-    result = router.complete(agent="planner", prompt=prompt)
+    result = router.complete(agent="planner", prompt=prompt, task_id=state["task_id"])
     new_step = result["text"].strip()
 
     logger.info(f"Round {current_round + 1}: {new_step}")
