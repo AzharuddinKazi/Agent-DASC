@@ -114,6 +114,36 @@ longer matched reality and has been replaced; git history retains it if ever nee
       confirmed `/health` showed `active: 1` while the first ran, the second's log timeline
       showed the queued message, and `active` correctly cycled 0 → 1 → 1 (handoff) → 0 as both
       completed in sequence rather than in parallel.
+- [x] DS-STAR+ report citations: the Writer now numbers each sub-analysis and cites it
+      inline (`[N]`, e.g. "...8.3% [2]."), matching the paper's citation mechanism that this
+      repo's report pipeline never implemented. The reference list itself (`report.sources`)
+      is computed server-side from `sub_questions`/`sub_results` in `writer.py`, not trusted
+      to the LLM — the model only emits the `[N]` markers, so numbering is always correct
+      even if the model over/under-cites. Frontend (`ReportView.jsx`) renders `[N]` as
+      clickable superscript badges in the executive summary, section bodies/key_stats, and
+      conclusions; clicking one auto-expands the "Sources" section and scrolls to the
+      matching sub-analysis. Falls back to numbering `task.sub_results` by iteration order
+      for reports generated before this change (no `report.sources` present). Verified live
+      end-to-end against a real report run (not just the 3 new `test_writer.py` tests).
+
+## Product differentiators (good → wow)
+
+Distinct from the hardening/tech-debt backlog below — these are the features that would most
+change how DS-STAR *feels* to use, not just how safe/correct it is. Roadmap order is a
+judgment call (checkpoints first — see rationale), not a commitment.
+
+- [ ] Human-in-the-loop checkpoints — the pipeline is fully autonomous today; the
+      `AsyncPostgresSaver` checkpointer is wired up but never used to interrupt a run for
+      approval/redirection. Architecturally half-built already, and the paper's original
+      design called for this — highest-leverage single item on this list.
+- [ ] Live streaming (WebSocket/SSE) instead of 2s polling of the `tasks.logs` JSONB array —
+      pipeline runs would feel real-time instead of laggy, especially in report mode.
+- [ ] Follow-up / conversational refinement without a full pipeline re-run — e.g. "now break
+      that down by region" as a cheap continuation using existing context.
+- [ ] Real data connections beyond local CSVs dropped in `data/` — no MySQL/Postgres/
+      warehouse connector, no catalog. Currently a hard wall between "demo" and "plugs into
+      a team's actual stack."
+- [x] Citations/traceability in report mode (DS-STAR+) — see Completed above.
 
 ## Audit remediation — remaining (roadmap order)
 
