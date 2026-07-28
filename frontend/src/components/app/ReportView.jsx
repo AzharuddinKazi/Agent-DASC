@@ -22,6 +22,27 @@ const RISK_COLORS = {
   Low:    "text-success bg-success/10 border-success/20",
 }
 
+// Writer emits inline citations as bracketed analysis numbers, e.g. "...8.3% [2]." or
+// "...across regions [1,4]." — turn those into real markdown links to #source-N so both
+// CitationLink (markdown bodies) and CitedText (plain-text fields) can render/scroll to them.
+function linkifyCitations(text) {
+  if (!text) return text
+  return text.replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (_, nums) =>
+    nums.split(",").map(n => `[${n.trim()}](#source-${n.trim()})`).join("")
+  )
+}
+
+function CitationLink({ href, children }) {
+  if (href?.startsWith("#source-")) {
+    return (
+      <a href={href} className="inline-flex items-center justify-center text-label font-bold text-primary hover:underline align-super ml-0.5">
+        [{children}]
+      </a>
+    )
+  }
+  return <a href={href} className="text-primary hover:underline" target="_blank" rel="noreferrer">{children}</a>
+}
+
 function ReportProse({ text }) {
   return (
     <ReactMarkdown
@@ -47,10 +68,30 @@ function ReportProse({ text }) {
         thead: ({ children }) => <thead className="bg-muted/50">{children}</thead>,
         th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border">{children}</th>,
         td: ({ children }) => <td className="px-3 py-2 text-sm text-foreground/80 border-b border-border/50">{children}</td>,
+        a: CitationLink,
       }}
     >
-      {text}
+      {linkifyCitations(text)}
     </ReactMarkdown>
+  )
+}
+
+// For plain-text fields (executive_summary, conclusions) that aren't markdown-rendered —
+// same [N] citation syntax, same #source-N targets, no markdown parsing needed.
+function CitedText({ text, className }) {
+  if (!text) return null
+  const parts = text.split(/\[(\d+(?:\s*,\s*\d+)*)\]/g)
+  return (
+    <p className={className}>
+      {parts.map((part, i) => {
+        if (i % 2 === 0) return <span key={i}>{part}</span>
+        return part.split(",").map(n => (
+          <a key={n} href={`#source-${n.trim()}`} className="text-label font-bold underline decoration-dotted underline-offset-2 hover:opacity-70 align-super ml-0.5">
+            [{n.trim()}]
+          </a>
+        ))
+      })}
+    </p>
   )
 }
 
@@ -94,6 +135,23 @@ export default function ReportView({ task, query, onFollowUp }) {
 
   const toggleSection = key => setOpenSections(s => ({ ...s, [key]: !s[key] }))
 
+  // Citation links (#source-N) point into the "Underlying Sub-analysis Data" section,
+  // which may be collapsed — the target id doesn't exist in the DOM until it's open, so a
+  // plain anchor jump silently does nothing. Intercept the click, force it open, then scroll
+  // once React has rendered the now-expanded content.
+  const handleCitationClick = e => {
+    const link = e.target.closest('a[href^="#source-"]')
+    if (!link) return
+    e.preventDefault()
+    setOpenSections(s => ({ ...s, sub_data: true }))
+    const id = link.getAttribute("href").slice(1)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" })
+      })
+    })
+  }
+
   const report = useMemo(() => {
     const raw = task?.final_result
     if (!raw) return null
@@ -103,6 +161,17 @@ export default function ReportView({ task, query, onFollowUp }) {
       return JSON.parse(s)
     } catch { return null }
   }, [task?.final_result])
+
+  // Numbered, ordered source list backing the [N] citations — from report.sources when the
+  // backend provided one (writer.py always attaches this now). Falls back to iterating
+  // task.sub_results for reports generated before this change; that order isn't guaranteed
+  // (JSONB doesn't preserve key order), so old reports' citation numbers may not line up
+  // with this fallback numbering — acceptable since those reports have no [N] markers to
+  // match against anyway.
+  const citableSources = useMemo(() => {
+    if (report?.sources?.length) return report.sources
+    return Object.keys(task?.sub_results || {}).map((q, i) => ({ id: i + 1, question: q }))
+  }, [report, task?.sub_results])
 
   const handleSubmit = e => {
     e.preventDefault()
@@ -123,7 +192,7 @@ export default function ReportView({ task, query, onFollowUp }) {
   }
 
   return (
-    <div className="flex flex-col gap-5 pb-24 w-full">
+    <div className="flex flex-col gap-5 pb-24 w-full" onClick={handleCitationClick}>
 
       {/* ── Report header ── */}
       <div className="flex items-start justify-between gap-4 print:hidden">
@@ -171,7 +240,7 @@ export default function ReportView({ task, query, onFollowUp }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-background/80 leading-relaxed">{report.executive_summary}</p>
+          <CitedText text={report.executive_summary} className="text-sm text-background/80 leading-relaxed" />
         </CardContent>
       </Card>
 
@@ -189,7 +258,7 @@ export default function ReportView({ task, query, onFollowUp }) {
               <div>
                 <p className="text-sm font-semibold text-foreground">{section.heading}</p>
                 {section.key_stat && (
-                  <p className="text-xs tabular-nums text-muted-foreground mt-0.5">{section.key_stat}</p>
+                  <CitedText text={section.key_stat} className="text-xs tabular-nums text-muted-foreground mt-0.5" />
                 )}
               </div>
             </div>
@@ -280,7 +349,7 @@ export default function ReportView({ task, query, onFollowUp }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-foreground/80 leading-relaxed">{report.conclusions}</p>
+            <CitedText text={report.conclusions} className="text-sm text-foreground/80 leading-relaxed" />
           </CardContent>
         </Card>
       )}
@@ -301,8 +370,8 @@ export default function ReportView({ task, query, onFollowUp }) {
         </Card>
       )}
 
-      {/* ── Sub-analysis data ── */}
-      {task?.sub_results && Object.keys(task.sub_results).length > 0 && (
+      {/* ── Sub-analysis data / citation sources ── */}
+      {citableSources.length > 0 && (
         <Card>
           <button
             onClick={() => toggleSection("sub_data")}
@@ -310,28 +379,33 @@ export default function ReportView({ task, query, onFollowUp }) {
           >
             <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Database className="w-4 h-4 text-muted-foreground" />
-              Underlying Sub-analysis Data
+              Sources
             </span>
-            <Badge variant="secondary" className="text-label">{Object.keys(task.sub_results).length} analyses</Badge>
+            <Badge variant="secondary" className="text-label">{citableSources.length} analyses</Badge>
           </button>
           {openSections["sub_data"] && (
             <>
               <Separator />
               <CardContent className="pt-4 pb-2">
                 <div className="flex flex-col gap-6">
-                  {Object.entries(task.sub_results).map(([q, r], i, arr) => (
-                    <div key={i}>
-                      <div className="flex items-start gap-2 mb-3">
-                        <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
-                        <p className="text-sm font-semibold text-foreground">{q}</p>
+                  {citableSources.map((source, i) => {
+                    const r = task?.sub_results?.[source.question] || {}
+                    return (
+                      <div key={source.id} id={`source-${source.id}`} className="scroll-mt-20">
+                        <div className="flex items-start gap-2 mb-3">
+                          <div className="w-5 h-5 rounded-full bg-foreground flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="text-label font-bold text-background">{source.id}</span>
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">{source.question}</p>
+                        </div>
+                        {r.summary && <p className="text-xs text-muted-foreground mb-3 pl-7">{r.summary}</p>}
+                        {r.columns && r.rows?.length > 0 && (
+                          <div className="pl-7"><MiniChart rows={r.rows} columns={r.columns} /></div>
+                        )}
+                        {i < citableSources.length - 1 && <Separator className="mt-4" />}
                       </div>
-                      {r.summary && <p className="text-xs text-muted-foreground mb-3 pl-6">{r.summary}</p>}
-                      {r.columns && r.rows?.length > 0 && (
-                        <div className="pl-6"><MiniChart rows={r.rows} columns={r.columns} /></div>
-                      )}
-                      {i < arr.length - 1 && <Separator className="mt-4" />}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </CardContent>
             </>

@@ -36,6 +36,12 @@ formal, publication-quality report — NOT a list of data summaries.
    that might be "Revenue Risk" / "Growth Trend"; for an operations query it might be
    "Efficiency" / "Reliability") and use them consistently as the keys in each risk_matrix
    entry's "dimensions" object.
+7. CITE your sources. Each numbered analysis above (Analysis 1, Analysis 2, ...) is a
+   citable source. Every claim in executive_summary, section bodies, key_stat, and
+   conclusions must end with a bracketed citation to the analysis/analyses it draws from,
+   e.g. "...a 8.3% rate, nearly 3× the average of 2.9% [2]." or "...across three regions
+   [1,4]." Do NOT invent a "sources" or "references" field yourself — citation numbers are
+   the only citation mechanism; the reference list is attached separately.
 
 # Required Output Format (strict JSON — return ONLY this, no markdown fences)
 {{
@@ -124,6 +130,20 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
     import re
     if report_text.startswith("```"):
         report_text = re.sub(r"^```[a-z]*\n?", "", report_text).rstrip("`").strip()
+
+    # The LLM only emits [N] citation markers in the prose — the reference list itself is
+    # built here from sub_questions, not trusted to the LLM, so citation numbers are always
+    # correct/complete even if the model omits or miscounts them.
+    sources = [
+        {"id": i + 1, "question": sq, "summary": sub_results.get(sq, {}).get("summary", "")}
+        for i, sq in enumerate(sub_questions)
+    ]
+    try:
+        parsed = json.loads(report_text)
+        parsed["sources"] = sources
+        report_text = json.dumps(parsed)
+    except json.JSONDecodeError:
+        logger.warning("Writer output wasn't valid JSON — shipping it unparsed, without a sources list")
 
     logger.info(f"Report generated ({result['output_tokens']} tokens)")
     log_event(state["task_id"], "writer", "Draft report generated — sending for evaluation", "success")
