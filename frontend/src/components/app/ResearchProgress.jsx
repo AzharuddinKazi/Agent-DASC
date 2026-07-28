@@ -55,7 +55,7 @@ export default function ResearchProgress({ task }) {
     <div className="flex flex-col gap-4">
       <Card>
         <CardContent className="py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Pipeline Phase</p>
+          <p className="text-label font-semibold uppercase tracking-widest text-muted-foreground mb-3">Pipeline Phase</p>
           <div className="flex items-center">
             {PHASES.map((p, i) => (
               <div key={p.key} className="flex items-center flex-1 last:flex-none">
@@ -67,7 +67,7 @@ export default function ResearchProgress({ task }) {
                   }`}>
                     {i < phaseIdx ? <Check className="w-4 h-4" /> : i === phaseIdx ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-xs font-bold">{i + 1}</span>}
                   </div>
-                  <span className={`text-[10px] text-center max-w-[90px] leading-tight ${i === phaseIdx ? "text-purple-600 font-semibold" : "text-muted-foreground"}`}>{p.label}</span>
+                  <span className={`text-label text-center max-w-[90px] leading-tight ${i === phaseIdx ? "text-purple-600 font-semibold" : "text-muted-foreground"}`}>{p.label}</span>
                 </div>
                 {i < PHASES.length - 1 && <div className={`flex-1 h-px mx-2 ${i < phaseIdx ? "bg-success/40" : "bg-border"}`} />}
               </div>
@@ -79,13 +79,13 @@ export default function ResearchProgress({ task }) {
       <Card>
         <CardContent className="py-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Overall Progress</p>
+            <p className="text-label font-semibold uppercase tracking-widest text-muted-foreground">Overall Progress</p>
             <span className="text-lg font-bold text-purple-600">{overallPct}%</span>
           </div>
           <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-purple-500 rounded-full transition-all duration-700" style={{ width: `${overallPct}%` }} />
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1.5">
+          <p className="text-label text-muted-foreground mt-1.5">
             {completedCount} of {subQuestions.length} sub-question{subQuestions.length === 1 ? "" : "s"} complete
           </p>
         </CardContent>
@@ -94,19 +94,19 @@ export default function ResearchProgress({ task }) {
       {subQuestions.length > 0 && (
         <Card>
           <CardContent className="py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Sub-Questions</p>
+            <p className="text-label font-semibold uppercase tracking-widest text-muted-foreground mb-3">Sub-Questions</p>
             <div className="flex flex-col gap-2">
               {subQuestions.map((sq, i) => {
                 const isDone    = i < completedCount
                 const isCurrent = !isDone && sq === runningQuestion
                 return (
                   <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${isCurrent ? "border-purple-200 bg-purple-50/40" : "border-border"}`}>
-                    <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
+                    <span className={`w-5 h-5 rounded flex items-center justify-center text-label font-bold shrink-0 mt-0.5 ${
                       isDone ? "bg-success/10 text-success" : isCurrent ? "bg-purple-100 text-purple-600" : "bg-muted text-muted-foreground"
                     }`}>{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground leading-snug">{sq}</p>
-                      <p className="text-[11px] mt-1">
+                      <p className="text-label mt-1">
                         {isDone && <span className="text-success font-medium">✓ Complete</span>}
                         {isCurrent && <span className="text-purple-600 font-medium">Running…</span>}
                         {!isDone && !isCurrent && <span className="text-muted-foreground">Queued</span>}

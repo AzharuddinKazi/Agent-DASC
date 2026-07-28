@@ -45,12 +45,12 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
         className="h-14 flex items-center px-4 border-b border-sidebar-border shrink-0 cursor-pointer hover:bg-accent/60 transition-colors text-left"
       >
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-black text-white leading-none">{brand.appShortCode}</span>
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <span className="text-label font-black text-primary-foreground leading-none">{brand.appShortCode}</span>
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-foreground tracking-tight leading-none">{brand.appName}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{brand.tagline}</p>
+            <p className="text-label text-muted-foreground mt-0.5 truncate">{brand.tagline}</p>
           </div>
         </div>
       </button>
@@ -59,14 +59,14 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
       <div className="px-3 py-3 shrink-0 flex flex-col gap-0.5">
         <button
           onClick={onNew}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-accent text-accent-foreground font-semibold text-[14px] cursor-pointer"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-accent text-accent-foreground font-semibold text-body cursor-pointer"
         >
           <MessageSquare className="w-4 h-4 shrink-0" />
           New Analysis
         </button>
         <button
           disabled
-          className="flex items-center gap-2.5 px-3 py-2 rounded-md text-muted-foreground/60 font-medium text-[14px] cursor-not-allowed"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-md text-muted-foreground/60 font-medium text-body cursor-not-allowed"
           title="Coming soon"
         >
           <LayoutGrid className="w-4 h-4 shrink-0" />
@@ -75,7 +75,7 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
         {onDomainPacks && (
           <button
             onClick={onDomainPacks}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-[14px] cursor-pointer transition-colors ${
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-body cursor-pointer transition-colors ${
               activeView === "domainPacks"
                 ? "bg-accent text-accent-foreground"
                 : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
@@ -91,7 +91,7 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
 
       {/* History */}
       <ScrollArea className="flex-1 min-h-0 px-3 pt-3 pb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
+        <p className="text-label font-semibold uppercase text-muted-foreground mb-2 px-1">
           Recent
         </p>
 
@@ -113,18 +113,18 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="line-clamp-2 leading-snug text-[13px] mb-1 flex-1">{task.query}</p>
-                  <span className={`shrink-0 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold ${
+                  <p className="line-clamp-2 leading-snug text-body mb-1 flex-1">{task.query}</p>
+                  <span className={`shrink-0 w-4 h-4 rounded flex items-center justify-center text-label font-bold ${
                     isReport ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                   }`}>
                     {(isReport ? brand.modeLabels.report : brand.modeLabels.qa)[0]}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
+                <div className="flex items-center gap-2 text-label text-muted-foreground tabular-nums">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                     task.status === "completed" ? "bg-success" :
                     task.status === "running"   ? "bg-info animate-pulse" :
-                    task.status === "failed"    ? "bg-danger" : "bg-zinc-400"
+                    task.status === "failed"    ? "bg-danger" : "bg-neutral-400"
                   }`} />
                   <span>{elapsed(task.created_at)}</span>
                 </div>
@@ -139,8 +139,8 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
       {/* User footer */}
       <div className="px-3 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-full bg-zinc-900 flex items-center justify-center shrink-0">
-            <span className="text-[10px] font-bold text-white">{initials}</span>
+          <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <span className="text-label font-bold text-primary-foreground">{initials}</span>
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold text-foreground leading-none truncate">{email}</p>
@@ -156,10 +156,10 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
         <TooltipTrigger asChild>
           <div className="px-4 py-2 flex items-center gap-2 border-t border-sidebar-border shrink-0 cursor-default">
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              healthLoading  ? "bg-zinc-400 animate-pulse" :
+              healthLoading  ? "bg-neutral-400 animate-pulse" :
               health?.status === "ok" ? "bg-success" : "bg-danger"
             }`} />
-            <span className="text-[10.5px] text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {healthLoading ? "Checking systems…" : health?.status === "ok" ? "All systems normal" : "Degraded performance"}
             </span>
           </div>
@@ -171,7 +171,7 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
               return (
                 <div key={key} className="flex items-center gap-2">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    !check ? "bg-zinc-400" : check.status === "ok" ? "bg-success" : "bg-danger"
+                    !check ? "bg-neutral-400" : check.status === "ok" ? "bg-success" : "bg-danger"
                   }`} />
                   <span>{CHECK_LABELS[key]}</span>
                 </div>

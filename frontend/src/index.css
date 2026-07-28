@@ -13,81 +13,135 @@
   --font-sans: 'Manrope', sans-serif;
   --font-mono: 'Source Code Pro', monospace;
 
-  /* ── Shadcn neutral/zinc palette (matches CRM screenshot) ── */
-  --color-background:           #f4f4f5; /* page canvas — cards sit on top in white */
-  --color-foreground:           #09090b;
+  --text-xs:                 0.75rem;   /* 12px */
+  --text-xs--line-height:    1.4;
+  --text-sm:                 0.875rem;  /* 14px */
+  --text-sm--line-height:    1.5;
+  --text-base:               0.9375rem; /* 15px */
+  --text-base--line-height:  1.55;
+  --text-lg:                 1.125rem;  /* 18px */
+  --text-lg--line-height:    1.4;
+  --text-xl:                 1.25rem;   /* 20px */
+  --text-xl--line-height:    1.35;
+  --text-2xl:                1.5rem;    /* 24px */
+  --text-2xl--line-height:   1.25;
+  --text-3xl:                1.875rem;  /* 30px */
+  --text-3xl--line-height:   1.15;
+
+  /* ── Warm paper neutrals — a considered ground for a forensic/financial analytics
+     tool, not an inherited pure-grey default. See docs/design/ui-foundation-proposal.html ── */
+  --color-background:           #FAF8F5;
+  --color-foreground:           #1D1A16;
 
   --color-card:                 #ffffff;
-  --color-card-foreground:      #09090b;
+  --color-card-foreground:      #1D1A16;
 
   --color-popover:              #ffffff;
-  --color-popover-foreground:   #09090b;
+  --color-popover-foreground:   #1D1A16;
 
-  /* Primary = near-black (shadcn default neutral) */
-  --color-primary:              #18181b;
-  --color-primary-foreground:   #fafafa;
+  /* Primary = the brand color. Crimson now carries the primary CTA, not just the
+     logo mark — see "Analyse" button in the foundation proposal's mock. */
+  --color-primary:              #B01E23;
+  --color-primary-foreground:   #ffffff;
 
-  --color-secondary:            #f4f4f5;
-  --color-secondary-foreground: #18181b;
+  --color-secondary:            #F2ECE3;
+  --color-secondary-foreground: #1D1A16;
 
-  --color-muted:                #f4f4f5;
-  --color-muted-foreground:     #71717a;
+  --color-muted:                #F2ECE3;
+  --color-muted-foreground:     #6B6459;
 
-  --color-accent:               #f4f4f5;
-  --color-accent-foreground:    #18181b;
+  --color-accent:               #F7E7E5;
+  --color-accent-foreground:    #7A1418;
 
-  --color-destructive:          #ef4444;
+  --color-destructive:          #B0271E;
 
-  --color-border:               #e4e4e7;
-  --color-input:                #e4e4e7;
-  --color-ring:                 #18181b;
+  --color-border:               #E7E1D8;
+  --color-input:                #E7E1D8;
+  --color-ring:                 #B01E23;
 
   /* Sidebar — white, bordered */
   --color-sidebar:              #ffffff;
-  --color-sidebar-foreground:   #09090b;
-  --color-sidebar-primary:      #18181b;
-  --color-sidebar-primary-foreground: #fafafa;
-  --color-sidebar-accent:       #f4f4f5;
-  --color-sidebar-accent-foreground:  #18181b;
-  --color-sidebar-border:       #e4e4e7;
-  --color-sidebar-ring:         #18181b;
+  --color-sidebar-foreground:   #1D1A16;
+  --color-sidebar-primary:      #B01E23;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent:       #F7E7E5;
+  --color-sidebar-accent-foreground:  #7A1418;
+  --color-sidebar-border:       #E7E1D8;
+  --color-sidebar-ring:         #B01E23;
 
-  /* ── Brand accent — crimson (logo only + progress bar) ── */
-  --color-brand:                #C81D25;
-  --color-brand-light:          #FCE8E8;
+  /* ── Brand — crimson, given a full range instead of two isolated uses ── */
+  --color-brand:                #B01E23;
+  --color-brand-ink:            #7A1418;
+  --color-brand-tint:           #F7E7E5;
+  --color-brand-tint-2:         #F0D4D2;
+  --color-brand-light:          #F7E7E5; /* kept for existing callers */
 
-  /* ── Semantic ── */
-  --color-success:              #16a34a;
-  --color-success-bg:           #f0fdf4;
-  --color-warning:              #d97706;
-  --color-warning-bg:           #fffbeb;
-  --color-danger:               #dc2626;
-  --color-danger-bg:            #fef2f2;
+  /* ── Semantic — separate from brand, never reuse the accent hue for status ── */
+  --color-success:              #1A7A4C;
+  --color-success-bg:           #EAF5EE;
+  --color-warning:              #B4650A;
+  --color-warning-bg:           #FBF0E1;
+  --color-danger:               #B0271E;
+  --color-danger-bg:            #FBEAE8;
   --color-info:                 #2563eb;
   --color-info-bg:              #eff6ff;
 
-  /* ── Zinc raw palette for direct use ── */
-  --color-zinc-950: #09090b;
-  --color-zinc-900: #18181b;
-  --color-zinc-800: #27272a;
-  --color-zinc-700: #3f3f46;
-  --color-zinc-600: #52525b;
-  --color-zinc-500: #71717a;
-  --color-zinc-400: #a1a1aa;
-  --color-zinc-300: #d4d4d8;
-  --color-zinc-200: #e4e4e7;
-  --color-zinc-100: #f4f4f5;
-  --color-zinc-050: #fafafa;
+  /* ── Warm neutral ramp for direct use (replaces raw zinc) ── */
+  --color-neutral-950: #1D1A16;
+  --color-neutral-900: #2B261F;
+  --color-neutral-800: #3A332A;
+  --color-neutral-700: #504839;
+  --color-neutral-600: #6B6459;
+  --color-neutral-500: #877E70;
+  --color-neutral-400: #A69E8F;
+  --color-neutral-300: #C7BCA9;
+  --color-neutral-200: #E7E1D8;
+  --color-neutral-100: #F2ECE3;
+  --color-neutral-050: #FAF8F5;
 
   /* Border radius */
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
-  /* Chart */
-  --color-chart-1: #18181b;
-  --color-chart-2: #52525b;
-  --color-chart-3: #16a34a;
-  --color-chart-4: #d97706;
-  --color-chart-5: #dc2626;
+  /* Chart — one hue family walked through value, not five unrelated colors */
+  --color-chart-1: #1D1A16;
+  --color-chart-2: #B01E23;
+  --color-chart-3: #D3898B;
+  --color-chart-4: #C7BCA9;
+  --color-chart-5: #E7E1D8;
+
+  /* ── Type scale — one ratio, named by role instead of by pixel count.
+     Fixes the 66 one-off text-[Npx] values scattered across components. ── */
+  --text-display-lg:              2.25rem;   /* 36px */
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--font-weight: 700;
+
+  --text-display-sm:              1.5rem;    /* 24px */
+  --text-display-sm--line-height: 1.25;
+  --text-display-sm--font-weight: 700;
+
+  --text-heading:                 1.125rem;  /* 18px */
+  --text-heading--line-height:    1.35;
+  --text-heading--font-weight:    700;
+
+  --text-body:                    0.875rem;  /* 14px */
+  --text-body--line-height:       1.55;
+
+  --text-caption:                 0.75rem;   /* 12px */
+  --text-caption--line-height:    1.45;
+
+  --text-label:                   0.6875rem; /* 11px */
+  --text-label--line-height:      1.25;
+  --text-label--letter-spacing:   0.06em;
+
+  --text-data:                    0.875rem;  /* 14px, pair with font-mono + tabular-nums */
+  --text-data--line-height:       1.35;
+
+  /* Primary query input — larger than body copy since it's the page's one focal
+     action, but regular weight (unlike --text-heading, which bakes in bold).
+     Named "prompt", not "input" — "input" collides with --color-input and
+     Tailwind resolves text-input to the color, not this font-size. */
+  --text-prompt:                   1.0625rem; /* 17px */
+  --text-prompt--line-height:      1.5;
 }
 
 @layer base {

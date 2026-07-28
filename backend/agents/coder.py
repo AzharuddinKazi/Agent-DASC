@@ -21,6 +21,11 @@ CODER_INIT = """# Given data:
 - Never use shell commands (!head, !cat, etc.) — pure Python only
 - Always print results to stdout so they can be captured
 - ALWAYS use nrows=10000 when loading any CSV file — no exceptions
+- Never nest an f-string inside another f-string's expression with escaped quotes
+  (e.g. f"...{{', '.join([f'{{row[\"X\"]}}' for _, row in df.iterrows()])}}...") — this
+  is invalid Python syntax. Build the inner strings in a separate variable/list first
+  (e.g. `parts = [f"{{row['X']}}" for _, row in df.iterrows()]`), then interpolate that
+  variable into the outer string.
 
 # Your task
 Implement the plan with the given data.
@@ -52,6 +57,11 @@ Your task is to implement the next plan with the given data.
 - Never use shell commands — pure Python only
 - Always print results to stdout so they can be captured
 - ALWAYS use nrows=10000 when loading any CSV file — no exceptions
+- Never nest an f-string inside another f-string's expression with escaped quotes
+  (e.g. f"...{{', '.join([f'{{row[\"X\"]}}' for _, row in df.iterrows()])}}...") — this
+  is invalid Python syntax. Build the inner strings in a separate variable/list first
+  (e.g. `parts = [f"{{row['X']}}" for _, row in df.iterrows()]`), then interpolate that
+  variable into the outer string.
 
 # Your task
 Implement the current plan based on the base code.
@@ -102,7 +112,7 @@ def coder(state: TaskState) -> dict:
             current_plan=current_plan
         )
 
-    result = router.complete(agent="coder", prompt=prompt)
+    result = router.complete(agent="coder", prompt=prompt, task_id=state["task_id"])
     script = result["text"].strip()
 
     if script.startswith("```"):

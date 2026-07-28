@@ -15,6 +15,8 @@ class TaskState(TypedDict):
     query:                      str
     formatting_guidelines:      str
     task_type:                  str         # "qa" (default) | "report" (DS-STAR+)
+    use_domain_knowledge:       bool        # gates Planner's per-round KB retrieval (the token/cost driver)
+    domain_pack_id:             Optional[str]  # per-task pack override; None = use the globally active pack
 
     # ── DS-STAR QA pipeline ───────────────────────────────────────────────────
     data_descriptions:          dict        # {filename: description}

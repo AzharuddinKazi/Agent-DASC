@@ -1,26 +1,34 @@
 """Domain pack knowledge base: ingest uploaded documents and retrieve relevant
 chunks for the Planner. Plain chunk/embed/similarity-search — no knowledge
 graph, no entity extraction.
+
+Embeddings go through OpenRouter (same provider as llm_router.py's chat completions),
+using nvidia/nemotron-3-embed-1b:free — genuinely free (verified: usage.cost == 0 on a
+live call), unlike most of OpenRouter's other embedding-capable models which proxy to
+paid providers. Its native output is 2048 dimensions, which is why
+domain_pack_chunks.embedding is vector(2048) (migrated from vector(768) when this
+model replaced Gemini) with no HNSW index — pgvector's HNSW caps at 2000 dims for the
+plain vector type, and at this corpus size (hundreds to low thousands of chunks) exact
+brute-force cosine search (see match_domain_pack_chunks) is plenty fast without an ANN
+index anyway.
 """
 
 import io
 import os
 
-from google import genai
-from google.genai import types
+import requests
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 
 from db import supabase
 
-_EMBED_MODEL = "gemini-embedding-001"
-_EMBED_DIM = 768
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+_EMBED_MODEL = os.getenv("OPENROUTER_EMBED_MODEL", "nvidia/nemotron-3-embed-1b:free")
 # Embedding calls are small/fast — a much tighter bound than the 120s used for full
 # generation calls (llm_router.py) is appropriate, but the point is the same: never let
 # an API call hang the ingestion background task or a live Planner call indefinitely.
-_EMBED_TIMEOUT_MS = 30_000
-
-_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+_EMBED_TIMEOUT_S = 30
 
 
 def extract_text(filename: str, raw_bytes: bytes) -> str:
@@ -51,18 +59,25 @@ def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> list[st
     return chunks
 
 
+_EMBED_BATCH_SIZE = 50  # keeps request payloads small; a large document can have 100+ chunks
+
+
 def embed_texts(texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
     embeddings = []
-    for text in texts:
-        resp = _client.models.embed_content(
-            model=_EMBED_MODEL,
-            contents=text,
-            config=types.EmbedContentConfig(
-                output_dimensionality=_EMBED_DIM,
-                http_options=types.HttpOptions(timeout=_EMBED_TIMEOUT_MS),
-            ),
+    for start in range(0, len(texts), _EMBED_BATCH_SIZE):
+        batch = texts[start:start + _EMBED_BATCH_SIZE]
+        response = requests.post(
+            f"{OPENROUTER_BASE_URL}/embeddings",
+            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"},
+            json={"model": _EMBED_MODEL, "input": batch},
+            timeout=_EMBED_TIMEOUT_S,
         )
-        embeddings.append(resp.embeddings[0].values)
+        if response.status_code != 200:
+            raise RuntimeError(f"OpenRouter embeddings call failed: {response.status_code} {response.text[:500]}")
+        data = sorted(response.json()["data"], key=lambda row: row["index"])
+        embeddings.extend(row["embedding"] for row in data)
     return embeddings
 
 

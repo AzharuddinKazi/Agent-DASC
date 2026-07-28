@@ -1,12 +1,26 @@
 import logging
 from agents.state import TaskState
 from agents.executor import execute_script
+from agents.debugger import DEBUGGER_PROMPT
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
 
 router = LLMRouter()
 logger = logging.getLogger(__name__)
+
+# Unlike the main planner→coder→executor loop, the Finalizer's script was previously
+# one-shot — a bad script (e.g. a hallucinated row/id lookup) failed the whole task with
+# no recovery. Give it the same bounded self-debug the main loop gets, reusing the
+# debugger's prompt/pattern rather than routing back through the graph.
+MAX_FINALIZER_DEBUG_ATTEMPTS = 2
+
+
+def _strip_code_fences(text: str) -> str:
+    if text.startswith("```"):
+        lines = text.split("\n")
+        return "\n".join(lines[1:-1])
+    return text
 
 # Paper-exact prompt (Appendix) extended for rich structured output
 FINALIZER_PROMPT = """You are an expert data analyst.
@@ -67,7 +81,16 @@ Modify the solution code to print out the answer following the given guidelines.
 If the answer can be obtained from the execution result of the reference code, just generate a Python code that prints out the desired answer.
 The code should be a single-file Python program that is self-contained and can be executed as-is.
 Your response should only contain a single code block.
-Do not use try: and except: to prevent error."""
+Do not use try: and except: to prevent error.
+If you re-read any CSV file rather than reusing the reference code's already-loaded
+result, ALWAYS pass nrows=10000 — no exceptions. The sandbox container is capped at
+2GB memory; operations that expand row count (e.g. pd.melt across many columns) on an
+unbounded read of a large file will be silently killed with no error output at all.
+Never nest an f-string inside another f-string's expression with escaped quotes
+(e.g. f"...{{', '.join([f'{{row[\"X\"]}}' for _, row in df.iterrows()])}}...") — this
+is invalid Python syntax. Build the inner strings in a separate variable/list first
+(e.g. `parts = [f"{{row['X']}}" for _, row in df.iterrows()]`), then interpolate that
+variable into the outer string — this applies to the "raw" and "summary" text fields too."""
 
 
 def finalizer(state: TaskState) -> dict:
@@ -93,14 +116,26 @@ def finalizer(state: TaskState) -> dict:
         guidelines=guidelines,
     )
 
-    result       = router.complete(agent="finalizer", prompt=prompt)
-    final_script = result["text"].strip()
-
-    if final_script.startswith("```"):
-        lines        = final_script.split("\n")
-        final_script = "\n".join(lines[1:-1])
+    result       = router.complete(agent="finalizer", prompt=prompt, task_id=state["task_id"])
+    final_script = _strip_code_fences(result["text"].strip())
 
     stdout, stderr, exit_code = execute_script(final_script)
+
+    filenames = "\n".join(summaries.keys())
+    attempt = 0
+    while exit_code != 0 and attempt < MAX_FINALIZER_DEBUG_ATTEMPTS:
+        attempt += 1
+        logger.error(f"Finalizer script failed (attempt {attempt}): {stderr[:200]}")
+        log_event(state["task_id"], "finalizer",
+                  f"Finalizer script failed — debug attempt {attempt}/{MAX_FINALIZER_DEBUG_ATTEMPTS}",
+                  "error", {"attempt": attempt})
+
+        debug_prompt = DEBUGGER_PROMPT.format(filenames=filenames, code=final_script, bug=stderr)
+        fix_result   = router.complete(agent="debugger", prompt=debug_prompt, task_id=state["task_id"])
+        final_script = _strip_code_fences(fix_result["text"].strip())
+
+        stdout, stderr, exit_code = execute_script(final_script)
+
     final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
     if exit_code == 0:
         logger.info(f"exit={exit_code}")

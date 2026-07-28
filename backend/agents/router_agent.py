@@ -60,7 +60,7 @@ def router_agent(state: TaskState) -> dict:
         result=execution_result
     )
 
-    result   = router.complete(agent="router", prompt=prompt)
+    result   = router.complete(agent="router", prompt=prompt, task_id=state["task_id"])
     decision = result["text"].strip()
 
     logger.info(f"Decision: {decision}")

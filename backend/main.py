@@ -3,8 +3,8 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, BackgroundTasks, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from google import genai
+from pydantic import BaseModel, Field
+import requests
 import sentry_sdk
 from agents.graph import build_graph
 from agents.logger import log_event
@@ -47,8 +47,6 @@ REPORT_CLASSIFICATION = {report_classification!r}
 SUBQUESTION_DIMENSIONS = {subquestion_dimensions!r}
 '''
 
-_genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
 # Bounds how many pipeline runs (each spinning up 2GB-capped Docker sandbox containers at
 # their Executor step) can actually execute at once. Without this, submit_task's implicit
 # default ThreadPoolExecutor (sized min(32, cpu_count+4), nobody chose that number) lets
@@ -83,6 +81,10 @@ class TaskSubmission(BaseModel):
     query: str
     formatting_guidelines: str = ""
     task_type: str = "qa"   # "qa" | "report"
+    use_domain_knowledge: bool = True
+    domain_pack_id: str | None = None   # pins a specific pack for this task; None = use whichever pack is globally active
+    max_rounds: int = Field(default=3, ge=1, le=5)          # QA planning steps (paper default: 3)
+    max_report_rounds: int = Field(default=2, ge=1, le=4)   # writer<->evaluator passes (DS-STAR+ only)
 
 
 async def run_graph(task_id: str, initial_state: dict):
@@ -130,8 +132,12 @@ def _ping_docker():
 
 
 def _ping_llm():
-    for _ in _genai_client.models.list(config={"page_size": 1}):
-        break
+    resp = requests.get(
+        f"{os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')}/key",
+        headers={"Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}"},
+        timeout=5,
+    )
+    resp.raise_for_status()
 
 
 @app.get("/health", summary="Health Check", tags=["System"])
@@ -160,11 +166,17 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
     task_id   = str(uuid.uuid4())
     task_type = task.task_type if task.task_type in ("qa", "report") else "qa"
 
+    domain_pack_id = task.domain_pack_id
+    if domain_pack_id and domain_pack_id != "generic" and not get_pack(domain_pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+
     initial_state = {
         "task_id":               task_id,
         "query":                 task.query,
         "formatting_guidelines": task.formatting_guidelines,
         "task_type":             task_type,
+        "use_domain_knowledge":  task.use_domain_knowledge,
+        "domain_pack_id":        domain_pack_id,
         # QA pipeline
         "data_descriptions":     {},
         "cumulative_plan":       [],
@@ -173,7 +185,7 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
         "exit_code":             0,
         "debug_attempts":        0,
         "current_round":         0,
-        "max_rounds":            3,   # paper §3: max 3 sequential planning steps
+        "max_rounds":            task.max_rounds,   # paper §3 default: max 3 sequential planning steps
         "verifier_verdict":      "",
         "router_decision":       "",
         "status":                "running",
@@ -186,7 +198,7 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
         "report_verdict":        "",
         "report_gaps":           [],
         "report_rounds":         0,
-        "max_report_rounds":     2,   # writer→evaluator passes before forcing finalizer
+        "max_report_rounds":     task.max_report_rounds,   # writer→evaluator passes before forcing finalizer
     }
 
     supabase.table("tasks").insert({
@@ -200,7 +212,16 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
 
     background_tasks.add_task(run_graph, task_id, initial_state)
 
-    return {"task_id": task_id, "status": "running", "query": task.query, "task_type": task_type}
+    return {
+        "task_id":              task_id,
+        "status":               "running",
+        "query":                task.query,
+        "task_type":            task_type,
+        "use_domain_knowledge": task.use_domain_knowledge,
+        "domain_pack_id":       domain_pack_id,
+        "max_rounds":           task.max_rounds,
+        "max_report_rounds":    task.max_report_rounds,
+    }
 
 
 @app.get("/api/v1/get_tasks", summary="Get Tasks", tags=["Tasks"])
@@ -246,6 +267,15 @@ async def activate_domain_pack(pack_id: str, user=Depends(get_current_user)):
     return {"active": pack_id}
 
 
+@app.post("/api/v1/domain_packs/deactivate", summary="Deactivate Domain Pack", tags=["Domain Packs"])
+async def deactivate_domain_pack(user=Depends(get_current_user)):
+    """Reverts the globally active pack to "generic". Equivalent to activating "generic"
+    directly — exists as its own route so "turn domain knowledge off" doesn't require a
+    caller to know the magic id "generic" is what that means."""
+    supabase.table("app_settings").upsert({"key": "active_domain_pack", "value": "generic"}).execute()
+    return {"active": "generic"}
+
+
 @app.get("/api/v1/domain_packs/{pack_id}/download", summary="Download Domain Pack", tags=["Domain Packs"])
 async def download_domain_pack(pack_id: str):
     pack = get_pack(pack_id)
@@ -266,7 +296,8 @@ async def download_domain_pack(pack_id: str):
             report_classification=cfg["report_classification"],
             subquestion_dimensions=cfg["subquestion_dimensions"] or [],
         ))
-        zf.write(BACKEND_DIR / pack["dataset_generator"], "generate_synthetic_data.py")
+        if pack.get("dataset_generator"):
+            zf.write(BACKEND_DIR / pack["dataset_generator"], "generate_synthetic_data.py")
         zf.writestr("README.md", DOMAIN_PACK_README.format(name=pack["name"]))
     buf.seek(0)
 

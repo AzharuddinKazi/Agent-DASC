@@ -73,14 +73,16 @@ _PROMPT_TAIL = """
 }}"""
 
 
-def _writer_prompt_template() -> str:
-    """Assembles the Writer's prompt template from the active domain pack's config,
-    built per-call since the active pack can change at runtime (see domain_pack.py).
-    Only asks for a classification field when one is actually configured — omitting it
-    from both the instructions and the JSON schema keeps unconfigured deployments from
-    getting a fabricated "CONFIDENTIAL"-style label they never asked for.
+def _writer_prompt_template(domain_pack_id: str | None) -> str:
+    """Assembles the Writer's prompt template from a domain pack's config, built
+    per-call since the active pack can change at runtime (see domain_pack.py).
+    domain_pack_id pins a specific pack for this task; None uses whichever pack is
+    globally active. Only asks for a classification field when one is actually
+    configured — omitting it from both the instructions and the JSON schema keeps
+    unconfigured deployments from getting a fabricated "CONFIDENTIAL"-style label they
+    never asked for.
     """
-    config = get_active_pack_config()
+    config = get_active_pack_config(domain_pack_id)
     classification_line = (
         f'\n  "classification": "{config["report_classification"]}",'
         if config["report_classification"] else ""
@@ -110,13 +112,13 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
 
     sub_analyses_text = "\n\n".join(sub_analyses_parts)
 
-    prompt = _writer_prompt_template().format(
+    prompt = _writer_prompt_template(state.get("domain_pack_id")).format(
         question=question,
         sub_analyses=sub_analyses_text,
         sub_q_count=len(sub_questions),
     )
 
-    result      = router.complete(agent="writer", prompt=prompt)
+    result      = router.complete(agent="writer", prompt=prompt, task_id=state["task_id"])
     report_text = result["text"].strip()
 
     import re

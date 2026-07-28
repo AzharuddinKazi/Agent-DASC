@@ -2,7 +2,7 @@
 LLM routing layer for DS-STAR.
 
 All LLM calls in the system go through this module.
-No agent node or API handler should ever call Gemini directly.
+No agent node or API handler should ever call a model provider directly.
 Swapping models or adding new providers requires changes only here.
 
 Typical usage:
@@ -10,21 +10,29 @@ Typical usage:
     result = router.complete(agent="planner", prompt="...")
 """
 
-from google import genai
-from google.genai import types
 from dotenv import load_dotenv
 import os
 import time
+import requests
 
+from agents.logger import log_event
 
 
 load_dotenv()
 
-# Applied to every Gemini call (see complete() below). Matches the sandbox executor's own
-# 120s ceiling (executor.py) — without this, a hung API call (network partition, provider
-# stall) leaves a task running forever with no error and no way to tell "still working"
-# from "silently dead".
-LLM_TIMEOUT_MS = 120_000
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+# Matches the sandbox executor's own 120s ceiling (executor.py) — without this, a hung
+# API call (network partition, provider stall) leaves a task running forever with no
+# error and no way to tell "still working" from "silently dead".
+LLM_TIMEOUT_S = 120
+
+# Free OpenRouter models are rate-limited far more aggressively than a paid Gemini
+# project was (per-minute caps, occasional 429/503 under shared-pool load) — a couple of
+# short retries absorbs that instead of failing a whole multi-round task on one blip.
+MAX_RETRIES = 2
+RETRYABLE_STATUS = {429, 502, 503, 504}
 
 
 class LLMRouter:
@@ -35,11 +43,18 @@ class LLMRouter:
     Medium-tier agents handle structured, bounded tasks.
     Low-tier agents handle fast, cheap classification and profiling.
 
+    Calls go through OpenRouter (https://openrouter.ai), an OpenAI-compatible proxy in
+    front of many providers — this lets DS-STAR run entirely on free-tier models (no
+    billing account needed) by picking `:free`-suffixed model ids. OpenRouter's free
+    catalog rotates as providers add/retire free listings; check
+    https://openrouter.ai/api/v1/models (filter for ids ending in ":free") if a default
+    below stops being served, and override it with the matching env var below rather
+    than editing this file.
+
     Attributes:
-        MODELS: Maps tier names to Gemini model strings. Change a model
-            here and it applies everywhere — no other file needs updating.
+        MODELS: Maps tier names to OpenRouter model ids. Change a model
+            here (or via OPENROUTER_MODEL_HIGH/MEDIUM/LOW) and it applies everywhere.
         AGENT_TIERS: Maps each DS-STAR agent to its quality tier.
-        client: The Gemini API client instance, initialised once and reused.
 
     Example:
         router = LLMRouter()
@@ -47,12 +62,17 @@ class LLMRouter:
         print(result["text"])
     """
 
-    # Maps tier names to Gemini model strings.
-    # To swap a model, change it here — nowhere else in the codebase.
+    # Maps tier names to OpenRouter model ids. All three are free-tier as of this
+    # writing (verified against GET /api/v1/models) — no billing required.
     MODELS = {
-        "high":   "gemini-2.5-pro",    # slowest, most capable — critical agents
-        "medium": "gemini-2.5-flash",  # fast, capable — structured tasks
-        "low":    "gemini-2.5-flash",  # fast, cheap — classification and profiling
+        # 120B MoE, explicitly built for "complex multi-agent applications" — the
+        # largest free model available, used for the agents where reasoning quality
+        # matters most.
+        "high":   os.getenv("OPENROUTER_MODEL_HIGH",   "nvidia/nemotron-3-super-120b-a12b:free"),
+        # OpenAI's open-weight 21B MoE — solid general-purpose middle ground.
+        "medium": os.getenv("OPENROUTER_MODEL_MEDIUM", "openai/gpt-oss-20b:free"),
+        # Small/fast, tuned for lightweight classification-style tasks.
+        "low":    os.getenv("OPENROUTER_MODEL_LOW",    "nvidia/nemotron-nano-9b-v2:free"),
     }
 
     # Maps each DS-STAR agent to its quality tier.
@@ -78,10 +98,25 @@ class LLMRouter:
     }
 
     def __init__(self):
-        """Initialises the Gemini client using the API key from environment variables."""
-        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        """Initialises the OpenRouter HTTP session using the API key from environment
+        variables. Get a free key at https://openrouter.ai/keys — no payment method
+        required to call `:free` models."""
+        if not OPENROUTER_API_KEY:
+            raise RuntimeError(
+                "OPENROUTER_API_KEY is not set. Get a free key at https://openrouter.ai/keys "
+                "and add it to backend/.env."
+            )
+        self.session = requests.Session()
+        self.session.headers.update({
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type":  "application/json",
+            # Optional but recommended by OpenRouter for attribution/rankings — not
+            # required for calls to succeed.
+            "HTTP-Referer": os.getenv("OPENROUTER_SITE_URL", "http://localhost"),
+            "X-Title":      "DS-STAR",
+        })
 
-    def complete(self, agent: str, prompt: str) -> dict:
+    def complete(self, agent: str, prompt: str, task_id: str | None = None) -> dict:
         """Routes a prompt to the appropriate model for the given agent.
 
         Looks up the agent's tier, selects the corresponding model,
@@ -93,11 +128,17 @@ class LLMRouter:
             agent: The DS-STAR agent making the call. Must be a key in
                 AGENT_TIERS. Unknown agents default to medium tier.
             prompt: The full prompt string to send to the model.
+            task_id: When given, retry attempts and terminal failures are written to
+                tasks.logs via log_event — the same feed the UI polls and any API
+                caller reads from GET /api/v1/get_task/{id}, so a caller watching
+                either has visibility into "retrying" vs. "still waiting on a slow
+                free-tier response" vs. "genuinely failed", not silence either way.
+                Omit for out-of-task usage (e.g. `uv run python llm_router.py`).
 
         Returns:
             A dict containing the following keys:
                 text: The model's response as a string.
-                model: The actual model version used.
+                model: The actual model id used.
                 input_tokens: Number of tokens in the prompt.
                 output_tokens: Number of tokens in the response.
                 duration_ms: Wall-clock API latency in milliseconds.
@@ -105,8 +146,8 @@ class LLMRouter:
                 tier: The tier assigned to that agent.
 
         Raises:
-            google.genai.errors.APIError: If the Gemini API call fails
-                due to network issues, invalid credentials, or rate limits.
+            RuntimeError: If the OpenRouter call fails due to network issues,
+                invalid credentials, or a non-retryable/exhausted-retry error.
 
         Example:
             result = router.complete(
@@ -120,34 +161,95 @@ class LLMRouter:
         tier = self.AGENT_TIERS.get(agent, "medium")
         model = self.MODELS[tier]
 
-        # Record start time to measure API latency.
         start = time.time()
+        last_error = None
 
-        try:
-            # Make the API call to Gemini to generate content, bounded by LLM_TIMEOUT_MS
-            # so a hung request fails loudly instead of stalling the task forever.
-            response = self.client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    http_options=types.HttpOptions(timeout=LLM_TIMEOUT_MS)
-                ),
-            )
-        except Exception as e:
-            raise RuntimeError(
-                f"LLMRouter API call failed for agent '{agent}' with model '{model}': {str(e)}") from e
-        
-        duration_ms = int((time.time() - start) * 1000)
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                response = self.session.post(
+                    f"{OPENROUTER_BASE_URL}/chat/completions",
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                    timeout=LLM_TIMEOUT_S,
+                )
+            except requests.RequestException as e:
+                last_error = str(e)
+                if attempt < MAX_RETRIES:
+                    if task_id:
+                        log_event(task_id, agent,
+                                   f"Network error calling {model} ({last_error[:100]}) — "
+                                   f"retrying (attempt {attempt + 2}/{MAX_RETRIES + 1})",
+                                   "error", {"retry_attempt": attempt + 2})
+                    time.sleep(2 ** attempt)
+                    continue
+                if task_id:
+                    log_event(task_id, agent,
+                               f"Model call failed after {MAX_RETRIES + 1} attempts: {last_error[:150]}",
+                               "error")
+                raise RuntimeError(
+                    f"LLMRouter API call failed for agent '{agent}' with model '{model}': {last_error}") from e
 
-        return {
-            "text":          response.text,
-            "model":         response.model_version,
-            "input_tokens":  response.usage_metadata.prompt_token_count,
-            "output_tokens": response.usage_metadata.candidates_token_count,
-            "duration_ms":   duration_ms,
-            "agent":         agent,
-            "tier":          tier,
-        }
+            if response.status_code in RETRYABLE_STATUS and attempt < MAX_RETRIES:
+                last_error = f"{response.status_code}: {response.text[:300]}"
+                if task_id:
+                    log_event(task_id, agent,
+                               f"{model} returned {response.status_code} (rate-limited/overloaded) — "
+                               f"retrying (attempt {attempt + 2}/{MAX_RETRIES + 1})",
+                               "error", {"retry_attempt": attempt + 2, "http_status": response.status_code})
+                time.sleep(2 ** attempt)
+                continue
+
+            if response.status_code != 200:
+                if task_id:
+                    log_event(task_id, agent,
+                               f"Model call failed: {response.status_code} {response.text[:150]}",
+                               "error")
+                raise RuntimeError(
+                    f"LLMRouter API call failed for agent '{agent}' with model '{model}': "
+                    f"{response.status_code} {response.text[:500]}"
+                )
+
+            data = response.json()
+
+            # OpenRouter can return HTTP 200 with an error body instead of a completion
+            # (e.g. upstream provider hiccup) — this crashed with a bare, undiagnosable
+            # `KeyError: 'choices'` before this check existed. Treat it exactly like a
+            # retryable HTTP error: retry with backoff if attempts remain, else raise
+            # with the actual response body so the failure is diagnosable.
+            if not data.get("choices"):
+                last_error = f"200 with no choices in body: {response.text[:300]}"
+                if attempt < MAX_RETRIES:
+                    if task_id:
+                        log_event(task_id, agent,
+                                   f"{model} returned 200 but no completion — "
+                                   f"retrying (attempt {attempt + 2}/{MAX_RETRIES + 1})",
+                                   "error", {"retry_attempt": attempt + 2})
+                    time.sleep(2 ** attempt)
+                    continue
+                if task_id:
+                    log_event(task_id, agent, f"Model call failed: {last_error}", "error")
+                raise RuntimeError(
+                    f"LLMRouter API call failed for agent '{agent}' with model '{model}': {last_error}")
+
+            duration_ms = int((time.time() - start) * 1000)
+            choice = data["choices"][0]
+            usage = data.get("usage", {})
+
+            return {
+                "text":          choice["message"]["content"] or "",
+                "model":         data.get("model", model),
+                "input_tokens":  usage.get("prompt_tokens", 0),
+                "output_tokens": usage.get("completion_tokens", 0),
+                "duration_ms":   duration_ms,
+                "agent":         agent,
+                "tier":          tier,
+            }
+
+        raise RuntimeError(
+            f"LLMRouter API call failed for agent '{agent}' with model '{model}' "
+            f"after {MAX_RETRIES + 1} attempts: {last_error}")
 
 
 # ── Quick test ────────────────────────────────────────────────────────────────

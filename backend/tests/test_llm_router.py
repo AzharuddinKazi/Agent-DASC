@@ -2,12 +2,16 @@ from unittest.mock import patch, MagicMock
 from llm_router import LLMRouter
 
 
-def make_mock_response(text="test response", input_tokens=10, output_tokens=5):
+def make_mock_response(text="test response", model="openai/gpt-oss-20b:free",
+                        input_tokens=10, output_tokens=5, status_code=200):
     mock = MagicMock()
+    mock.status_code = status_code
     mock.text = text
-    mock.model_version = "gemini-2.5-pro"
-    mock.usage_metadata.prompt_token_count = input_tokens
-    mock.usage_metadata.candidates_token_count = output_tokens
+    mock.json.return_value = {
+        "choices": [{"message": {"content": text}}],
+        "model": model,
+        "usage": {"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
+    }
     return mock
 
 
@@ -30,10 +34,9 @@ def test_unknown_agent_defaults_to_medium():
 
 
 def test_complete_returns_expected_keys():
-    with patch("llm_router.genai.Client") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.models.generate_content.return_value = make_mock_response(
+    with patch("llm_router.OPENROUTER_API_KEY", "dummy-key"), \
+         patch("requests.Session.post") as mock_post:
+        mock_post.return_value = make_mock_response(
             text="Load the CSV file and print the first 5 rows."
         )
 
@@ -53,44 +56,43 @@ def test_complete_returns_expected_keys():
 
 
 def test_complete_uses_correct_model_for_tier():
-    with patch("llm_router.genai.Client") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.models.generate_content.return_value = make_mock_response()
+    with patch("llm_router.OPENROUTER_API_KEY", "dummy-key"), \
+         patch("requests.Session.post") as mock_post:
+        mock_post.return_value = make_mock_response()
 
         router = LLMRouter()
         router.complete(agent="planner", prompt="Test")
 
-        call_kwargs = mock_client.models.generate_content.call_args
-        assert "gemini-2.5-pro" in str(call_kwargs)
+        _, call_kwargs = mock_post.call_args
+        assert call_kwargs["json"]["model"] == router.MODELS["high"]
 
 
 def test_complete_applies_call_timeout():
-    """Regression test: every Gemini call must be bounded (no timeout meant a hung
+    """Regression test: every OpenRouter call must be bounded (no timeout meant a hung
     request could stall a task forever with no error and no signal)."""
     import llm_router as llm_router_module
 
-    with patch("llm_router.genai.Client") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.models.generate_content.return_value = make_mock_response()
+    with patch("llm_router.OPENROUTER_API_KEY", "dummy-key"), \
+         patch("requests.Session.post") as mock_post:
+        mock_post.return_value = make_mock_response()
 
         router = LLMRouter()
         router.complete(agent="planner", prompt="Test")
 
-        _, kwargs = mock_client.models.generate_content.call_args
-        assert kwargs["config"].http_options.timeout == llm_router_module.LLM_TIMEOUT_MS
+        _, kwargs = mock_post.call_args
+        assert kwargs["timeout"] == llm_router_module.LLM_TIMEOUT_S
 
 
 def test_complete_wraps_timeout_error_as_runtime_error():
-    """Timeouts raise httpx.ConnectTimeout, not genai.errors.APIError — the except
-    clause must catch broadly enough to still wrap it, or it propagates unhandled."""
-    import httpx
+    """Timeouts raise requests.RequestException, not an OpenRouter error body — the
+    except clause must catch broadly enough to still wrap it, or it propagates
+    unhandled."""
+    import requests
 
-    with patch("llm_router.genai.Client") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.models.generate_content.side_effect = httpx.ConnectTimeout("timed out")
+    with patch("llm_router.OPENROUTER_API_KEY", "dummy-key"), \
+         patch("requests.Session.post") as mock_post, \
+         patch("llm_router.time.sleep"):
+        mock_post.side_effect = requests.exceptions.ConnectTimeout("timed out")
 
         router = LLMRouter()
         try:
