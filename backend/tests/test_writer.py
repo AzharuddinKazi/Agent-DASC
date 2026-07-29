@@ -68,10 +68,10 @@ def test_writer_attaches_sources_matching_sub_questions_in_order():
         report = json.loads(result["draft_report"])
 
     assert report["sources"] == [
-        {"id": 1, "question": "What is the fraud rate by entity?",
-         "summary": "Entity-07 has the highest fraud rate at 8.3%."},
-        {"id": 2, "question": "Which channels see the most fraud?",
-         "summary": "Online channel accounts for 61% of fraud cases."},
+        {"id": "1", "round": 0, "question": "What is the fraud rate by entity?",
+         "summary": "Entity-07 has the highest fraud rate at 8.3%.", "hypothesis": ""},
+        {"id": "2", "round": 0, "question": "Which channels see the most fraud?",
+         "summary": "Online channel accounts for 61% of fraud cases.", "hypothesis": ""},
     ]
 
 
@@ -91,8 +91,97 @@ def test_writer_ignores_llm_provided_sources_field():
         result = writer(base_state())
         report = json.loads(result["draft_report"])
 
-    assert report["sources"][0]["id"] == 1
+    assert report["sources"][0]["id"] == "1"
     assert report["sources"][0]["question"] == "What is the fraud rate by entity?"
+
+
+def test_writer_includes_hypotheses_in_analysis_blocks_and_sources():
+    state = base_state()
+    state["hypotheses"] = {
+        "What is the fraud rate by entity?": "Fraud is concentrated in a few entities.",
+    }
+    with patch("agents.writer.supabase") as mock_supabase, \
+         patch("agents.writer.log_event"), \
+         patch("agents.writer.router") as mock_router, \
+         patch("agents.writer.get_active_pack_config") as mock_pack:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_pack.return_value = {"report_persona": "You are an analyst.", "report_classification": None}
+        mock_router.complete.return_value = make_mock_llm_result(report_json())
+
+        result = writer(state)
+        report = json.loads(result["draft_report"])
+        prompt = mock_router.complete.call_args.kwargs["prompt"]
+
+    assert "Hypothesis tested: Fraud is concentrated in a few entities." in prompt
+    assert report["sources"][0]["hypothesis"] == "Fraud is concentrated in a few entities."
+    assert report["sources"][1]["hypothesis"] == ""
+
+
+def test_writer_repairs_invalid_backslash_escapes_from_currency_figures():
+    """Models habitually write \\$592,300 (LaTeX/markdown habit) in their raw text output
+    which is not a legal JSON string escape and used to make the whole report unparseable
+    downstream. Built by hand (not via report_json/json.dumps) so the single backslash
+    lands in the text literally, the way a real malformed LLM response would."""
+    broken = report_json().replace(
+        '"executive_summary": "Entity-07 leads fraud risk at 8.3% [1]."',
+        r'"executive_summary": "Provider X received \$592,300 in payments [1]."',
+    )
+    assert r"\$592,300" in broken
+    with patch("agents.writer.supabase") as mock_supabase, \
+         patch("agents.writer.log_event"), \
+         patch("agents.writer.router") as mock_router, \
+         patch("agents.writer.get_active_pack_config") as mock_pack:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_pack.return_value = {"report_persona": "You are an analyst.", "report_classification": None}
+        mock_router.complete.return_value = make_mock_llm_result(broken)
+
+        result = writer(base_state())
+        report = json.loads(result["draft_report"])
+
+    assert report["executive_summary"] == "Provider X received $592,300 in payments [1]."
+    assert report["sources"][0]["id"] == "1"
+
+
+def test_writer_partitions_citations_by_round():
+    """Initial-round sub-questions cite numerically, first-refine-round sub-questions cite
+    with plain letters, and a second refine round is letter-prefixed with its round number
+    so it can't collide with round 1's labels — see writer._citation_label()."""
+    state = base_state()
+    state["sub_questions"] = [
+        "What is the fraud rate by entity?",
+        "Which channels see the most fraud?",
+        "Does entity size predict fraud rate?",
+        "Is the size effect consistent across channels?",
+    ]
+    state["sub_results"].update({
+        "Does entity size predict fraud rate?": {"summary": "Larger entities skew higher.", "key_findings": [], "columns": [], "rows": []},
+        "Is the size effect consistent across channels?": {"summary": "Yes, across all channels.", "key_findings": [], "columns": [], "rows": []},
+    })
+    state["sub_question_rounds"] = {
+        "What is the fraud rate by entity?": 0,
+        "Which channels see the most fraud?": 0,
+        "Does entity size predict fraud rate?": 1,
+        "Is the size effect consistent across channels?": 2,
+    }
+    with patch("agents.writer.supabase") as mock_supabase, \
+         patch("agents.writer.log_event"), \
+         patch("agents.writer.router") as mock_router, \
+         patch("agents.writer.get_active_pack_config") as mock_pack:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_pack.return_value = {"report_persona": "You are an analyst.", "report_classification": None}
+        mock_router.complete.return_value = make_mock_llm_result(report_json())
+
+        result = writer(state)
+        report = json.loads(result["draft_report"])
+        prompt = mock_router.complete.call_args.kwargs["prompt"]
+
+    ids = [s["id"] for s in report["sources"]]
+    assert ids == ["1", "2", "a", "2a"]
+    assert [s["round"] for s in report["sources"]] == [0, 0, 1, 2]
+    assert "### Analysis [1]:" in prompt
+    assert "### Analysis [2]:" in prompt
+    assert "### Analysis [a]:" in prompt
+    assert "### Analysis [2a]:" in prompt
 
 
 def test_writer_survives_non_json_output_without_crashing():
@@ -107,3 +196,17 @@ def test_writer_survives_non_json_output_without_crashing():
         result = writer(base_state())
 
     assert result["draft_report"] == "not valid json at all"
+
+
+def test_writer_survives_empty_response_without_crashing():
+    with patch("agents.writer.supabase") as mock_supabase, \
+         patch("agents.writer.log_event"), \
+         patch("agents.writer.router") as mock_router, \
+         patch("agents.writer.get_active_pack_config") as mock_pack:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_pack.return_value = {"report_persona": "You are an analyst.", "report_classification": None}
+        mock_router.complete.return_value = make_mock_llm_result("")
+
+        result = writer(base_state())
+
+    assert result["draft_report"] == ""

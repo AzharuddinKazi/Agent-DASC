@@ -1,4 +1,5 @@
-from agents.state import TaskState
+from agents.state import TaskState, current_objective
+from agents.domain_knowledge import retrieve_grounded_knowledge
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
@@ -15,7 +16,7 @@ Your task is to check whether the current plan and its code implementation is en
 
 # Given data:
 {summaries}
-
+{domain_knowledge}
 # Plan
 {plan}
 
@@ -35,6 +36,13 @@ Verify whether the execution result contains enough information to answer the qu
 Bias strongly toward 'Yes' — if the result contains any relevant data, numbers, or table rows
 that directly address the question, answer 'Yes'. Only answer 'No' if the result is completely
 empty, threw an error, or is entirely unrelated to the question.
+Exception to that bias: if "# Domain knowledge" above documents specific value-coding for a
+column the code uses (e.g. a flag coded 1/2 rather than 0/1), and the code's arithmetic
+treats that column as if it already had the documented "clean" meaning without converting
+it first (e.g. summing raw codes as a count, or comparing a raw code to a threshold meant
+for a recoded value), answer 'No' — a plausible-looking number computed on a
+miscoded/un-recoded column is worse than an empty result, because nothing downstream will
+catch that it's silently wrong.
 Your response must be exactly one of 'Yes' or 'No'.
 Your answer (Yes/No):"""
 
@@ -43,7 +51,7 @@ def verifier(state: TaskState) -> dict:
 
     supabase.table("tasks").update({"current_agent": "verifier"}).eq("task_id", state["task_id"]).execute()
 
-    question         = state["query"]
+    question         = current_objective(state)
     summaries        = state["data_descriptions"]
     cumulative_plan  = state["cumulative_plan"]
     current_script   = state["current_script"]
@@ -61,9 +69,15 @@ def verifier(state: TaskState) -> dict:
 
     current_step = cumulative_plan[-1] if cumulative_plan else ""
 
+    # Grounded on the step + actual code (not just the question) — the code is what
+    # names the exact columns being manipulated, which is what a verifier needs to catch
+    # a miscoded/un-recoded column being used. See domain_knowledge.py.
+    domain_knowledge = retrieve_grounded_knowledge(f"{current_step}\n{current_script}", state)
+
     prompt = VERIFIER_PROMPT.format(
         question=question,
         summaries=summaries_text,
+        domain_knowledge=domain_knowledge,
         plan=plan_text,
         current_step=current_step,
         code=current_script,

@@ -22,13 +22,19 @@ const RISK_COLORS = {
   Low:    "text-success bg-success/10 border-success/20",
 }
 
-// Writer emits inline citations as bracketed analysis numbers, e.g. "...8.3% [2]." or
-// "...across regions [1,4]." — turn those into real markdown links to #source-N so both
-// CitationLink (markdown bodies) and CitedText (plain-text fields) can render/scroll to them.
+// Writer emits inline citations as bracketed analysis labels: numeric for the initial
+// round ("[2]"), alphabetic per refine round ("[a]", or "[2a]" for a second refine round)
+// — see writer.py's _citation_label(). A single label is digits-only, or an optional
+// digit round-prefix followed by letters. Turn matches into real markdown links to
+// #source-<label> so both CitationLink (markdown bodies) and CitedText (plain-text
+// fields) can render/scroll to them.
+const CITATION_LABEL = "(?:\\d+[a-z]*|[a-z]+)"
+const citationPattern = () => new RegExp(`\\[(${CITATION_LABEL}(?:\\s*,\\s*${CITATION_LABEL})*)\\]`, "g")
+
 function linkifyCitations(text) {
   if (!text) return text
-  return text.replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (_, nums) =>
-    nums.split(",").map(n => `[${n.trim()}](#source-${n.trim()})`).join("")
+  return text.replace(citationPattern(), (_, labels) =>
+    labels.split(",").map(n => `[${n.trim()}](#source-${n.trim()})`).join("")
   )
 }
 
@@ -80,7 +86,7 @@ function ReportProse({ text }) {
 // same [N] citation syntax, same #source-N targets, no markdown parsing needed.
 function CitedText({ text, className }) {
   if (!text) return null
-  const parts = text.split(/\[(\d+(?:\s*,\s*\d+)*)\]/g)
+  const parts = text.split(citationPattern())
   return (
     <p className={className}>
       {parts.map((part, i) => {
@@ -128,7 +134,7 @@ function RiskBadge({ level }) {
   )
 }
 
-export default function ReportView({ task, query, onFollowUp }) {
+export default function ReportView({ task, query, onFollowUp, isFollowUpBusy = false }) {
   const [openSections, setOpenSections] = useState({ 0: true })
   const [followUpText, setFollowUpText] = useState("")
   const [followUpMode, setFollowUpMode] = useState("report")
@@ -396,7 +402,17 @@ export default function ReportView({ task, query, onFollowUp }) {
                           <div className="w-5 h-5 rounded-full bg-foreground flex items-center justify-center shrink-0 mt-0.5">
                             <span className="text-label font-bold text-background">{source.id}</span>
                           </div>
-                          <p className="text-sm font-semibold text-foreground">{source.question}</p>
+                          <div>
+                            {source.hypothesis && (
+                              <p className="text-label text-muted-foreground font-medium mb-0.5">Hypothesis: {source.hypothesis}</p>
+                            )}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold text-foreground">{source.question}</p>
+                              {!!source.round && (
+                                <Badge variant="outline" className="text-label shrink-0">Refine round {source.round}</Badge>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         {r.summary && <p className="text-xs text-muted-foreground mb-3 pl-7">{r.summary}</p>}
                         {r.columns && r.rows?.length > 0 && (
@@ -440,10 +456,11 @@ export default function ReportView({ task, query, onFollowUp }) {
               </div>
               <Separator orientation="vertical" className="h-5" />
               <Input value={followUpText} onChange={e => setFollowUpText(e.target.value)}
-                placeholder="Ask a follow-up or request a new report section..."
+                placeholder={isFollowUpBusy ? "Checking whether this needs clarification…" : "Ask a follow-up or request a new report section..."}
+                disabled={isFollowUpBusy}
                 className="border-none bg-transparent shadow-none focus-visible:ring-0 h-9 text-sm" />
-              <Button type="submit" disabled={!followUpText.trim()} size="sm" className="gap-1.5 shrink-0">
-                <Send className="w-3 h-3" />Run
+              <Button type="submit" disabled={!followUpText.trim() || isFollowUpBusy} size="sm" className="gap-1.5 shrink-0">
+                <Send className="w-3 h-3" />{isFollowUpBusy ? "Checking…" : "Run"}
               </Button>
             </CardContent>
           </Card>

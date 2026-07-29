@@ -53,6 +53,322 @@ def test_submit_task_returns_task_id():
     assert "task_id" in data
     assert data["status"] == "running"
     assert data["query"] == "What is the total transaction volume?"
+    assert data["require_human_review"] is False  # opt-in flag defaults off
+
+
+def test_submit_task_echoes_require_human_review_when_set():
+    mock_result = MagicMock()
+    mock_result.data = [{"task_id": "123"}]
+
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.insert.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/submit_task", json={
+            "query": "Summarise fraud risk across entities",
+            "task_type": "report",
+            "require_human_review": True,
+        })
+
+    assert response.status_code == 202
+    assert response.json()["require_human_review"] is True
+
+
+def test_clarify_task_returns_questions():
+    with patch("main.generate_clarifying_questions") as mock_generate:
+        mock_generate.return_value = [
+            {"question": "Which timeframe?", "header": "Timeframe",
+             "options": [{"label": "30d", "description": ""}, {"label": "90d", "description": ""}]}
+        ]
+        response = client.post("/api/v1/clarify_task", json={
+            "query": "How are recent sales trending?",
+            "task_type": "qa",
+        })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["questions"]) == 1
+    mock_generate.assert_called_once_with("How are recent sales trending?", "qa", None)
+
+
+def test_clarify_task_returns_empty_list_when_unambiguous():
+    with patch("main.generate_clarifying_questions", return_value=[]):
+        response = client.post("/api/v1/clarify_task", json={"query": "Row count in transactions.csv?"})
+
+    assert response.status_code == 200
+    assert response.json() == {"questions": []}
+
+
+def test_clarify_task_normalizes_invalid_task_type_to_qa():
+    with patch("main.generate_clarifying_questions") as mock_generate:
+        mock_generate.return_value = []
+        client.post("/api/v1/clarify_task", json={"query": "test", "task_type": "not-a-real-mode"})
+
+    mock_generate.assert_called_once_with("test", "qa", None)
+
+
+def test_clarify_task_requires_auth():
+    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        response = client.post("/api/v1/clarify_task", json={"query": "test"})
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_stop_task_requests_cancellation_for_a_running_task():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "running"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.request_stop") as mock_request_stop, \
+         patch("main.log_event"):
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/task-123/stop")
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task-123", "status": "stopping"}
+    mock_request_stop.assert_called_once_with("task-123")
+
+
+def test_stop_task_returns_404_when_task_not_found_or_not_owned():
+    mock_result = MagicMock()
+    mock_result.data = []
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.request_stop") as mock_request_stop:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/nonexistent/stop")
+
+    assert response.status_code == 404
+    mock_request_stop.assert_not_called()
+
+
+def test_stop_task_returns_409_when_task_is_not_running():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "completed"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.request_stop") as mock_request_stop:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/task-123/stop")
+
+    assert response.status_code == 409
+    mock_request_stop.assert_not_called()
+
+
+def test_stop_task_requires_auth():
+    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        response = client.post("/api/v1/tasks/task-123/stop")
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_stop_task_stops_directly_when_awaiting_review():
+    """No in-flight graph.invoke() to cooperatively interrupt while parked at
+    human_review_gate — must stop directly, not via request_stop (which only takes
+    effect the next time the graph actually runs, which may be never)."""
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "awaiting_review"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.request_stop") as mock_request_stop, \
+         patch("main.clear_cancellation") as mock_clear, \
+         patch("main.log_event"):
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        response = client.post("/api/v1/tasks/task-123/stop")
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task-123", "status": "stopped"}
+    mock_request_stop.assert_not_called()
+    mock_clear.assert_called_once_with("task-123")
+    update_kwargs = mock_sb.table.return_value.update.call_args[0][0]
+    assert update_kwargs["status"] == "stopped"
+
+
+def test_pause_task_requests_pause_for_a_running_task():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "running"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.request_pause") as mock_request_pause, \
+         patch("main.log_event"):
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/task-123/pause")
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task-123", "status": "pausing"}
+    mock_request_pause.assert_called_once_with("task-123")
+
+
+def test_pause_task_returns_404_when_task_not_found_or_not_owned():
+    mock_result = MagicMock()
+    mock_result.data = []
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.request_pause") as mock_request_pause:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/nonexistent/pause")
+
+    assert response.status_code == 404
+    mock_request_pause.assert_not_called()
+
+
+def test_pause_task_returns_409_when_task_is_not_running():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "paused"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.request_pause") as mock_request_pause:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/task-123/pause")
+
+    assert response.status_code == 409
+    mock_request_pause.assert_not_called()
+
+
+def test_pause_task_requires_auth():
+    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        response = client.post("/api/v1/tasks/task-123/pause")
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_resume_task_marks_running_and_schedules_run_graph_with_none_state():
+    """None as initial_state is the actual resume signal LangGraph relies on — see
+    run_graph's docstring — so this is the one detail worth pinning down explicitly."""
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "paused"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.log_event"), \
+         patch("main.run_graph") as mock_run_graph:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        response = client.post("/api/v1/tasks/task-123/resume")
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task-123", "status": "running"}
+    update_kwargs = mock_sb.table.return_value.update.call_args[0][0]
+    assert update_kwargs == {"status": "running"}
+    mock_run_graph.assert_called_once_with("task-123", None)
+
+
+def test_resume_task_returns_404_when_task_not_found_or_not_owned():
+    mock_result = MagicMock()
+    mock_result.data = []
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.run_graph") as mock_run_graph:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/nonexistent/resume")
+
+    assert response.status_code == 404
+    mock_run_graph.assert_not_called()
+
+
+def test_resume_task_returns_409_when_task_is_not_paused():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "running"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.run_graph") as mock_run_graph:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/task-123/resume")
+
+    assert response.status_code == 409
+    mock_run_graph.assert_not_called()
+
+
+def test_resume_task_requires_auth():
+    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        response = client.post("/api/v1/tasks/task-123/resume")
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_submit_review_decision_records_decision_and_schedules_run_graph():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "awaiting_review"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.log_event"), \
+         patch("main.record_review_decision") as mock_record, \
+         patch("main.run_graph") as mock_run_graph:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "refine"})
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task-123", "status": "running"}
+    mock_record.assert_called_once_with("task-123", "refine")
+    update_kwargs = mock_sb.table.return_value.update.call_args[0][0]
+    assert update_kwargs == {"status": "running"}
+    mock_run_graph.assert_called_once_with("task-123", None)
+
+
+def test_submit_review_decision_accepts_finalize():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "awaiting_review"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.log_event"), \
+         patch("main.record_review_decision") as mock_record, \
+         patch("main.run_graph"):
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "finalize"})
+
+    assert response.status_code == 200
+    mock_record.assert_called_once_with("task-123", "finalize")
+
+
+def test_submit_review_decision_rejects_invalid_decision():
+    with patch("main.record_review_decision") as mock_record:
+        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "maybe"})
+
+    assert response.status_code == 422
+    mock_record.assert_not_called()
+
+
+def test_submit_review_decision_returns_404_when_task_not_found_or_not_owned():
+    mock_result = MagicMock()
+    mock_result.data = []
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.record_review_decision") as mock_record:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/nonexistent/review", json={"decision": "refine"})
+
+    assert response.status_code == 404
+    mock_record.assert_not_called()
+
+
+def test_submit_review_decision_returns_409_when_task_is_not_awaiting_review():
+    mock_result = MagicMock()
+    mock_result.data = [{"status": "running"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.record_review_decision") as mock_record:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "refine"})
+
+    assert response.status_code == 409
+    mock_record.assert_not_called()
+
+
+def test_submit_review_decision_requires_auth():
+    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "refine"})
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: FakeUser()
 
 
 def test_submit_task_missing_query():

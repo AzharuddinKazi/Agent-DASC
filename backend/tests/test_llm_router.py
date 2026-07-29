@@ -23,7 +23,7 @@ def test_agent_tier_assignment():
     assert router.AGENT_TIERS["debugger"] == "high"
     assert router.AGENT_TIERS["router"] == "medium"
     assert router.AGENT_TIERS["finalizer"] == "medium"
-    assert router.AGENT_TIERS["query_clarity"] == "low"
+    assert router.AGENT_TIERS["query_clarity"] == "medium"
     assert router.AGENT_TIERS["analyzer"] == "low"
 
 

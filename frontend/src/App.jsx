@@ -12,11 +12,13 @@ export default function App() {
   const [query, setQuery]       = useState("")
   const [taskId, setTaskId]     = useState(null)
   const [taskType, setTaskType] = useState("qa")
+  const [requireHumanReview, setRequireHumanReview] = useState(false)
 
-  const handleSubmit = (q, id, type = "qa") => {
+  const handleSubmit = (q, id, type = "qa", reviewFlag = false) => {
     setQuery(q)
     setTaskId(id)
     setTaskType(type)
+    setRequireHumanReview(reviewFlag)
     setView("dashboard")
   }
 
@@ -45,7 +47,7 @@ export default function App() {
       <div className="min-h-screen bg-surface-subtle text-slate-900">
         {view === "empty" && <EmptyState onSubmit={handleSubmit} onDomainPacks={handleDomainPacks} />}
         {view === "dashboard" && (
-          <Dashboard query={query} taskId={taskId} taskType={taskType} onNew={handleNew} onDomainPacks={handleDomainPacks} />
+          <Dashboard query={query} taskId={taskId} taskType={taskType} requireHumanReview={requireHumanReview} onNew={handleNew} onDomainPacks={handleDomainPacks} />
         )}
         {view === "domainPacks" && (
           <DomainPacks onNew={handleNew} onSelect={handleSubmit} />

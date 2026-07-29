@@ -13,6 +13,9 @@ Your task is to evaluate whether a generated research report sufficiently answer
 # Original Research Query
 {question}
 
+# Hypotheses Investigated (in narrative order)
+{hypotheses}
+
 # Generated Report
 {report}
 
@@ -22,28 +25,53 @@ Your task is to evaluate whether a generated research report sufficiently answer
 3. Are findings specific and quantified (not vague)?
 4. Does the conclusion include actionable recommendations?
 5. Is the report coherent and well-structured?
+6. Do the hypotheses build into a cohesive investigative narrative — each finding informing
+   the next — rather than reading as disconnected topic summaries?
 
 # Your task
 Evaluate the report against the criteria above.
 Respond with a JSON object:
 {{
   "verdict": "sufficient" or "insufficient",
-  "gaps": ["gap 1", "gap 2"]
+  "gaps": [{{"question": "Specific follow-up analytical question", "hypothesis": "The claim it would test"}}]
 }}
 
 If verdict is "sufficient", gaps should be an empty list.
-If verdict is "insufficient", gaps must list the specific missing dimensions that need additional sub-analysis.
+If verdict is "insufficient", each gap must be a genuine next step in the story — a question
+that follows naturally from what's already been established, not an unrelated topic bolted
+on to pad coverage.
 Return only the JSON object."""
+
+
+def _normalize_gaps(raw) -> list[dict]:
+    """Tolerates the model returning plain gap strings despite the requested shape —
+    treated as a question with no hypothesis, same degradation pattern as
+    question_generator._parse_hypotheses."""
+    gaps = []
+    for entry in raw or []:
+        if isinstance(entry, dict) and entry.get("question"):
+            gaps.append({"question": entry["question"], "hypothesis": entry.get("hypothesis", "")})
+        elif isinstance(entry, str) and entry.strip():
+            gaps.append({"question": entry.strip(), "hypothesis": ""})
+    return gaps
 
 
 def report_evaluator(state: TaskState) -> dict:
     supabase.table("tasks").update({"current_agent": "report_evaluator"}).eq("task_id", state["task_id"]).execute()
 
-    question     = state["query"]
-    draft_report = state.get("draft_report", "")
+    question      = state["query"]
+    draft_report  = state.get("draft_report", "")
+    sub_questions = state.get("sub_questions", [])
+    hypotheses    = state.get("hypotheses", {})
+
+    hypotheses_text = "\n".join(
+        f"{i+1}. {hypotheses[sq]}" if hypotheses.get(sq) else f"{i+1}. (no hypothesis recorded) {sq}"
+        for i, sq in enumerate(sub_questions)
+    ) or "None recorded."
 
     prompt = REPORT_EVALUATOR_PROMPT.format(
         question=question,
+        hypotheses=hypotheses_text,
         report=draft_report,
     )
 
@@ -57,13 +85,13 @@ def report_evaluator(state: TaskState) -> dict:
     try:
         parsed  = json.loads(text)
         verdict = parsed.get("verdict", "sufficient")
-        gaps    = parsed.get("gaps", [])
+        gaps    = _normalize_gaps(parsed.get("gaps", []))
     except Exception:
         verdict = "sufficient"
         gaps    = []
 
     logger.info(f"Verdict: {verdict}, gaps: {gaps}")
-    gap_text = f" — gaps: {'; '.join(gaps[:3])}" if gaps else ""
+    gap_text = f" — gaps: {'; '.join(g['question'] for g in gaps[:3])}" if gaps else ""
     log_event(state["task_id"], "report_evaluator",
               f"Report quality: {'sufficient ✓' if verdict == 'sufficient' else f'insufficient{gap_text}'}",
               "success" if verdict == "sufficient" else "info",

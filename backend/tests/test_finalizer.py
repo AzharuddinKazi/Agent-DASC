@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch, MagicMock
 from agents.finalizer import finalizer
 
@@ -49,10 +50,120 @@ def test_finalizer_marks_status_failed_when_generated_script_errors():
          patch("agents.finalizer.execute_script") as mock_execute:
         mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
         mock_router.complete.return_value = make_mock_llm_result("raise ValueError('boom')")
-        mock_execute.return_value = ("", "ValueError: boom", 1)
+        # side_effect (not return_value) — a fixed return_value would make the retry
+        # loop's later iterations invisible: it "fails" the same way whether or not the
+        # loop actually ran, so this couldn't tell a real retry from a no-op.
+        mock_execute.side_effect = [("", "ValueError: boom", 1)] * 3
 
         result = finalizer(base_state())
 
         assert result["status"] == "failed"
         assert "Execution failed" in result["final_result"]
         assert "boom" in result["final_result"]
+        # Initial attempt + MAX_FINALIZER_DEBUG_ATTEMPTS retries, no more.
+        assert mock_execute.call_count == 3
+
+
+def test_finalizer_recovers_after_one_debug_attempt():
+    """The self-debug loop's whole purpose is recovering from a bad first script — this
+    was previously untested, so a broken retry (e.g. one that never re-executes the
+    debugger's fix) could regress silently."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.side_effect = [
+            make_mock_llm_result("raise ValueError('boom')"),  # initial finalizer script
+            make_mock_llm_result("print('fixed')"),             # debugger's fix
+        ]
+        mock_execute.side_effect = [
+            ("", "ValueError: boom", 1),
+            ("fixed\n", "", 0),
+        ]
+
+        result = finalizer(base_state())
+
+    assert result["status"] == "completed"
+    assert result["final_result"] == "fixed\n"
+    assert mock_execute.call_count == 2
+    assert mock_router.complete.call_args_list[1].kwargs["agent"] == "debugger"
+
+
+def test_finalizer_injects_real_debug_attempts_and_files_used_into_json_output():
+    """Regression test for the fabricated-stats bug: the Insight dashboard used to show a
+    client-side guessed token/cost estimate because no real provenance reached the
+    frontend at all. This is that real signal — attempt count and actual profiled
+    filenames, injected server-side rather than trusted to the LLM."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result('{"summary": "ok"}')
+        mock_execute.return_value = ('{"summary": "ok"}', "", 0)
+
+        state = base_state()
+        state["data_descriptions"] = {"a.csv": "desc a", "b.csv": "desc b"}
+        result = finalizer(state)
+
+    parsed = json.loads(result["final_result"])
+    assert parsed["summary"] == "ok"
+    assert parsed["debug_attempts"] == 0
+    assert parsed["files_used"] == ["a.csv", "b.csv"]
+
+
+def test_finalizer_records_nonzero_debug_attempts_after_a_retry():
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.side_effect = [
+            make_mock_llm_result("raise ValueError('boom')"),
+            make_mock_llm_result('{"summary": "fixed"}'),
+        ]
+        mock_execute.side_effect = [
+            ("", "ValueError: boom", 1),
+            ('{"summary": "fixed"}', "", 0),
+        ]
+
+        result = finalizer(base_state())
+
+    parsed = json.loads(result["final_result"])
+    assert parsed["debug_attempts"] == 1
+
+
+def test_finalizer_leaves_non_json_output_untouched():
+    """No dict to attach provenance to — must not crash or mangle plain-text output."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result("print('42')")
+        mock_execute.return_value = ("42\n", "", 0)
+
+        result = finalizer(base_state())
+
+    assert result["final_result"] == "42\n"
+
+
+def test_finalizer_strips_code_fence_even_when_closing_fence_is_missing():
+    """Same bug class as the coder.py fix: a cut-off model response with no closing
+    ``` used to silently drop the last real line of the generated script."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result(
+            "```python\nimport json\nprint(json.dumps({'summary': 'ok'}))"
+        )
+        mock_execute.return_value = ('{"summary": "ok"}\n', "", 0)
+
+        finalizer(base_state())
+
+        executed_script = mock_execute.call_args[0][0]
+
+    assert executed_script == "import json\nprint(json.dumps({'summary': 'ok'}))"

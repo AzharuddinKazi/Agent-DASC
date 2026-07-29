@@ -7,8 +7,8 @@ import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   ChevronRight, ChevronDown, ChevronUp, ChevronsUpDown,
-  Download, ListTodo, CheckCircle2, DollarSign, Activity, Coins,
-  TrendingUp, Send, Flame, Eye, ShieldCheck, Sparkles,
+  Download, ListTodo, CheckCircle2, RotateCcw, FileStack,
+  TrendingUp, Send, Sparkles, ShieldAlert,
   ThumbsUp, ThumbsDown, Flag
 } from "lucide-react"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
@@ -26,6 +26,9 @@ const CHART_COLORS = [
 ]
 
 // ── Chart renderer ────────────────────────────────────────────────────────────
+// Bare — no Card of its own. Lives inside the merged Evidence card (chart + the table
+// it's drawn from, together) rather than as a disconnected section a reader has to
+// mentally reconnect to the table below it.
 function DataChart({ chart }) {
   if (!chart || !chart.data || chart.data.length === 0) return null
 
@@ -35,61 +38,57 @@ function DataChart({ chart }) {
   const sharedProps = { data: chart.data, margin: { top: 4, right: 16, left: 0, bottom: 4 } }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold">{chart.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0 pb-4">
-        <ResponsiveContainer width="100%" height={260}>
-          {chart.type === "pie" ? (
-            <PieChart>
-              <Pie data={chart.data} dataKey={chart.y_key} nameKey={chart.x_key} cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={tooltipStyle} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-            </PieChart>
-          ) : chart.type === "line" ? (
-            <LineChart {...sharedProps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey={chart.x_key} tick={tickStyle} label={{ value: chart.x_label, position: "insideBottom", offset: -2, style: tickStyle }} />
-              <YAxis tick={tickStyle} label={{ value: chart.y_label, angle: -90, position: "insideLeft", style: tickStyle }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey={chart.y_key} stroke="var(--color-chart-2)" strokeWidth={2} dot={{ r: 3, fill: "var(--color-chart-2)" }} activeDot={{ r: 5 }} />
-            </LineChart>
-          ) : (
-            <BarChart {...sharedProps} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-              <XAxis type="number" tick={tickStyle} label={{ value: chart.y_label, position: "insideBottom", offset: -2, style: tickStyle }} />
-              <YAxis dataKey={chart.x_key} type="category" tick={tickStyle} width={140} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--color-muted)" }} />
-              <Bar dataKey={chart.y_key} radius={[0, 4, 4, 0]}>
-                {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-              </Bar>
-            </BarChart>
-          )}
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={260}>
+      {chart.type === "pie" ? (
+        <PieChart>
+          <Pie data={chart.data} dataKey={chart.y_key} nameKey={chart.x_key} cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+            {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+          </Pie>
+          <Tooltip contentStyle={tooltipStyle} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+        </PieChart>
+      ) : chart.type === "line" ? (
+        <LineChart {...sharedProps}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+          <XAxis dataKey={chart.x_key} tick={tickStyle} label={{ value: chart.x_label, position: "insideBottom", offset: -2, style: tickStyle }} />
+          <YAxis tick={tickStyle} label={{ value: chart.y_label, angle: -90, position: "insideLeft", style: tickStyle }} />
+          <Tooltip contentStyle={tooltipStyle} />
+          <Line type="monotone" dataKey={chart.y_key} stroke="var(--color-chart-2)" strokeWidth={2} dot={{ r: 3, fill: "var(--color-chart-2)" }} activeDot={{ r: 5 }} />
+        </LineChart>
+      ) : (
+        <BarChart {...sharedProps} layout="vertical">
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+          <XAxis type="number" tick={tickStyle} label={{ value: chart.y_label, position: "insideBottom", offset: -2, style: tickStyle }} />
+          <YAxis dataKey={chart.x_key} type="category" tick={tickStyle} width={140} />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--color-muted)" }} />
+          <Bar dataKey={chart.y_key} radius={[0, 4, 4, 0]}>
+            {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+          </Bar>
+        </BarChart>
+      )}
+    </ResponsiveContainer>
   )
 }
 
 // ── Key findings strip ────────────────────────────────────────────────────────
+// Demoted from a dark card competing with the headline for attention (it used to sit
+// ABOVE the actual answer) to a lighter, secondary card directly beneath it — still
+// distinct, but reading as "supporting detail" rather than a second headline.
 function KeyFindings({ findings }) {
   if (!findings || findings.length === 0) return null
   return (
-    <Card className="border-foreground/10 bg-foreground text-background">
+    <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold text-background/90 flex items-center gap-2">
-          <Sparkles className="w-4 h-4" />
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-muted-foreground" />
           Key Findings
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         <ul className="flex flex-col gap-2">
           {findings.map((f, i) => (
-            <li key={i} className="flex items-start gap-2.5 text-sm text-background/80 leading-snug">
-              <span className="w-5 h-5 rounded-full bg-background/10 flex items-center justify-center text-label font-bold shrink-0 mt-0.5 text-background">{i + 1}</span>
+            <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground leading-snug">
+              <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-label font-bold shrink-0 mt-0.5 text-foreground">{i + 1}</span>
               {f}
             </li>
           ))}
@@ -132,7 +131,7 @@ function FeedbackBar() {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function ReportSections({ result, query, script, plan = [], taskId, onFollowUp }) {
+export default function ReportSections({ result, query, script, plan = [], taskId, onFollowUp, isFollowUpBusy = false }) {
   const [showCode, setShowCode]         = useState(false)
   const [showAudit, setShowAudit]       = useState(false)
   const [showPlan, setShowPlan]         = useState(false)
@@ -164,11 +163,12 @@ export default function ReportSections({ result, query, script, plan = [], taskI
   const rawText      = parsed?.raw || (parseFailed ? (typeof result === "string" ? result : JSON.stringify(result, null, 2)) : "")
   const hasTableData = columns.length > 0 && rows.length > 0
 
-  const stats = useMemo(() => {
-    const rounds = plan.length || 1
-    const inp = rounds * 2500, out = rounds * 400
-    return { rounds, tokens: inp + out, cost: inp * 0.00000125 + out * 0.000005 }
-  }, [plan])
+  // Real provenance, injected server-side by finalizer.py — not a guess. Replaces a
+  // previous client-side estimate (`plan.length * 2500` tokens) that had no connection
+  // to what actually happened during the run.
+  const debugAttempts = parsed?.debug_attempts ?? null
+  const filesUsed      = parsed?.files_used || []
+  const rounds          = plan.length || 1
 
   // ── Numeric detection ───────────────────────────────────────────────────────
   const numericColumnMap = useMemo(() => {
@@ -197,39 +197,26 @@ export default function ReportSections({ result, query, script, plan = [], taskI
     return m
   }, [columns, rows, hasTableData, numericColumnMap])
 
-  // ── Risk highlights derived from table ──────────────────────────────────────
-  const { entityIdx, metricIdx, sortedByMetric } = useMemo(() => {
-    if (!hasTableData) return { entityIdx: 0, metricIdx: -1, sortedByMetric: [] }
-    let entityIdx = 0
-    for (let i = 0; i < columns.length; i++) {
-      const c = columns[i].toLowerCase()
-      if (["name","entity","id","category","label","account"].some(k => c.includes(k))) { entityIdx = i; break }
-    }
+  // ── Top row, for a quiet in-table highlight ─────────────────────────────────
+  // Replaces the old "Risk Highlights" card, which guessed a business meaning (Highest
+  // Risk / Watch / Lowest Exposure) from column-name keywords and got prominent
+  // placement for every query regardless of whether that framing made any sense for it.
+  // This keeps the one genuinely useful part — surfacing the row with the largest value
+  // in whatever the most metric-like numeric column is — as a subtle table affordance
+  // instead of a competing, mislabeled headline.
+  const topRow = useMemo(() => {
+    if (!hasTableData) return null
     let metricIdx = -1
     for (let i = 0; i < columns.length; i++) {
-      if (i === entityIdx) continue
       const c = columns[i].toLowerCase()
       if (["score","risk","ratio","amount","volume","count","sum","total","value","rate"].some(k => c.includes(k))) { metricIdx = i; break }
     }
-    if (metricIdx === -1) for (let i = 0; i < columns.length; i++) { if (i !== entityIdx && numericColumnMap[i]) { metricIdx = i; break } }
-    const sortedByMetric = [...rows].sort((a, b) => {
-      if (metricIdx === -1) return 0
-      return (parseFloat(String(b[metricIdx]).replace(/[^0-9.-]/g,""))||0) - (parseFloat(String(a[metricIdx]).replace(/[^0-9.-]/g,""))||0)
-    })
-    return { entityIdx, metricIdx, sortedByMetric }
-  }, [columns, rows, hasTableData, numericColumnMap])
-
-  const highlights = useMemo(() => {
-    if (!hasTableData) return []
-    const sub = row => metricIdx !== -1 ? `${columns[metricIdx]}: ${row[metricIdx]}` : ""
-    const maxVal = parseFloat(String(sortedByMetric[0]?.[metricIdx]).replace(/[^0-9.-]/g,"")) || 1
-    const pct    = row => Math.round((parseFloat(String(row?.[metricIdx]).replace(/[^0-9.-]/g,""))||0) / maxVal * 100)
-    return [
-      { label: "Highest Risk",    row: sortedByMetric[0],                          icon: Flame,      color: "bg-danger" },
-      { label: "Watch",           row: sortedByMetric[1] || sortedByMetric[0],     icon: Eye,        color: "bg-warning" },
-      { label: "Lowest Exposure", row: sortedByMetric[sortedByMetric.length - 1],  icon: ShieldCheck, color: "bg-neutral-400" },
-    ].map(h => ({ ...h, val: h.row?.[entityIdx] || "N/A", sub: sub(h.row || []), pct: pct(h.row || []) }))
-  }, [hasTableData, columns, rows, entityIdx, metricIdx, sortedByMetric])
+    if (metricIdx === -1) for (let i = 0; i < columns.length; i++) { if (numericColumnMap[i]) { metricIdx = i; break } }
+    if (metricIdx === -1) return null
+    return [...rows].sort((a, b) =>
+      (parseFloat(String(b[metricIdx]).replace(/[^0-9.-]/g,""))||0) - (parseFloat(String(a[metricIdx]).replace(/[^0-9.-]/g,""))||0)
+    )[0]
+  }, [hasTableData, columns, rows, numericColumnMap])
 
   // ── Sorting ─────────────────────────────────────────────────────────────────
   const handleSort = c => { if (sortCol === c) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(c); setSortDir("desc") } }
@@ -269,163 +256,127 @@ export default function ReportSections({ result, query, script, plan = [], taskI
 
   const handleSubmit = e => { e.preventDefault(); if (!followUpText.trim()) return; onFollowUp(followUpText); setFollowUpText("") }
 
-  const statTiles = useMemo(() => {
-    if (!hasTableData) return []
-    const topLabel = highlights[0]?.val
-    return [
-      { label: "Records Analysed", value: rows.length.toLocaleString() },
-      { label: "Data Columns",     value: columns.length.toString() },
-      { label: "Analysis Rounds",  value: stats.rounds.toString() },
-      { label: "Top Result",       value: topLabel || "—" },
-    ]
-  }, [hasTableData, rows, columns, stats, highlights])
-
   return (
     <div className="flex flex-col gap-5 pb-24 w-full">
 
-      {/* ── Stat tiles ── */}
-      {statTiles.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {statTiles.map(t => (
-            <Card key={t.label}>
-              <CardContent className="py-3.5">
-                <p className="text-label font-semibold uppercase tracking-widest text-muted-foreground mb-1">{t.label}</p>
-                <p className="text-xl font-bold text-foreground truncate">{t.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* ── Headline: the actual answer, given the visual weight it deserves — was
+          previously a plain muted paragraph third in reading order, below a stat-tile
+          grid and a dark Key Findings card. This is that answer, promoted to be the
+          first thing read, with real (not fabricated) trust signal attached inline. ── */}
+      <Card className="border-foreground/10 bg-foreground text-background">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-background/90 flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4" />
+            Analysis Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-base font-medium leading-relaxed">{summary}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 pt-3 border-t border-background/10 text-label text-background/60">
+            {hasTableData && <span>{rows.length.toLocaleString()} row{rows.length === 1 ? "" : "s"} analysed</span>}
+            {filesUsed.length > 0 && (
+              <>
+                {hasTableData && <span>·</span>}
+                <span className="flex items-center gap-1"><FileStack className="w-3 h-3" />{filesUsed.length} file{filesUsed.length === 1 ? "" : "s"}</span>
+              </>
+            )}
+            {debugAttempts !== null && (
+              <>
+                <span>·</span>
+                {debugAttempts === 0 ? (
+                  <span>ran clean, no retries</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-warning"><RotateCcw className="w-3 h-3" />resolved after {debugAttempts} retry{debugAttempts === 1 ? "" : "ies"}</span>
+                )}
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* ── Key Findings (dark card, top of page) ── */}
       <KeyFindings findings={keyFindings} />
 
-      {/* ── Summary + Risk Highlights ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold">Analysis Summary</CardTitle>
-              <div className="w-1.5 h-1.5 rounded-full bg-success" title="Complete" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground leading-relaxed">{summary}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Risk Highlights</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {highlights.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No table data available.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {highlights.map((h, i) => {
-                  const Icon = h.icon
-                  return (
-                    <div key={i}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground font-medium">{h.label}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-foreground truncate max-w-[100px]">{h.val}</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-700 ${h.color}`} style={{ width: `${h.pct}%` }} />
-                      </div>
-                      {h.sub && <p className="text-label text-muted-foreground mt-1 truncate">{h.sub}</p>}
-                      {i < highlights.length - 1 && <Separator className="mt-3" />}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Chart ── */}
-      {chart && <DataChart chart={chart} />}
-
-      {/* ── Data Table ── */}
-      {hasTableData && (
+      {/* ── Evidence: chart and its backing table together in one card, not two
+          disconnected sections a reader has to mentally reconnect. ── */}
+      {(chart || hasTableData || (!hasTableData && rawText)) && (
         <Card>
           <CardHeader className="pb-0">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <CardTitle className="text-sm font-semibold">Results</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">{rows.length} records · {columns.length} columns</p>
+                <CardTitle className="text-sm font-semibold">{chart?.title || "Evidence"}</CardTitle>
+                {hasTableData && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{rows.length} records · {columns.length} columns</p>
+                )}
               </div>
-              <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5 h-7 text-xs">
-                <Download className="w-3.5 h-3.5" />
-                Export CSV
-              </Button>
+              {hasTableData && (
+                <Button variant="outline" size="sm" onClick={exportCSV} className="gap-1.5 h-7 text-xs shrink-0">
+                  <Download className="w-3.5 h-3.5" />
+                  Export CSV
+                </Button>
+              )}
             </div>
           </CardHeader>
 
-          <CardContent className="p-0 mt-3">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40 border-y border-border">
-                    <TableHead className="w-10 px-4 py-2.5 text-label font-bold uppercase tracking-widest text-muted-foreground">#</TableHead>
-                    {columns.map((col, idx) => {
-                      const isSorted = sortCol === idx
-                      const isNum    = numericColumnMap[idx]
-                      return (
-                        <TableHead
-                          key={idx}
-                          onClick={() => handleSort(idx)}
-                          className={`px-4 py-2.5 text-label font-bold uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground select-none transition-colors ${isNum ? "text-right" : "text-left"} ${isSorted ? "text-foreground" : ""}`}
-                        >
-                          <span className={`flex items-center gap-1 ${isNum ? "justify-end" : ""}`}>
-                            {col}
-                            {isSorted ? sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                              : <ChevronsUpDown className="w-3 h-3 opacity-30" />}
-                          </span>
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedRows.map((row, i) => (
-                    <TableRow key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <TableCell className="px-4 py-3 w-10 tabular-nums text-label text-muted-foreground font-medium">{i + 1}</TableCell>
-                      {row.map((cell, ci) => {
-                        if (ci === riskColIdx) return <TableCell key={ci} className="px-4 py-3">{renderBadge(cell)}</TableCell>
-                        if (ci === 0) return <TableCell key={ci} className="px-4 py-3 text-sm font-semibold text-foreground">{cell}</TableCell>
-                        if (numericColumnMap[ci]) {
-                          const val = parseFloat(String(cell).replace(/[^0-9.-]/g,"")) || 0
-                          const pct = Math.round(val / (columnMaxValues[ci] || 1) * 100)
-                          return (
-                            <TableCell key={ci} className="px-4 py-3 text-right">
-                              <p className="text-sm font-semibold text-foreground tabular-nums">{typeof cell === "number" ? cell.toLocaleString() : cell}</p>
-                              <div className="w-16 h-1 bg-muted rounded-full overflow-hidden ml-auto mt-1">
-                                <div className="h-full bg-foreground/30 rounded-full" style={{ width: `${pct}%` }} />
-                              </div>
-                            </TableCell>
-                          )
-                        }
-                        return <TableCell key={ci} className="px-4 py-3 text-sm text-muted-foreground">{cell}</TableCell>
+          <CardContent className={chart ? "pt-3" : "p-0 mt-3"}>
+            {chart && <DataChart chart={chart} />}
+
+            {hasTableData && (
+              <div className={`overflow-x-auto ${chart ? "mt-4 -mx-6" : ""}`}>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40 border-y border-border">
+                      <TableHead className="w-10 px-4 py-2.5 text-label font-bold uppercase tracking-widest text-muted-foreground">#</TableHead>
+                      {columns.map((col, idx) => {
+                        const isSorted = sortCol === idx
+                        const isNum    = numericColumnMap[idx]
+                        return (
+                          <TableHead
+                            key={idx}
+                            onClick={() => handleSort(idx)}
+                            className={`px-4 py-2.5 text-label font-bold uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-foreground select-none transition-colors ${isNum ? "text-right" : "text-left"} ${isSorted ? "text-foreground" : ""}`}
+                          >
+                            <span className={`flex items-center gap-1 ${isNum ? "justify-end" : ""}`}>
+                              {col}
+                              {isSorted ? sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                                : <ChevronsUpDown className="w-3 h-3 opacity-30" />}
+                            </span>
+                          </TableHead>
+                        )
                       })}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  </TableHeader>
+                  <TableBody>
+                    {sortedRows.map((row, i) => (
+                      <TableRow key={i} className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${row === topRow ? "bg-accent/40" : ""}`}>
+                        <TableCell className="px-4 py-3 w-10 tabular-nums text-label text-muted-foreground font-medium">{i + 1}</TableCell>
+                        {row.map((cell, ci) => {
+                          if (ci === riskColIdx) return <TableCell key={ci} className="px-4 py-3">{renderBadge(cell)}</TableCell>
+                          if (ci === 0) return <TableCell key={ci} className="px-4 py-3 text-sm font-semibold text-foreground">{cell}</TableCell>
+                          if (numericColumnMap[ci]) {
+                            const val = parseFloat(String(cell).replace(/[^0-9.-]/g,"")) || 0
+                            const pct = Math.round(val / (columnMaxValues[ci] || 1) * 100)
+                            return (
+                              <TableCell key={ci} className="px-4 py-3 text-right">
+                                <p className="text-sm font-semibold text-foreground tabular-nums">{typeof cell === "number" ? cell.toLocaleString() : cell}</p>
+                                <div className="w-16 h-1 bg-muted rounded-full overflow-hidden ml-auto mt-1">
+                                  <div className="h-full bg-foreground/30 rounded-full" style={{ width: `${pct}%` }} />
+                                </div>
+                              </TableCell>
+                            )
+                          }
+                          return <TableCell key={ci} className="px-4 py-3 text-sm text-muted-foreground">{cell}</TableCell>
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
-      {/* Raw text fallback */}
-      {!hasTableData && rawText && (
-        <Card>
-          <CardContent className="p-5 font-mono text-xs text-muted-foreground leading-relaxed overflow-x-auto">{rawText}</CardContent>
+            {!hasTableData && rawText && (
+              <p className="font-mono text-xs text-muted-foreground leading-relaxed overflow-x-auto whitespace-pre-wrap p-5">{rawText}</p>
+            )}
+          </CardContent>
         </Card>
       )}
 
@@ -476,7 +427,7 @@ export default function ReportSections({ result, query, script, plan = [], taskI
             Audit Details
           </span>
           <span className="text-label text-muted-foreground tabular-nums">
-            {stats.rounds}R · {stats.tokens.toLocaleString()} tok · ${stats.cost.toFixed(4)}
+            {rounds} round{rounds === 1 ? "" : "s"}{debugAttempts ? ` · ${debugAttempts} retr${debugAttempts === 1 ? "y" : "ies"}` : ""}
           </span>
         </button>
 
@@ -485,9 +436,9 @@ export default function ReportSections({ result, query, script, plan = [], taskI
             <Separator />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-border border-b border-border">
               {[
-                { label: "Analysis Rounds", value: stats.rounds.toString(),       unit: stats.rounds === 1 ? "iteration" : "iterations", icon: Activity   },
-                { label: "Tokens Used",     value: stats.tokens.toLocaleString(), unit: "total tokens",                                   icon: Coins      },
-                { label: "Model Cost",      value: `$${stats.cost.toFixed(4)}`,   unit: "estimated",                                      icon: DollarSign },
+                { label: "Analysis Rounds", value: rounds.toString(), unit: rounds === 1 ? "iteration" : "iterations", icon: ListTodo },
+                { label: "Debug Retries",   value: debugAttempts !== null ? debugAttempts.toString() : "—", unit: debugAttempts ? "to reach a working script" : "ran clean", icon: RotateCcw },
+                { label: "Files Used",      value: filesUsed.length.toString(), unit: filesUsed.length === 1 ? "dataset" : "datasets", icon: FileStack },
                 { label: "Data Rows",       value: hasTableData ? rows.length.toString() : "—", unit: hasTableData ? `${columns.length} columns` : "no table data", icon: TrendingUp },
               ].map(({ label, value, unit, icon: Icon }) => (
                 <div key={label} className="flex items-start gap-3 px-5 py-4">
@@ -502,6 +453,15 @@ export default function ReportSections({ result, query, script, plan = [], taskI
                 </div>
               ))}
             </div>
+
+            {filesUsed.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border">
+                <span className="text-label text-muted-foreground font-medium uppercase tracking-wider">Datasets:</span>
+                {filesUsed.map(f => (
+                  <Badge key={f} variant="secondary" className="text-label font-mono">{f}</Badge>
+                ))}
+              </div>
+            )}
 
             <button
               onClick={() => setShowCode(v => !v)}
@@ -539,12 +499,13 @@ export default function ReportSections({ result, query, script, plan = [], taskI
               <Input
                 value={followUpText}
                 onChange={e => setFollowUpText(e.target.value)}
-                placeholder="Follow up — e.g. 'Show this by quarter' or 'Filter to Islamic banks'"
+                placeholder={isFollowUpBusy ? "Checking whether this needs clarification…" : "Follow up — e.g. 'Show this by quarter' or 'Filter to Islamic banks'"}
+                disabled={isFollowUpBusy}
                 className="border-none bg-transparent shadow-none focus-visible:ring-0 h-9 text-sm"
               />
-              <Button type="submit" disabled={!followUpText.trim()} size="sm" className="gap-1.5 shrink-0">
+              <Button type="submit" disabled={!followUpText.trim() || isFollowUpBusy} size="sm" className="gap-1.5 shrink-0">
                 <Send className="w-3 h-3" />
-                Run
+                {isFollowUpBusy ? "Checking…" : "Run"}
               </Button>
             </CardContent>
           </Card>

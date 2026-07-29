@@ -86,10 +86,18 @@ class LLMRouter:
         "debugger":      "high",    # reads tracebacks and patches code
         "router":        "medium",  # binary decision: add_step or backtrack
         "finalizer":     "medium",  # formats a known result into output structure
-        "query_clarity": "low",     # classifies ambiguity + mode — runs before every task
+        # medium: observed nemotron-nano-9b-v2:free (low tier) failing to produce a
+        # single flat JSON array for >1 question — it wrapped each question object in
+        # its own separate [...] instead, e.g. "[{...}], {...}, {...}()]" — same class
+        # of structured-output unreliability as question_generator below, same fix.
+        "query_clarity": "medium",  # classifies ambiguity + mode — runs before every task
         "analyzer":      "low",     # generates file profiling scripts — runs once per file
         # DS-STAR+ report pipeline agents
-        "question_generator":     "medium",
+        # high: a single multi-hypothesis JSON array (4-7 objects) over a long,
+        # multi-file prompt — medium (gpt-oss-20b:free) was observed garbling the
+        # array mid-generation (truncated/malformed JSON) on exactly this shape of
+        # task, silently producing 0 usable sub-questions for report-mode runs.
+        "question_generator":     "high",
         "writer":                 "high",
         "report_evaluator":       "medium",
         "gap_question_generator": "medium",

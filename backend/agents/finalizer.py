@@ -1,7 +1,9 @@
+import json
 import logging
 from agents.state import TaskState
 from agents.executor import execute_script
 from agents.debugger import DEBUGGER_PROMPT
+from agents.code_fences import strip_code_fences
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
@@ -14,13 +16,6 @@ logger = logging.getLogger(__name__)
 # no recovery. Give it the same bounded self-debug the main loop gets, reusing the
 # debugger's prompt/pattern rather than routing back through the graph.
 MAX_FINALIZER_DEBUG_ATTEMPTS = 2
-
-
-def _strip_code_fences(text: str) -> str:
-    if text.startswith("```"):
-        lines = text.split("\n")
-        return "\n".join(lines[1:-1])
-    return text
 
 # Paper-exact prompt (Appendix) extended for rich structured output
 FINALIZER_PROMPT = """You are an expert data analyst.
@@ -117,9 +112,9 @@ def finalizer(state: TaskState) -> dict:
     )
 
     result       = router.complete(agent="finalizer", prompt=prompt, task_id=state["task_id"])
-    final_script = _strip_code_fences(result["text"].strip())
+    final_script = strip_code_fences(result["text"].strip())
 
-    stdout, stderr, exit_code = execute_script(final_script)
+    stdout, stderr, exit_code = execute_script(final_script, state["task_id"])
 
     filenames = "\n".join(summaries.keys())
     attempt = 0
@@ -132,11 +127,29 @@ def finalizer(state: TaskState) -> dict:
 
         debug_prompt = DEBUGGER_PROMPT.format(filenames=filenames, code=final_script, bug=stderr)
         fix_result   = router.complete(agent="debugger", prompt=debug_prompt, task_id=state["task_id"])
-        final_script = _strip_code_fences(fix_result["text"].strip())
+        final_script = strip_code_fences(fix_result["text"].strip())
 
-        stdout, stderr, exit_code = execute_script(final_script)
+        stdout, stderr, exit_code = execute_script(final_script, state["task_id"])
 
     final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
+
+    # Injected server-side, not trusted to the LLM — same reasoning as writer.py's
+    # sources list: the model has no reason to know or report its own retry count or
+    # which files were actually profiled for this task. The Insight dashboard's
+    # "Analysis Rounds/Tokens/Cost" stat strip was showing a client-side guess
+    # (`plan.length * 2500` tokens) because no real signal reached the frontend at all;
+    # this is that real signal, riding in the same JSON blob the frontend already parses
+    # rather than requiring a new API contract.
+    if exit_code == 0:
+        try:
+            parsed = json.loads(final_output.strip())
+            if isinstance(parsed, dict):
+                parsed["debug_attempts"] = attempt
+                parsed["files_used"] = list(summaries.keys())
+                final_output = json.dumps(parsed)
+        except (json.JSONDecodeError, TypeError):
+            pass  # non-JSON finalizer output — nothing to attach provenance to
+
     if exit_code == 0:
         logger.info(f"exit={exit_code}")
     else:

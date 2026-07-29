@@ -1,36 +1,78 @@
 import { useState } from "react"
-import { submitTask } from "../../api"
+import { submitTask, clarifyTask } from "../../api"
 import { brand } from "../../config/brand"
+import { appendClarificationContext } from "../../lib/clarification"
 import Sidebar from "./Sidebar"
+import ClarifyingQuestionsModal from "./ClarifyingQuestionsModal"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { Label } from "@/components/ui/label"
 import { ArrowUp, Paperclip, SlidersHorizontal, Menu } from "lucide-react"
 
 export default function EmptyState({ onSubmit, onDomainPacks }) {
   const [query, setQuery]               = useState("")
   const [mode, setMode]                 = useState("qa")   // "qa" | "report"
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [requireHumanReview, setRequireHumanReview] = useState(false)   // report mode only
+  const [isSubmitting, setIsSubmitting]           = useState(false)
+  // Separate from isSubmitting so the button can say "Checking…" during the
+  // clarify_task call (which can legitimately take up to 15s) rather than looking
+  // identical to — or worse, indistinguishable from being stuck at — actual submission.
+  const [isCheckingClarity, setIsCheckingClarity] = useState(false)
   const [error, setError]               = useState("")
   const [showAttach, setShowAttach]     = useState(false)
   const [showFormat, setShowFormat]     = useState(false)
   const [drawerOpen, setDrawerOpen]     = useState(false)
+  const [clarifyState, setClarifyState] = useState(null)   // { query, type, questions } | null
 
-  const handleRun = async (text, type = mode) => {
-    const q = (typeof text === "string" ? text : query).trim()
-    if (!q || isSubmitting) return
+  const doSubmit = async (q, type) => {
     setIsSubmitting(true)
     setError("")
     try {
-      const res = await submitTask(q, "", type)
-      onSubmit(q, res.data.task_id, type)
+      const res = await submitTask(q, "", type, type === "report" && requireHumanReview)
+      onSubmit(q, res.data.task_id, type, type === "report" && requireHumanReview)
     } catch (err) {
       console.error(err)
       setError(err?.response?.data?.detail || err?.message || "Failed to submit — is the backend running?")
       setIsSubmitting(false)
     }
+  }
+
+  const handleRun = async (text, type = mode) => {
+    const q = (typeof text === "string" ? text : query).trim()
+    if (!q || isSubmitting || isCheckingClarity) return
+    setIsCheckingClarity(true)
+    setError("")
+    try {
+      const res = await clarifyTask(q, type)
+      const questions = res.data.questions || []
+      if (questions.length > 0) {
+        setClarifyState({ query: q, type, questions })
+        setIsCheckingClarity(false)
+        return
+      }
+    } catch (err) {
+      // Clarification is a nice-to-have, not a gate — if the endpoint errors or times
+      // out, proceed straight to submission rather than blocking the user's actual
+      // analysis on it.
+      console.error("clarify_task failed, proceeding without it:", err)
+    }
+    setIsCheckingClarity(false)
+    doSubmit(q, type)
+  }
+
+  const handleClarifyConfirm = (resolvedAnswers) => {
+    const { query: q, type } = clarifyState
+    setClarifyState(null)
+    doSubmit(appendClarificationContext(q, resolvedAnswers), type)
+  }
+
+  const handleClarifySkip = () => {
+    const { query: q, type } = clarifyState
+    setClarifyState(null)
+    doSubmit(q, type)
   }
 
   const handleSelect = async (id, q, type) => {
@@ -103,6 +145,18 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
               ))}
             </div>
 
+            {mode === "report" && (
+              <Label className="text-caption text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={requireHumanReview}
+                  onChange={e => setRequireHumanReview(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-border accent-foreground cursor-pointer"
+                />
+                Require my review before finalizing each round
+              </Label>
+            )}
+
             <Card className="w-full shadow-sm border-border focus-within:ring-2 focus-within:ring-ring/20 focus-within:border-foreground/30 transition-all">
               <CardContent className="p-0">
                 <Textarea
@@ -170,8 +224,8 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
                       <SlidersHorizontal className="w-4 h-4" /> Formatting
                     </button>
                   </div>
-                  <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting} size="lg" className="gap-2 text-body px-4">
-                    {isSubmitting ? "Running…" : (<><ArrowUp className="size-5" />Analyse</>)}
+                  <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting || isCheckingClarity} size="lg" className="gap-2 text-body px-4">
+                    {isCheckingClarity ? "Checking…" : isSubmitting ? "Running…" : (<><ArrowUp className="size-5" />Analyse</>)}
                   </Button>
                 </div>
               </CardContent>
@@ -183,6 +237,13 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
           </div>
         </div>
       </div>
+
+      <ClarifyingQuestionsModal
+        open={!!clarifyState}
+        questions={clarifyState?.questions || []}
+        onConfirm={handleClarifyConfirm}
+        onSkip={handleClarifySkip}
+      />
     </div>
   )
 }

@@ -36,8 +36,28 @@ class TaskState(TypedDict):
     sub_questions:              list        # generated sub-questions
     current_sub_idx:            int         # index of sub-question being processed
     sub_results:                dict        # {sub_question: parsed_result_dict}
+    hypotheses:                 dict        # {sub_question: hypothesis statement it tests}
+    sub_question_rounds:        dict        # {sub_question: round it was added in (0=initial, 1+=refine round N)}
     draft_report:               str         # JSON report from writer agent
     report_verdict:             str         # "sufficient" | "insufficient"
-    report_gaps:                list        # list of missing dimensions
+    report_gaps:                list        # list of {question, hypothesis} gap objects
     report_rounds:              int         # writer iteration count
     max_report_rounds:          int
+    require_human_review:       bool        # opt-in refine-vs-finalize checkpoint (paper fidelity)
+    human_review_decision:      str         # "refine" | "finalize", set by human_review_gate once recorded
+
+
+def current_objective(state: TaskState) -> str:
+    """The question a mini-pipeline round (planner/verifier/router_agent) should actually
+    be answering: the current sub-question/hypothesis in report mode, the top-level query
+    otherwise.
+
+    Without this, every sub-question's mini-pipeline received the same top-level query
+    regardless of which sub-question it was supposedly working on — sub_questions was only
+    ever used for UI progress labels, never as the actual driving objective. Falls back to
+    state["query"] whenever sub_questions is empty or exhausted, so QA-mode behavior (no
+    sub_questions) is unchanged.
+    """
+    sub_qs = state.get("sub_questions") or []
+    idx = state.get("current_sub_idx", 0)
+    return sub_qs[idx] if idx < len(sub_qs) else state["query"]
