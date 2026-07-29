@@ -14,7 +14,11 @@ import { ArrowUp, Paperclip, SlidersHorizontal, Menu } from "lucide-react"
 export default function EmptyState({ onSubmit, onDomainPacks }) {
   const [query, setQuery]               = useState("")
   const [mode, setMode]                 = useState("qa")   // "qa" | "report"
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting]           = useState(false)
+  // Separate from isSubmitting so the button can say "Checking…" during the
+  // clarify_task call (which can legitimately take up to 15s) rather than looking
+  // identical to — or worse, indistinguishable from being stuck at — actual submission.
+  const [isCheckingClarity, setIsCheckingClarity] = useState(false)
   const [error, setError]               = useState("")
   const [showAttach, setShowAttach]     = useState(false)
   const [showFormat, setShowFormat]     = useState(false)
@@ -36,22 +40,24 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
 
   const handleRun = async (text, type = mode) => {
     const q = (typeof text === "string" ? text : query).trim()
-    if (!q || isSubmitting) return
-    setIsSubmitting(true)
+    if (!q || isSubmitting || isCheckingClarity) return
+    setIsCheckingClarity(true)
     setError("")
     try {
       const res = await clarifyTask(q, type)
       const questions = res.data.questions || []
       if (questions.length > 0) {
         setClarifyState({ query: q, type, questions })
-        setIsSubmitting(false)
+        setIsCheckingClarity(false)
         return
       }
     } catch (err) {
-      // Clarification is a nice-to-have, not a gate — if the endpoint errors, proceed
-      // straight to submission rather than blocking the user's actual analysis on it.
+      // Clarification is a nice-to-have, not a gate — if the endpoint errors or times
+      // out, proceed straight to submission rather than blocking the user's actual
+      // analysis on it.
       console.error("clarify_task failed, proceeding without it:", err)
     }
+    setIsCheckingClarity(false)
     doSubmit(q, type)
   }
 
@@ -204,8 +210,8 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
                       <SlidersHorizontal className="w-4 h-4" /> Formatting
                     </button>
                   </div>
-                  <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting} size="lg" className="gap-2 text-body px-4">
-                    {isSubmitting ? "Running…" : (<><ArrowUp className="size-5" />Analyse</>)}
+                  <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting || isCheckingClarity} size="lg" className="gap-2 text-body px-4">
+                    {isCheckingClarity ? "Checking…" : isSubmitting ? "Running…" : (<><ArrowUp className="size-5" />Analyse</>)}
                   </Button>
                 </div>
               </CardContent>

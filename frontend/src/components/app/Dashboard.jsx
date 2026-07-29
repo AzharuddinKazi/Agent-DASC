@@ -20,6 +20,10 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
   const [isStopping, setIsStopping]     = useState(false)
   const [isPausing, setIsPausing]       = useState(false)
   const [isResuming, setIsResuming]     = useState(false)
+  // Same reasoning as EmptyState's isCheckingClarity — clarify_task can legitimately
+  // take up to 15s; the follow-up bar needs its own "Checking…" state instead of
+  // looking stuck, distinct from a task actually running.
+  const [isCheckingClarity, setIsCheckingClarity] = useState(false)
   // Polling stops once status leaves "running" (including on pause) — Resume needs a
   // way to restart it without changing activeTaskId (same task, just running again),
   // so it bumps this to re-trigger the effect below.
@@ -92,18 +96,21 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
   }
 
   const handleFollowUp = async (text, mode) => {
-    if (!text.trim()) return
+    if (!text.trim() || isCheckingClarity) return
     const type = mode || activeTaskType
+    setIsCheckingClarity(true)
     try {
       const res = await clarifyTask(text, type)
       const questions = res.data.questions || []
       if (questions.length > 0) {
         setClarifyState({ text, type, questions })
+        setIsCheckingClarity(false)
         return
       }
     } catch (err) {
       console.error("clarify_task failed, proceeding without it:", err)
     }
+    setIsCheckingClarity(false)
     doFollowUp(text, type)
   }
 
@@ -210,7 +217,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
         {/* CONTENT */}
         <div className="flex-1 overflow-y-auto bg-background">
           <div className="max-w-7xl mx-auto px-6 py-6">
-            <ReportPanel task={task} query={activeQuery} onFollowUp={handleFollowUp} />
+            <ReportPanel task={task} query={activeQuery} onFollowUp={handleFollowUp} isFollowUpBusy={isCheckingClarity} />
           </div>
         </div>
       </div>

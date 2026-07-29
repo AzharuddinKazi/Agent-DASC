@@ -9,13 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, MessageSquare, CircleStop, PauseCircle } from "lucide-react"
 
-export default function ReportPanel({ task, query, onFollowUp }) {
+export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = false }) {
   const [steerText, setSteerText] = useState("")
   const isReport  = task?.task_type === "report"
 
   if (task?.status === "completed" && task?.final_result) {
     if (isReport) {
-      return <ReportView task={task} query={query} onFollowUp={onFollowUp} />
+      return <ReportView task={task} query={query} onFollowUp={onFollowUp} isFollowUpBusy={isFollowUpBusy} />
     }
     return (
       <ReportSections
@@ -25,6 +25,7 @@ export default function ReportPanel({ task, query, onFollowUp }) {
         plan={task.cumulative_plan}
         taskId={task.task_id}
         onFollowUp={onFollowUp}
+        isFollowUpBusy={isFollowUpBusy}
       />
     )
   }

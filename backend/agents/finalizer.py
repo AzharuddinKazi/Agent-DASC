@@ -1,3 +1,4 @@
+import json
 import logging
 from agents.state import TaskState
 from agents.executor import execute_script
@@ -131,6 +132,24 @@ def finalizer(state: TaskState) -> dict:
         stdout, stderr, exit_code = execute_script(final_script, state["task_id"])
 
     final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
+
+    # Injected server-side, not trusted to the LLM — same reasoning as writer.py's
+    # sources list: the model has no reason to know or report its own retry count or
+    # which files were actually profiled for this task. The Insight dashboard's
+    # "Analysis Rounds/Tokens/Cost" stat strip was showing a client-side guess
+    # (`plan.length * 2500` tokens) because no real signal reached the frontend at all;
+    # this is that real signal, riding in the same JSON blob the frontend already parses
+    # rather than requiring a new API contract.
+    if exit_code == 0:
+        try:
+            parsed = json.loads(final_output.strip())
+            if isinstance(parsed, dict):
+                parsed["debug_attempts"] = attempt
+                parsed["files_used"] = list(summaries.keys())
+                final_output = json.dumps(parsed)
+        except (json.JSONDecodeError, TypeError):
+            pass  # non-JSON finalizer output — nothing to attach provenance to
+
     if exit_code == 0:
         logger.info(f"exit={exit_code}")
     else:

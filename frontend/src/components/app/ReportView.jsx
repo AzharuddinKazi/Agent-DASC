@@ -128,7 +128,7 @@ function RiskBadge({ level }) {
   )
 }
 
-export default function ReportView({ task, query, onFollowUp }) {
+export default function ReportView({ task, query, onFollowUp, isFollowUpBusy = false }) {
   const [openSections, setOpenSections] = useState({ 0: true })
   const [followUpText, setFollowUpText] = useState("")
   const [followUpMode, setFollowUpMode] = useState("report")
@@ -445,10 +445,11 @@ export default function ReportView({ task, query, onFollowUp }) {
               </div>
               <Separator orientation="vertical" className="h-5" />
               <Input value={followUpText} onChange={e => setFollowUpText(e.target.value)}
-                placeholder="Ask a follow-up or request a new report section..."
+                placeholder={isFollowUpBusy ? "Checking whether this needs clarification…" : "Ask a follow-up or request a new report section..."}
+                disabled={isFollowUpBusy}
                 className="border-none bg-transparent shadow-none focus-visible:ring-0 h-9 text-sm" />
-              <Button type="submit" disabled={!followUpText.trim()} size="sm" className="gap-1.5 shrink-0">
-                <Send className="w-3 h-3" />Run
+              <Button type="submit" disabled={!followUpText.trim() || isFollowUpBusy} size="sm" className="gap-1.5 shrink-0">
+                <Send className="w-3 h-3" />{isFollowUpBusy ? "Checking…" : "Run"}
               </Button>
             </CardContent>
           </Card>
