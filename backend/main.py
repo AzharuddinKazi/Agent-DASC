@@ -8,6 +8,8 @@ import requests
 import sentry_sdk
 from agents.graph import build_graph
 from agents.logger import log_event
+from agents.query_clarity import generate_clarifying_questions
+from agents.cancellation import request_stop, request_pause, clear as clear_cancellation, TaskCancelled, TaskPaused
 from auth import get_current_user
 from db import supabase
 from observability import configure_logging, configure_error_tracking
@@ -60,11 +62,28 @@ graph = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Pre-existing bug this fixes: the checkpointer used to be opened, set up, and closed
+    # (via `async with ... as checkpointer:` exiting immediately after build_graph()) all
+    # before the app ever started serving requests — and build_graph() was called with no
+    # checkpointer argument at all, so it silently compiled without one either way.
+    # Checkpointing (what Pause/Resume needs) was never actually functional. It has to
+    # stay open for the app's whole lifetime instead, since graph.invoke() calls happen
+    # continuously while the app serves requests, not just at startup.
+    #
+    # AsyncPostgresSaver's sync methods (used by the synchronous graph.invoke() this
+    # codebase calls via run_in_executor) are supported specifically when called from a
+    # different thread than the one holding the event loop — verified this is the
+    # intended, safe usage pattern (see AsyncPostgresSaver.get_tuple's own thread check),
+    # which matches run_in_executor's worker-thread execution exactly.
     global graph
-    async with AsyncPostgresSaver.from_conn_string(os.getenv("SUPABASE_DB_URL")) as checkpointer:
-        await checkpointer.setup()
-        graph = build_graph()
-    yield
+    checkpointer_cm = AsyncPostgresSaver.from_conn_string(os.getenv("SUPABASE_DB_URL"))
+    checkpointer = await checkpointer_cm.__aenter__()
+    await checkpointer.setup()
+    graph = build_graph(checkpointer=checkpointer)
+    try:
+        yield
+    finally:
+        await checkpointer_cm.__aexit__(None, None, None)
 
 app = FastAPI(title="DSStar Backend API", version="1.0", lifespan=lifespan)
 
@@ -87,7 +106,16 @@ class TaskSubmission(BaseModel):
     max_report_rounds: int = Field(default=2, ge=1, le=4)   # writer<->evaluator passes (DS-STAR+ only)
 
 
-async def run_graph(task_id: str, initial_state: dict):
+class TaskClarification(BaseModel):
+    query: str
+    task_type: str = "qa"
+    domain_pack_id: str | None = None
+
+
+async def run_graph(task_id: str, initial_state: dict | None):
+    """`initial_state=None` is how a paused task resumes — see agents/cancellation.py's
+    module docstring for why passing None with the same thread_id makes LangGraph's
+    checkpointer replay from the last completed node rather than starting over."""
     config = {"configurable": {"thread_id": task_id}}
     try:
         if _pipeline_semaphore.locked():
@@ -106,12 +134,26 @@ async def run_graph(task_id: str, initial_state: dict):
             "task_type":    result.get("task_type", "qa"),
             "sub_results":  _json.dumps(result.get("sub_results") or {}),
         }).eq("task_id", task_id).execute()
+    except TaskCancelled:
+        log_event(task_id, "system", "Stopped by user", "info")
+        supabase.table("tasks").update({
+            "status": "stopped", "final_result": "Stopped by user"
+        }).eq("task_id", task_id).execute()
+    except TaskPaused:
+        # Nothing to persist to the checkpoint here — LangGraph already durably saved
+        # the state as of the last node that completed before the interrupt, via the
+        # checkpointer wired up in lifespan(). Resuming re-invokes with initial_state=None
+        # and the same thread_id, which replays from exactly that point.
+        log_event(task_id, "system", "Paused by user", "info")
+        supabase.table("tasks").update({"status": "paused"}).eq("task_id", task_id).execute()
     except Exception as e:
         logger.exception(f"Task {task_id} failed")
         sentry_sdk.capture_exception(e)
         supabase.table("tasks").update({
             "status": "failed", "final_result": str(e)
         }).eq("task_id", task_id).execute()
+    finally:
+        clear_cancellation(task_id)
 
 
 async def _timed_check(fn, timeout=3.0):
@@ -159,6 +201,28 @@ async def health(response: Response):
         "checks": checks,
         "concurrency": {"active": active, "max": MAX_CONCURRENT_PIPELINES},
     }
+
+
+@app.post("/api/v1/clarify_task", summary="Get Clarifying Questions", tags=["Tasks"])
+async def clarify_task(task: TaskClarification, user=Depends(get_current_user)):
+    """Runs before submit_task, not as part of the graph — cheap (no Docker sandbox, one
+    LLM completion, occasionally two on a malformed-output retry) so the frontend can show
+    a popup and block submission on the answer without a queueing/polling dance. Returns
+    an empty list when the query doesn't need clarification, the common case, so the
+    frontend skips the popup entirely.
+
+    generate_clarifying_questions() calls the LLM via requests (synchronous/blocking) —
+    run via run_in_executor, same as run_graph()'s graph.invoke() below, so this doesn't
+    block the single asyncio event loop for the whole server for the ~2-10s round-trip.
+    An `async def` route that calls blocking I/O directly freezes every other in-flight
+    request (health checks, other users' task polling, everything) for that duration —
+    exactly what a raw synchronous call here would do without this.
+    """
+    task_type = task.task_type if task.task_type in ("qa", "report") else "qa"
+    questions = await asyncio.get_event_loop().run_in_executor(
+        None, generate_clarifying_questions, task.query, task_type, task.domain_pack_id
+    )
+    return {"questions": questions}
 
 
 @app.post("/api/v1/submit_task", summary="Submit Task", tags=["Tasks"], status_code=202)
@@ -248,6 +312,56 @@ async def get_task(task_id: str, user=Depends(get_current_user)):
         except Exception:
             row["logs"] = []
     return row
+
+
+@app.post("/api/v1/tasks/{task_id}/stop", summary="Stop Task", tags=["Tasks"])
+async def stop_task(task_id: str, user=Depends(get_current_user)):
+    """Cooperative cancellation — see agents/cancellation.py for why this can't be an
+    instant kill. Takes effect at the next graph-node boundary (seconds, for the common
+    case of an LLM-call node) or, for a Docker execution in progress, within
+    executor.POLL_INTERVAL_S (well under a second) since execute_script polls the same
+    flag and kills the container directly rather than waiting out its own node boundary.
+    """
+    response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if response.data[0]["status"] != "running":
+        raise HTTPException(status_code=409, detail="Task is not running")
+
+    request_stop(task_id)
+    log_event(task_id, "system", "Stop requested — halting at the next safe point", "info")
+    return {"task_id": task_id, "status": "stopping"}
+
+
+@app.post("/api/v1/tasks/{task_id}/pause", summary="Pause Task", tags=["Tasks"])
+async def pause_task(task_id: str, user=Depends(get_current_user)):
+    """Same cooperative-interrupt mechanism as Stop (see stop_task above and
+    agents/cancellation.py), but resumable: the step that was interrupted gets re-run
+    from scratch on Resume rather than the task ending permanently."""
+    response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if response.data[0]["status"] != "running":
+        raise HTTPException(status_code=409, detail="Task is not running")
+
+    request_pause(task_id)
+    log_event(task_id, "system", "Pause requested — halting at the next safe point", "info")
+    return {"task_id": task_id, "status": "pausing"}
+
+
+@app.post("/api/v1/tasks/{task_id}/resume", summary="Resume Task", tags=["Tasks"])
+async def resume_task(task_id: str, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+    response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if response.data[0]["status"] != "paused":
+        raise HTTPException(status_code=409, detail="Task is not paused")
+
+    supabase.table("tasks").update({"status": "running"}).eq("task_id", task_id).execute()
+    log_event(task_id, "system", "Resumed by user", "info")
+    # initial_state=None is the resume signal — see run_graph's docstring.
+    background_tasks.add_task(run_graph, task_id, None)
+    return {"task_id": task_id, "status": "running"}
 
 
 @app.get("/api/v1/domain_packs", summary="List Domain Packs", tags=["Domain Packs"])

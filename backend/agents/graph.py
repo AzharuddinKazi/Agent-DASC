@@ -13,6 +13,7 @@ from agents.question_generator import question_generator
 from agents.writer import writer
 from agents.report_evaluator import report_evaluator
 from agents.logger import log_event
+from agents.cancellation import check_interrupt
 import json
 
 
@@ -74,7 +75,13 @@ def sub_result_collector(state: TaskState) -> dict:
             if s.startswith("```"):
                 import re
                 s = re.sub(r"^```[a-z]*\n?", "", s).rstrip("`").strip()
-            parsed = json.loads(s)
+            candidate = json.loads(s)
+            # A script that prints a bare number/string (e.g. "71.55") is valid JSON but
+            # not a dict — writer.py's sr.get("summary", ...) crashes with AttributeError
+            # on anything else, so only accept genuinely dict-shaped results here.
+            if not isinstance(candidate, dict):
+                raise ValueError("parsed JSON is not an object")
+            parsed = candidate
         except Exception:
             parsed = {"summary": raw, "key_findings": [], "columns": [], "rows": []}
         sub_results[current_q] = parsed
@@ -135,22 +142,35 @@ def route_after_report_evaluator(state: TaskState) -> str:
 
 
 def gap_question_generator(state: TaskState) -> dict:
-    """Add new sub-questions for identified gaps and loop back through DS-STAR."""
+    """Add new sub-questions for identified gaps and loop back through DS-STAR.
+
+    report_evaluator.gaps is a list of {"question", "hypothesis"} objects (structured the
+    same way as question_generator's output) so a follow-up hypothesis genuinely continues
+    the narrative arc instead of bolting on an unrelated topic — see current_objective() in
+    state.py for why the hypothesis needs to travel with its question, not just get logged.
+    """
     from db import supabase
     gaps          = state.get("report_gaps", [])
     sub_questions = list(state.get("sub_questions", []))
+    hypotheses    = dict(state.get("hypotheses", {}))
 
-    # Convert gaps into sub-questions
-    new_qs = [f"{gap}" if "?" in gap else f"{gap}?" for gap in gaps]
+    new_qs = []
+    for gap in gaps:
+        q = gap["question"] if "?" in gap["question"] else f"{gap['question']}?"
+        new_qs.append(q)
+        if gap.get("hypothesis"):
+            hypotheses[q] = gap["hypothesis"]
     sub_questions.extend(new_qs)
 
+    new_hypotheses = {q: hypotheses[q] for q in new_qs if q in hypotheses}
     supabase.table("tasks").update({"current_agent": "gap_question_generator"}).eq("task_id", state["task_id"]).execute()
     log_event(state["task_id"], "gap_question_generator",
               f"Identified {len(gaps)} gap(s) — adding {len(new_qs)} new sub-question(s)",
-              "info", {"gaps": gaps, "new_questions": new_qs})
+              "info", {"gaps": gaps, "new_questions": new_qs, "hypotheses": new_hypotheses})
 
     return {
         "sub_questions":   sub_questions,
+        "hypotheses":      hypotheses,
         "cumulative_plan": [],
         "current_script":  "",
         "execution_result": "",
@@ -178,26 +198,37 @@ def report_finalizer(state: TaskState) -> dict:
 
 # ── Graph builder ─────────────────────────────────────────────────────────────
 
+def _cancellable(fn):
+    """Checks for a Stop or Pause request before running a node — see cancellation.py.
+    Applied to every node uniformly here (not scattered across each agent file) since
+    every node function has the same (state: TaskState) -> dict signature."""
+    def wrapped(state):
+        check_interrupt(state["task_id"])
+        return fn(state)
+    wrapped.__name__ = getattr(fn, "__name__", "node")
+    return wrapped
+
+
 def build_graph(checkpointer=None):
     builder = StateGraph(TaskState)
 
     # ── DS-STAR base nodes ────────────────────────────────────────────────────
-    builder.add_node("analyzer",          analyzer)
-    builder.add_node("planner",           planner)
-    builder.add_node("coder",             coder)
-    builder.add_node("executor",          executor)
-    builder.add_node("verifier",          verifier)
-    builder.add_node("router_agent",      router_agent)
-    builder.add_node("debugger",          debugger)
-    builder.add_node("finalizer",         finalizer)
+    builder.add_node("analyzer",          _cancellable(analyzer))
+    builder.add_node("planner",           _cancellable(planner))
+    builder.add_node("coder",             _cancellable(coder))
+    builder.add_node("executor",          _cancellable(executor))
+    builder.add_node("verifier",          _cancellable(verifier))
+    builder.add_node("router_agent",      _cancellable(router_agent))
+    builder.add_node("debugger",          _cancellable(debugger))
+    builder.add_node("finalizer",         _cancellable(finalizer))
 
     # ── DS-STAR+ nodes ────────────────────────────────────────────────────────
-    builder.add_node("question_generator",   question_generator)
-    builder.add_node("sub_result_collector", sub_result_collector)
-    builder.add_node("writer",               writer)
-    builder.add_node("report_evaluator",     report_evaluator)
-    builder.add_node("gap_question_generator", gap_question_generator)
-    builder.add_node("report_finalizer",     report_finalizer)
+    builder.add_node("question_generator",   _cancellable(question_generator))
+    builder.add_node("sub_result_collector", _cancellable(sub_result_collector))
+    builder.add_node("writer",               _cancellable(writer))
+    builder.add_node("report_evaluator",     _cancellable(report_evaluator))
+    builder.add_node("gap_question_generator", _cancellable(gap_question_generator))
+    builder.add_node("report_finalizer",     _cancellable(report_finalizer))
 
     # ── Entry ─────────────────────────────────────────────────────────────────
     builder.set_entry_point("analyzer")

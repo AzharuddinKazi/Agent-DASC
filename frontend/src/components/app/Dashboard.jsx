@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react"
-import { getTask, submitTask } from "../../api"
+import { getTask, submitTask, clarifyTask, stopTask, pauseTask, resumeTask } from "../../api"
 import { brand } from "../../config/brand"
+import { appendClarificationContext } from "../../lib/clarification"
 import Sidebar from "./Sidebar"
 import ReportPanel from "./ReportPanel"
+import ClarifyingQuestionsModal from "./ClarifyingQuestionsModal"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Menu, Pause, Square } from "lucide-react"
+import { Menu, Pause, Play, Square } from "lucide-react"
 
 export default function Dashboard({ query, taskId, taskType: initialTaskType, onNew, onDomainPacks }) {
   const [task, setTask]                 = useState(null)
@@ -14,10 +16,21 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
   const [activeTaskId, setActiveTaskId] = useState(taskId)
   const [activeTaskType, setActiveTaskType] = useState(initialTaskType || "qa")
   const [drawerOpen, setDrawerOpen]     = useState(false)
+  const [clarifyState, setClarifyState] = useState(null)   // { text, type, questions } | null
+  const [isStopping, setIsStopping]     = useState(false)
+  const [isPausing, setIsPausing]       = useState(false)
+  const [isResuming, setIsResuming]     = useState(false)
+  // Polling stops once status leaves "running" (including on pause) — Resume needs a
+  // way to restart it without changing activeTaskId (same task, just running again),
+  // so it bumps this to re-trigger the effect below.
+  const [pollGeneration, setPollGeneration] = useState(0)
 
   useEffect(() => {
     if (!activeTaskId) return
     setTask(null)
+    setIsStopping(false)
+    setIsPausing(false)
+    setIsResuming(false)
     const poll = async () => {
       try {
         const r = await getTask(activeTaskId)
@@ -28,30 +41,102 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
     poll()
     const interval = setInterval(poll, 2000)
     return () => clearInterval(interval)
-  }, [activeTaskId])
+  }, [activeTaskId, pollGeneration])
 
   const handleSelect = (id, q, type) => { setActiveTaskId(id); setActiveQuery(q); if (type) setActiveTaskType(type); setDrawerOpen(false) }
-  const handleFollowUp = async (text, mode) => {
-    if (!text.trim()) return
-    const type = mode || activeTaskType
+
+  const handleStop = async () => {
+    if (isStopping) return
+    setIsStopping(true)
+    try {
+      await stopTask(activeTaskId)
+      // Cancellation is cooperative (see backend/agents/cancellation.py) — it takes
+      // effect at the next safe point, not instantly, so the regular 2s poll picks up
+      // the eventual status:"stopped" rather than this handler flipping it optimistically.
+    } catch (err) {
+      console.error("Failed to stop task:", err)
+      setIsStopping(false)
+    }
+  }
+
+  const handlePause = async () => {
+    if (isPausing) return
+    setIsPausing(true)
+    try {
+      await pauseTask(activeTaskId)
+      // Same cooperative-interrupt timing caveat as Stop — the 2s poll picks up
+      // status:"paused" once it actually takes effect.
+    } catch (err) {
+      console.error("Failed to pause task:", err)
+      setIsPausing(false)
+    }
+  }
+
+  const handleResume = async () => {
+    if (isResuming) return
+    setIsResuming(true)
+    try {
+      await resumeTask(activeTaskId)
+      setPollGeneration(g => g + 1)  // restart polling — see the effect above
+    } catch (err) {
+      console.error("Failed to resume task:", err)
+      setIsResuming(false)
+    }
+  }
+
+  const doFollowUp = async (text, type) => {
     try {
       const res = await submitTask(text, "", type)
       setActiveTaskId(res.data.task_id); setActiveQuery(text); setActiveTaskType(type); setTask(null)
     } catch (err) { console.error(err) }
   }
 
+  const handleFollowUp = async (text, mode) => {
+    if (!text.trim()) return
+    const type = mode || activeTaskType
+    try {
+      const res = await clarifyTask(text, type)
+      const questions = res.data.questions || []
+      if (questions.length > 0) {
+        setClarifyState({ text, type, questions })
+        return
+      }
+    } catch (err) {
+      console.error("clarify_task failed, proceeding without it:", err)
+    }
+    doFollowUp(text, type)
+  }
+
+  const handleClarifyConfirm = (resolvedAnswers) => {
+    const { text, type } = clarifyState
+    setClarifyState(null)
+    doFollowUp(appendClarificationContext(text, resolvedAnswers), type)
+  }
+
+  const handleClarifySkip = () => {
+    const { text, type } = clarifyState
+    setClarifyState(null)
+    doFollowUp(text, type)
+  }
+
   const isRunning  = task?.status === "running"
   const isComplete = task?.status === "completed"
   const isFailed   = task?.status === "failed"
+  const isStopped  = task?.status === "stopped"
+  const isPaused   = task?.status === "paused"
   const isReport   = activeTaskType === "report"
 
   const headerTitle = isFailed ? "Analysis Failed"
+    : isStopped ? "Analysis Stopped"
+    : isPaused ? "Analysis Paused"
     : isComplete ? (isReport ? "Research Report" : "Analysis Result")
     : (isReport ? "Report Mode" : "Analysis In Progress")
 
   const modeLabel = isReport ? brand.modeLabels.report : brand.modeLabels.qa
-  const statusLabel = isFailed ? "Failed" : isComplete ? "Complete" : "Running"
+  const statusLabel = isFailed ? "Failed" : isStopped ? "Stopped" : isPaused ? "Paused" : isComplete ? "Complete" : "Running"
   const badgeColor = isFailed ? "bg-danger/10 text-danger border-danger/30"
+    : isStopped ? "bg-muted text-muted-foreground border-border"
+    : isPaused ? "bg-amber-50 text-amber-600 border-amber-200"
     : isComplete ? "bg-success/10 text-success border-success/30"
     : isReport ? "bg-purple-50 text-purple-600 border-purple-200"
     : "bg-blue-50 text-blue-600 border-blue-200"
@@ -92,13 +177,30 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
           <div className="flex items-center gap-2 shrink-0">
             {isRunning && (
               <>
-                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-body gap-1.5">
-                  <Pause className="w-3.5 h-3.5" /> Pause
+                <Button
+                  size="sm" variant="outline" onClick={handlePause} disabled={isPausing}
+                  title={isPausing ? "Pausing — takes effect at the next safe point" : "Pause this analysis"}
+                  className="h-8 text-body gap-1.5"
+                >
+                  <Pause className="w-3.5 h-3.5" /> {isPausing ? "Pausing…" : "Pause"}
                 </Button>
-                <Button size="sm" variant="outline" disabled title="Not yet available" className="h-8 text-body gap-1.5 text-destructive border-destructive/30">
-                  <Square className="w-3.5 h-3.5" /> Stop
+                <Button
+                  size="sm" variant="outline" onClick={handleStop} disabled={isStopping}
+                  title={isStopping ? "Stopping — takes effect at the next safe point" : "Stop this analysis"}
+                  className="h-8 text-body gap-1.5 text-destructive border-destructive/30"
+                >
+                  <Square className="w-3.5 h-3.5" /> {isStopping ? "Stopping…" : "Stop"}
                 </Button>
               </>
+            )}
+            {isPaused && (
+              <Button
+                size="sm" variant="outline" onClick={handleResume} disabled={isResuming}
+                title="Resume this analysis — the step that was interrupted restarts from scratch"
+                className="h-8 text-body gap-1.5 text-amber-600 border-amber-200"
+              >
+                <Play className="w-3.5 h-3.5" /> {isResuming ? "Resuming…" : "Resume"}
+              </Button>
             )}
             {/* Export controls live inline with the result (CSV in ReportSections,
                 print-to-PDF in ReportView) rather than duplicated here. */}
@@ -112,6 +214,13 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
           </div>
         </div>
       </div>
+
+      <ClarifyingQuestionsModal
+        open={!!clarifyState}
+        questions={clarifyState?.questions || []}
+        onConfirm={handleClarifyConfirm}
+        onSkip={handleClarifySkip}
+      />
     </div>
   )
 }

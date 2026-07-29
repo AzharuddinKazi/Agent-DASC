@@ -1,22 +1,41 @@
 import logging
 import subprocess
 import tempfile
+import time
 import os
+import uuid
 
 from db import supabase
 from agents.logger import log_event
 from agents.state import TaskState
+from agents.cancellation import is_cancelled, is_paused, TaskCancelled, TaskPaused
 
 logger = logging.getLogger(__name__)
 
-def execute_script(script: str) -> tuple:
+DOCKER_TIMEOUT_S = 120
+
+# How often execute_script checks for a Stop/Pause request while the container runs.
+# Without this, Stop/Pause only take effect at the next node boundary — fine for
+# LLM-call nodes (seconds), but this is the one node that can legitimately block up to
+# DOCKER_TIMEOUT_S on a single call, which would make them feel broken for up to two
+# minutes.
+POLL_INTERVAL_S = 0.5
+
+
+def execute_script(script: str, task_id: str | None = None) -> tuple:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(script)
         script_path = f.name
+
+    # A named (not anonymous) container is what makes it possible to `docker kill` this
+    # specific run from outside the blocking subprocess call below.
+    container_name = f"dsstar-exec-{uuid.uuid4().hex[:12]}"
+    proc = None
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [
                 "docker", "run", "--rm",
+                "--name", container_name,
                 "--network=none",
                 "--memory=2g",
                 "-v", f"{os.getenv('DSSTAR')}/data:/workspace/data:ro",
@@ -24,16 +43,39 @@ def execute_script(script: str) -> tuple:
                 "dsstar-sandbox:latest",
                 "python3", "/workspace/scripts/step.py"
             ],
-            capture_output=True,
-            text=True,
-            timeout=120
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         )
+
+        deadline = time.monotonic() + DOCKER_TIMEOUT_S
+        while True:
+            try:
+                # Polling via repeated communicate(timeout=...) calls is the documented-safe
+                # pattern for this (stdlib subprocess docs) — no data is lost between polls.
+                stdout, stderr = proc.communicate(timeout=POLL_INTERVAL_S)
+                break
+            except subprocess.TimeoutExpired:
+                if task_id and is_cancelled(task_id):
+                    subprocess.run(["docker", "kill", container_name], capture_output=True)
+                    proc.wait(timeout=5)
+                    raise TaskCancelled(f"Task {task_id} was stopped by the user")
+                if task_id and is_paused(task_id):
+                    # Restart-the-step semantics (not a true docker-pause/unpause freeze):
+                    # kill this attempt, resume later re-runs the whole step from scratch.
+                    subprocess.run(["docker", "kill", container_name], capture_output=True)
+                    proc.wait(timeout=5)
+                    raise TaskPaused(f"Task {task_id} was paused by the user")
+                if time.monotonic() > deadline:
+                    subprocess.run(["docker", "kill", container_name], capture_output=True)
+                    proc.wait(timeout=5)
+                    raise subprocess.TimeoutExpired(cmd="docker run", timeout=DOCKER_TIMEOUT_S)
+
         # 3000 chars was truncating mid-JSON on the Finalizer's structured output
         # whenever a result had more than a few table rows, producing invalid JSON
         # that the frontend then fell back to rendering as raw text.
-        return result.stdout[:50_000], result.stderr[:2_000], result.returncode
+        return stdout[:50_000], stderr[:2_000], proc.returncode
     finally:
         os.unlink(script_path)
+
 
 def executor(state: TaskState) -> dict:
 
@@ -48,7 +90,7 @@ def executor(state: TaskState) -> dict:
               {"round": state["current_round"],
                **({"sub_q_idx": current_sub_idx + 1, "sub_q_total": len(sub_questions)} if sub_questions else {})})
 
-    stdout, stderr, exit_code = execute_script(state["current_script"])
+    stdout, stderr, exit_code = execute_script(state["current_script"], state["task_id"])
     logger.info(f"Exit code: {exit_code}")
     if stdout:
         logger.info(f"Output: {stdout}")

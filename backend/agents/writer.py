@@ -1,4 +1,5 @@
 import logging
+import re
 from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
@@ -8,6 +9,17 @@ import json
 
 router = LLMRouter()
 logger = logging.getLogger(__name__)
+
+_INVALID_ESCAPE = re.compile(r'\\(?!["\\/bfnrtu])')
+
+
+def _strip_invalid_escapes(text: str) -> str:
+    """Report-writing models routinely backslash-escape currency/punctuation out of a
+    LaTeX/markdown habit (e.g. "\\$592,300"), which isn't a legal JSON string escape
+    (only \\", \\\\, \\/, \\b, \\f, \\n, \\r, \\t, \\uXXXX are) and breaks json.loads on
+    every report mentioning a dollar amount. Dropping the stray backslash recovers the
+    intended literal character without touching genuinely valid escapes."""
+    return _INVALID_ESCAPE.sub("", text)
 
 # Split around the persona and the optional classification line, both of which come from
 # the active domain pack's config and can change at runtime — see _build_prompt() below.
@@ -42,6 +54,16 @@ formal, publication-quality report — NOT a list of data summaries.
    e.g. "...a 8.3% rate, nearly 3× the average of 2.9% [2]." or "...across three regions
    [1,4]." Do NOT invent a "sources" or "references" field yourself — citation numbers are
    the only citation mechanism; the reference list is attached separately.
+8. Where an analysis states the hypothesis it tested, explicitly say whether that hypothesis
+   was CONFIRMED, REFUTED, or NUANCED (partially true, true under specific conditions, etc.)
+   — don't just report the number, state what it means for the claim being tested. The
+   report as a whole should read as an investigative arc: each section should build on what
+   the previous one established, not restate it as a disconnected topic summary.
+9. Your entire response must be a single valid JSON string per the format below. Do NOT
+   backslash-escape punctuation that isn't a JSON control character — write "$592,300", not
+   "\\$592,300"; a backslash is only ever valid before ", \\, /, b, f, n, r, t, or u. Use
+   plain ASCII square brackets for citations, e.g. [2] or [1,4] — never full-width or any
+   other bracket variant.
 
 # Required Output Format (strict JSON — return ONLY this, no markdown fences)
 {{
@@ -105,11 +127,13 @@ def writer(state: TaskState) -> dict:
     question      = state["query"]
     sub_questions = state.get("sub_questions", [])
     sub_results   = state.get("sub_results", {})
+    hypotheses    = state.get("hypotheses", {})
 
     sub_analyses_parts = []
     for i, sq in enumerate(sub_questions):
         sr = sub_results.get(sq, {})
-        part = f"""### Analysis {i+1}: {sq}
+        hypothesis_line = f"\nHypothesis tested: {hypotheses[sq]}" if hypotheses.get(sq) else ""
+        part = f"""### Analysis {i+1}: {sq}{hypothesis_line}
 Summary: {sr.get('summary', 'No result available')}
 Key Findings: {json.dumps(sr.get('key_findings', []), indent=2)}
 Columns: {json.dumps(sr.get('columns', []))}
@@ -127,7 +151,6 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
     result      = router.complete(agent="writer", prompt=prompt, task_id=state["task_id"])
     report_text = result["text"].strip()
 
-    import re
     if report_text.startswith("```"):
         report_text = re.sub(r"^```[a-z]*\n?", "", report_text).rstrip("`").strip()
 
@@ -135,15 +158,27 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
     # built here from sub_questions, not trusted to the LLM, so citation numbers are always
     # correct/complete even if the model omits or miscounts them.
     sources = [
-        {"id": i + 1, "question": sq, "summary": sub_results.get(sq, {}).get("summary", "")}
+        {
+            "id": i + 1,
+            "question": sq,
+            "summary": sub_results.get(sq, {}).get("summary", ""),
+            "hypothesis": hypotheses.get(sq, ""),
+        }
         for i, sq in enumerate(sub_questions)
     ]
     try:
         parsed = json.loads(report_text)
+    except json.JSONDecodeError:
+        try:
+            parsed = json.loads(_strip_invalid_escapes(report_text))
+            logger.info("Writer output had invalid JSON escapes — repaired and parsed")
+        except json.JSONDecodeError:
+            parsed = None
+            logger.warning("Writer output wasn't valid JSON — shipping it unparsed, without a sources list")
+
+    if parsed is not None:
         parsed["sources"] = sources
         report_text = json.dumps(parsed)
-    except json.JSONDecodeError:
-        logger.warning("Writer output wasn't valid JSON — shipping it unparsed, without a sources list")
 
     logger.info(f"Report generated ({result['output_tokens']} tokens)")
     log_event(state["task_id"], "writer", "Draft report generated — sending for evaluation", "success")

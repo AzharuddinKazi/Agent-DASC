@@ -1,6 +1,7 @@
 """Domain pack knowledge base: ingest uploaded documents and retrieve relevant
-chunks for the Planner. Plain chunk/embed/similarity-search — no knowledge
-graph, no entity extraction.
+chunks for the Planner/Coder/Verifier. Two retrieval paths: dense embedding similarity
+(this module's original design) and Postgres full-text search (added alongside it, not
+replacing it) — see agents/domain_knowledge.py for why both exist and how they're fused.
 
 Embeddings go through OpenRouter (same provider as llm_router.py's chat completions),
 using nvidia/nemotron-3-embed-1b:free — genuinely free (verified: usage.cost == 0 on a
@@ -11,6 +12,11 @@ model replaced Gemini) with no HNSW index — pgvector's HNSW caps at 2000 dims 
 plain vector type, and at this corpus size (hundreds to low thousands of chunks) exact
 brute-force cosine search (see match_domain_pack_chunks) is plenty fast without an ANN
 index anyway.
+
+Full-text search runs off a generated `content_tsv` tsvector column + GIN index (see
+migrations/2026-07-29_domain_pack_chunks_fts.sql) and match_domain_pack_chunks_fts —
+same corpus-size reasoning applies: no need for anything beyond Postgres's built-in
+text search at this scale.
 """
 
 import io
@@ -119,6 +125,26 @@ def retrieve_domain_knowledge(pack_id: str | None, query: str, top_k: int = 5) -
     query_embedding = embed_texts([query])[0]
     resp = supabase.rpc("match_domain_pack_chunks", {
         "query_embedding": query_embedding,
+        "match_pack_id": pack_id,
+        "match_count": top_k,
+    }).execute()
+    return [row["content"] for row in resp.data]
+
+
+def retrieve_domain_knowledge_fts(pack_id: str | None, query: str, top_k: int = 5) -> list[str]:
+    """Lexical (BM25-style) retrieval via Postgres full-text search — complements
+    `retrieve_domain_knowledge`'s dense embedding search, see agents/domain_knowledge.py
+    for why: dense search can miss a specific literal fact (e.g. a documented value
+    coding) when the surrounding chunk text doesn't semantically echo the query, in a
+    way exact lexical matching structurally can't. Uses `websearch_to_tsquery`, which
+    tolerates multi-word queries the way a search-box user would type them; a query with
+    no matching lexeme (e.g. it's all stopwords, or nothing in the corpus mentions it)
+    just returns no rows rather than erroring.
+    """
+    if not pack_id:
+        return []
+    resp = supabase.rpc("match_domain_pack_chunks_fts", {
+        "query_text": query,
         "match_pack_id": pack_id,
         "match_count": top_k,
     }).execute()

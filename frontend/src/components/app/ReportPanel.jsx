@@ -7,7 +7,7 @@ import ResearchProgress from "./ResearchProgress.jsx"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, MessageSquare } from "lucide-react"
+import { AlertTriangle, MessageSquare, CircleStop, PauseCircle } from "lucide-react"
 
 export default function ReportPanel({ task, query, onFollowUp }) {
   const [steerText, setSteerText] = useState("")
@@ -29,6 +29,25 @@ export default function ReportPanel({ task, query, onFollowUp }) {
     )
   }
 
+  if (task?.status === "stopped") {
+    return (
+      <Card className="border-border bg-muted/30 max-w-2xl mx-auto mt-6">
+        <CardHeader>
+          <CardTitle className="text-sm text-foreground flex items-center gap-2">
+            <CircleStop className="w-4 h-4 text-muted-foreground" />
+            Analysis Stopped
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            This analysis was stopped before it finished — no report was generated.
+            {task.cumulative_plan?.length > 0 && " Any partial progress isn't recoverable; start a new analysis to try again."}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (task?.status === "failed") {
     return (
       <Card className="border-destructive/30 bg-destructive/5 max-w-2xl mx-auto mt-6">
@@ -47,7 +66,7 @@ export default function ReportPanel({ task, query, onFollowUp }) {
     )
   }
 
-  /* Loading state */
+  /* Loading / paused state */
   const handleSteerSubmit = (e) => {
     e.preventDefault()
     // Not yet wired to the backend — the pipeline has no mid-run steering endpoint.
@@ -57,9 +76,21 @@ export default function ReportPanel({ task, query, onFollowUp }) {
   // The task row has no live "current_round" column — cumulative_plan grows by one
   // entry per completed planner round, so its length is the best live proxy.
   const currentRound = task?.cumulative_plan?.length || 0
+  const isPaused = task?.status === "paused"
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-4xl mx-auto">
+      {isPaused && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-3.5 flex items-center gap-2.5">
+            <PauseCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800">
+              Paused — progress below is preserved. Resume (top right) restarts the step
+              that was interrupted; everything before it stays as-is.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       {isReport ? (
         <>
           <PipelineHeader query={query} currentRound={currentRound} isReport />
@@ -68,7 +99,7 @@ export default function ReportPanel({ task, query, onFollowUp }) {
       ) : (
         <>
           <PipelineHeader query={query} currentRound={currentRound} isReport={false} />
-          <PipelineTimeline logs={task?.logs || []} currentScript={task?.current_script} isRunning />
+          <PipelineTimeline logs={task?.logs || []} currentScript={task?.current_script} isRunning={!isPaused} />
         </>
       )}
 

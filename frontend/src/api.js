@@ -13,8 +13,17 @@ API.interceptors.request.use(async config => {
 
 export const submitTask  = (query, formatting_guidelines, task_type = "qa") =>
   API.post("/api/v1/submit_task", { query, formatting_guidelines, task_type })
+// Clarification is a nice-to-have that runs a "medium" tier LLM call (occasionally two,
+// on a malformed-output retry) before the user sees anything — under free-tier OpenRouter
+// congestion this can occasionally take 30s+. Bounded to 8s here so a slow/rate-limited
+// backend degrades to "just skip the popup," never to "the Analyse button looks stuck."
+export const clarifyTask = (query, task_type = "qa", domain_pack_id = null) =>
+  API.post("/api/v1/clarify_task", { query, task_type, domain_pack_id }, { timeout: 8000 })
 export const getTasks    = () => API.get("/api/v1/get_tasks")
 export const getTask     = (id) => API.get(`/api/v1/get_task/${id}`)
+export const stopTask    = (id) => API.post(`/api/v1/tasks/${id}/stop`)
+export const pauseTask   = (id) => API.post(`/api/v1/tasks/${id}/pause`)
+export const resumeTask  = (id) => API.post(`/api/v1/tasks/${id}/resume`)
 export const checkHealth = () => API.get("/health")
 
 export const getDomainPacks       = () => API.get("/api/v1/domain_packs")

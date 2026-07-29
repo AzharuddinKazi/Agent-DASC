@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 from agents.state import TaskState
+from agents.code_fences import strip_code_fences
 from agents.logger import log_event
 from db import supabase
 import json
@@ -46,11 +47,7 @@ def analyze_file(filename: str, filepath: str, task_id: str) -> str:
     prompt = ANALYZER_PROMPT.format(filename=filename, nrows=nrows or "all")
 
     result = router.complete(agent="analyzer", prompt=prompt, task_id=task_id)
-    script = result["text"].strip()
-
-    if script.startswith("```"):
-        lines  = script.split("\n")
-        script = "\n".join(lines[1:-1])
+    script = strip_code_fences(result["text"].strip())
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(script)

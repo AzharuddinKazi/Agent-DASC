@@ -1,6 +1,6 @@
 import logging, os
 from db import supabase
-from agents.state import TaskState
+from agents.state import TaskState, current_objective
 from agents.logger import log_event
 from llm_router import LLMRouter
 
@@ -35,7 +35,7 @@ def router_agent(state: TaskState) -> dict:
 
     supabase.table("tasks").update({"current_agent": "router"}).eq("task_id", state["task_id"]).execute()
 
-    question        = state["query"]
+    question        = current_objective(state)
     summaries       = state["data_descriptions"]
     cumulative_plan = state["cumulative_plan"]
     execution_result = state["execution_result"]

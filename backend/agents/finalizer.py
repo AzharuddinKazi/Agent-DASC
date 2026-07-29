@@ -2,6 +2,7 @@ import logging
 from agents.state import TaskState
 from agents.executor import execute_script
 from agents.debugger import DEBUGGER_PROMPT
+from agents.code_fences import strip_code_fences
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
@@ -14,13 +15,6 @@ logger = logging.getLogger(__name__)
 # no recovery. Give it the same bounded self-debug the main loop gets, reusing the
 # debugger's prompt/pattern rather than routing back through the graph.
 MAX_FINALIZER_DEBUG_ATTEMPTS = 2
-
-
-def _strip_code_fences(text: str) -> str:
-    if text.startswith("```"):
-        lines = text.split("\n")
-        return "\n".join(lines[1:-1])
-    return text
 
 # Paper-exact prompt (Appendix) extended for rich structured output
 FINALIZER_PROMPT = """You are an expert data analyst.
@@ -117,9 +111,9 @@ def finalizer(state: TaskState) -> dict:
     )
 
     result       = router.complete(agent="finalizer", prompt=prompt, task_id=state["task_id"])
-    final_script = _strip_code_fences(result["text"].strip())
+    final_script = strip_code_fences(result["text"].strip())
 
-    stdout, stderr, exit_code = execute_script(final_script)
+    stdout, stderr, exit_code = execute_script(final_script, state["task_id"])
 
     filenames = "\n".join(summaries.keys())
     attempt = 0
@@ -132,9 +126,9 @@ def finalizer(state: TaskState) -> dict:
 
         debug_prompt = DEBUGGER_PROMPT.format(filenames=filenames, code=final_script, bug=stderr)
         fix_result   = router.complete(agent="debugger", prompt=debug_prompt, task_id=state["task_id"])
-        final_script = _strip_code_fences(fix_result["text"].strip())
+        final_script = strip_code_fences(fix_result["text"].strip())
 
-        stdout, stderr, exit_code = execute_script(final_script)
+        stdout, stderr, exit_code = execute_script(final_script, state["task_id"])
 
     final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
     if exit_code == 0:

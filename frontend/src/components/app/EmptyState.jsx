@@ -1,7 +1,9 @@
 import { useState } from "react"
-import { submitTask } from "../../api"
+import { submitTask, clarifyTask } from "../../api"
 import { brand } from "../../config/brand"
+import { appendClarificationContext } from "../../lib/clarification"
 import Sidebar from "./Sidebar"
+import ClarifyingQuestionsModal from "./ClarifyingQuestionsModal"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
@@ -17,10 +19,9 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
   const [showAttach, setShowAttach]     = useState(false)
   const [showFormat, setShowFormat]     = useState(false)
   const [drawerOpen, setDrawerOpen]     = useState(false)
+  const [clarifyState, setClarifyState] = useState(null)   // { query, type, questions } | null
 
-  const handleRun = async (text, type = mode) => {
-    const q = (typeof text === "string" ? text : query).trim()
-    if (!q || isSubmitting) return
+  const doSubmit = async (q, type) => {
     setIsSubmitting(true)
     setError("")
     try {
@@ -31,6 +32,39 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
       setError(err?.response?.data?.detail || err?.message || "Failed to submit — is the backend running?")
       setIsSubmitting(false)
     }
+  }
+
+  const handleRun = async (text, type = mode) => {
+    const q = (typeof text === "string" ? text : query).trim()
+    if (!q || isSubmitting) return
+    setIsSubmitting(true)
+    setError("")
+    try {
+      const res = await clarifyTask(q, type)
+      const questions = res.data.questions || []
+      if (questions.length > 0) {
+        setClarifyState({ query: q, type, questions })
+        setIsSubmitting(false)
+        return
+      }
+    } catch (err) {
+      // Clarification is a nice-to-have, not a gate — if the endpoint errors, proceed
+      // straight to submission rather than blocking the user's actual analysis on it.
+      console.error("clarify_task failed, proceeding without it:", err)
+    }
+    doSubmit(q, type)
+  }
+
+  const handleClarifyConfirm = (resolvedAnswers) => {
+    const { query: q, type } = clarifyState
+    setClarifyState(null)
+    doSubmit(appendClarificationContext(q, resolvedAnswers), type)
+  }
+
+  const handleClarifySkip = () => {
+    const { query: q, type } = clarifyState
+    setClarifyState(null)
+    doSubmit(q, type)
   }
 
   const handleSelect = async (id, q, type) => {
@@ -183,6 +217,13 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
           </div>
         </div>
       </div>
+
+      <ClarifyingQuestionsModal
+        open={!!clarifyState}
+        questions={clarifyState?.questions || []}
+        onConfirm={handleClarifyConfirm}
+        onSkip={handleClarifySkip}
+      />
     </div>
   )
 }

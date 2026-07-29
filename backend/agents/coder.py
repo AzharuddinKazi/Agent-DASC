@@ -2,6 +2,8 @@ from db import supabase
 from agents.logger import log_event
 import logging, os
 from agents.state import TaskState
+from agents.code_fences import strip_code_fences
+from agents.domain_knowledge import retrieve_grounded_knowledge
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -9,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 CODER_INIT = """# Given data:
 {summaries}
-
+{domain_knowledge}
 # Plan
 {plan}
 
@@ -37,7 +39,7 @@ Your task is to implement the next plan with the given data.
 
 # Given data:
 {summaries}
-
+{domain_knowledge}
 # Base code
 ```python
 {base_code}
@@ -98,26 +100,28 @@ def coder(state: TaskState) -> dict:
         for i, step in enumerate(cumulative_plan)
     )
 
+    # Retrieval is grounded on the step actually being implemented (most specific about
+    # which columns are touched) rather than the whole plan — see domain_knowledge.py.
+    current_plan = cumulative_plan[-1] if cumulative_plan else plan_text
+    domain_knowledge = retrieve_grounded_knowledge(current_plan, state)
+
     if not prior_script:
         prompt = CODER_INIT.format(
             summaries=summaries_text,
-            plan=plan_text
+            plan=plan_text,
+            domain_knowledge=domain_knowledge
         )
     else:
-        current_plan = cumulative_plan[-1] if cumulative_plan else ""
         prompt = CODER_NEXT.format(
             summaries=summaries_text,
             base_code=prior_script,
             plan=plan_text,
-            current_plan=current_plan
+            current_plan=current_plan,
+            domain_knowledge=domain_knowledge
         )
 
     result = router.complete(agent="coder", prompt=prompt, task_id=state["task_id"])
-    script = result["text"].strip()
-
-    if script.startswith("```"):
-        lines = script.split("\n")
-        script = "\n".join(lines[1:-1])
+    script = strip_code_fences(result["text"].strip())
 
     logger.info(f"Script generated ({result['output_tokens']} tokens)")
 

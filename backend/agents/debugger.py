@@ -1,4 +1,5 @@
 from agents.state import TaskState
+from agents.code_fences import strip_code_fences
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
@@ -64,11 +65,7 @@ def debugger(state: TaskState) -> dict:
     )
 
     result       = router.complete(agent="debugger", prompt=prompt, task_id=state["task_id"])
-    fixed_script = result["text"].strip()
-
-    if fixed_script.startswith("```"):
-        lines        = fixed_script.split("\n")
-        fixed_script = "\n".join(lines[1:-1])
+    fixed_script = strip_code_fences(result["text"].strip())
 
     logger.info("Fixed script generated")
 

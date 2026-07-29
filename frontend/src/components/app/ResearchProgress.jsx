@@ -22,15 +22,18 @@ function currentPhase(agent) {
 // gap_question_generator, sub_result_collector). Reconstruct progress from those.
 function deriveFromLogs(logs) {
   const subQuestions = []
+  const hypotheses = {}
   let completedCount = 0
   let runningQuestion = null
 
   for (const entry of logs) {
     if (entry.agent === "question_generator" && entry.sub_questions) {
       subQuestions.push(...entry.sub_questions)
+      Object.assign(hypotheses, entry.hypotheses || {})
     }
     if (entry.agent === "gap_question_generator" && entry.new_questions) {
       subQuestions.push(...entry.new_questions)
+      Object.assign(hypotheses, entry.hypotheses || {})
     }
     if (entry.agent === "sub_result_collector" && entry.sub_q_idx) {
       completedCount = Math.max(completedCount, entry.sub_q_idx)
@@ -39,7 +42,7 @@ function deriveFromLogs(logs) {
       runningQuestion = entry.sub_q_text
     }
   }
-  return { subQuestions, completedCount, runningQuestion }
+  return { subQuestions, hypotheses, completedCount, runningQuestion }
 }
 
 export default function ResearchProgress({ task }) {
@@ -47,7 +50,7 @@ export default function ResearchProgress({ task }) {
   const agent = task?.current_agent
   const phaseIdx = currentPhase(agent)
 
-  const { subQuestions, completedCount, runningQuestion } = useMemo(() => deriveFromLogs(logs), [logs])
+  const { subQuestions, hypotheses, completedCount, runningQuestion } = useMemo(() => deriveFromLogs(logs), [logs])
   const total = subQuestions.length || 1
   const overallPct = Math.round((completedCount / total) * (phaseIdx < 2 ? 90 : 100))
 
@@ -105,6 +108,9 @@ export default function ResearchProgress({ task }) {
                       isDone ? "bg-success/10 text-success" : isCurrent ? "bg-purple-100 text-purple-600" : "bg-muted text-muted-foreground"
                     }`}>{i + 1}</span>
                     <div className="flex-1 min-w-0">
+                      {hypotheses[sq] && (
+                        <p className="text-label text-purple-600 font-medium mb-0.5">Testing: {hypotheses[sq]}</p>
+                      )}
                       <p className="text-sm text-foreground leading-snug">{sq}</p>
                       <p className="text-label mt-1">
                         {isDone && <span className="text-success font-medium">✓ Complete</span>}

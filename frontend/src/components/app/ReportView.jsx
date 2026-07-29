@@ -396,7 +396,12 @@ export default function ReportView({ task, query, onFollowUp }) {
                           <div className="w-5 h-5 rounded-full bg-foreground flex items-center justify-center shrink-0 mt-0.5">
                             <span className="text-label font-bold text-background">{source.id}</span>
                           </div>
-                          <p className="text-sm font-semibold text-foreground">{source.question}</p>
+                          <div>
+                            {source.hypothesis && (
+                              <p className="text-label text-muted-foreground font-medium mb-0.5">Hypothesis: {source.hypothesis}</p>
+                            )}
+                            <p className="text-sm font-semibold text-foreground">{source.question}</p>
+                          </div>
                         </div>
                         {r.summary && <p className="text-xs text-muted-foreground mb-3 pl-7">{r.summary}</p>}
                         {r.columns && r.rows?.length > 0 && (

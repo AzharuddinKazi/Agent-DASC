@@ -1,18 +1,17 @@
 import logging
 import os
 
-from agents.state import TaskState
+from agents.state import TaskState, current_objective
 from agents.logger import log_event
+from agents.domain_knowledge import retrieve_grounded_knowledge
 from llm_router import LLMRouter
 from db import supabase
-from domain_pack import get_active_pack_config
-from knowledge import retrieve_domain_knowledge
 router = LLMRouter()
 logger = logging.getLogger(__name__)
 
 PLANNER_INIT = """You are an expert data analyst.
     In order to answer factoid questions based on the given data, you have to first plan effectively.
-{domain_knowledge}
+{hypothesis_section}{domain_knowledge}
     # Question
     {question}
 
@@ -28,7 +27,7 @@ PLANNER_INIT = """You are an expert data analyst.
 PLANNER_NEXT = """You are an expert data analyst.
     In order to answer factoid questions based on the given data, you have to first plan effectively.
     Your task is to suggest the next plan to answer the question.
-{domain_knowledge}
+{hypothesis_section}{domain_knowledge}
     # Question
     {question}
 
@@ -53,32 +52,24 @@ PLANNER_NEXT = """You are an expert data analyst.
 
 
 def _domain_knowledge_section(question: str, state: TaskState) -> str:
-    """Retrieves relevant chunks from the active domain pack's knowledge base, if any.
+    """Retrieves relevant chunks from the active domain pack's knowledge base, if any —
+    see agents/domain_knowledge.py for the column-aware retrieval strategy. Gated by
+    state["use_domain_knowledge"] (default True); empty when opted out, no pack is
+    active, or nothing relevant is indexed, so the Planner then reasons purely from the
+    data, same as before this existed."""
+    return retrieve_grounded_knowledge(question, state)
 
-    Gated by state["use_domain_knowledge"] (default True) — this per-round KB lookup and
-    the chunks it injects into the prompt are the actual token/cost driver of "domain
-    knowledge", so opting out skips the retrieval call entirely rather than just hiding
-    the result.
 
-    Returns an empty string when knowledge is opted out, no pack is active, or nothing
-    relevant is indexed — the Planner then reasons purely from the data, same as before
-    this existed.
-    """
-    if not state.get("use_domain_knowledge", True):
+def _hypothesis_section(question: str, state: TaskState) -> str:
+    """The hypothesis this sub-question tests, when question_generator produced one (report
+    mode only — QA mode has no hypotheses dict). Steers the Planner toward confirming or
+    refuting a specific claim instead of just answering a bare question."""
+    hypothesis = (state.get("hypotheses") or {}).get(question)
+    if not hypothesis:
         return ""
-    try:
-        pack_id = get_active_pack_config(state.get("domain_pack_id"))["pack_id"]
-        chunks = retrieve_domain_knowledge(pack_id, question)
-    except Exception:
-        chunks = []
-    if not chunks:
-        return ""
-    joined = "\n\n".join(chunks)
     return f"""
-    # Domain knowledge
-    Reference material for this domain — use it to plan like a subject-matter expert,
-    not just a technical one:
-    {joined}
+    # Hypothesis under test
+    You are testing this hypothesis: {hypothesis}
 """
 
 
@@ -86,7 +77,7 @@ def planner(state: TaskState) -> dict:
     
     supabase.table("tasks").update({"current_agent": f"planner_round_{state['current_round']}"}).eq("task_id", state["task_id"]).execute()
 
-    question = state["query"]
+    question = current_objective(state)
     summaries = state["data_descriptions"]
     cumulative_plan = state["cumulative_plan"]
     current_round = state["current_round"]
@@ -103,12 +94,14 @@ def planner(state: TaskState) -> dict:
     )
 
     domain_knowledge = _domain_knowledge_section(question, state)
+    hypothesis_section = _hypothesis_section(question, state)
 
     if current_round == 0:
         prompt = PLANNER_INIT.format(
             question=question,
             summaries=summaries_text,
-            domain_knowledge=domain_knowledge
+            domain_knowledge=domain_knowledge,
+            hypothesis_section=hypothesis_section
         )
     else:
         current_step = cumulative_plan[-1] if cumulative_plan else ""
@@ -118,7 +111,8 @@ def planner(state: TaskState) -> dict:
             plan=plan_text,
             current_step=current_step,
             result=last_result if last_result else "No result yet.",
-            domain_knowledge=domain_knowledge
+            domain_knowledge=domain_knowledge,
+            hypothesis_section=hypothesis_section
         )
 
     result = router.complete(agent="planner", prompt=prompt, task_id=state["task_id"])
