@@ -9,11 +9,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { Label } from "@/components/ui/label"
 import { ArrowUp, Paperclip, SlidersHorizontal, Menu } from "lucide-react"
 
 export default function EmptyState({ onSubmit, onDomainPacks }) {
   const [query, setQuery]               = useState("")
   const [mode, setMode]                 = useState("qa")   // "qa" | "report"
+  const [requireHumanReview, setRequireHumanReview] = useState(false)   // report mode only
   const [isSubmitting, setIsSubmitting]           = useState(false)
   // Separate from isSubmitting so the button can say "Checking…" during the
   // clarify_task call (which can legitimately take up to 15s) rather than looking
@@ -29,8 +31,8 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
     setIsSubmitting(true)
     setError("")
     try {
-      const res = await submitTask(q, "", type)
-      onSubmit(q, res.data.task_id, type)
+      const res = await submitTask(q, "", type, type === "report" && requireHumanReview)
+      onSubmit(q, res.data.task_id, type, type === "report" && requireHumanReview)
     } catch (err) {
       console.error(err)
       setError(err?.response?.data?.detail || err?.message || "Failed to submit — is the backend running?")
@@ -142,6 +144,18 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
                 </button>
               ))}
             </div>
+
+            {mode === "report" && (
+              <Label className="text-caption text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={requireHumanReview}
+                  onChange={e => setRequireHumanReview(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-border accent-foreground cursor-pointer"
+                />
+                Require my review before finalizing each round
+              </Label>
+            )}
 
             <Card className="w-full shadow-sm border-border focus-within:ring-2 focus-within:ring-ring/20 focus-within:border-foreground/30 transition-all">
               <CardContent className="p-0">

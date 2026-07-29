@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { getTask, submitTask, clarifyTask, stopTask, pauseTask, resumeTask } from "../../api"
+import { getTask, submitTask, clarifyTask, stopTask, pauseTask, resumeTask, submitReviewDecision } from "../../api"
 import { brand } from "../../config/brand"
 import { appendClarificationContext } from "../../lib/clarification"
 import Sidebar from "./Sidebar"
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Menu, Pause, Play, Square } from "lucide-react"
 
-export default function Dashboard({ query, taskId, taskType: initialTaskType, onNew, onDomainPacks }) {
+export default function Dashboard({ query, taskId, taskType: initialTaskType, requireHumanReview = false, onNew, onDomainPacks }) {
   const [task, setTask]                 = useState(null)
   const [activeQuery, setActiveQuery]   = useState(query)
   const [activeTaskId, setActiveTaskId] = useState(taskId)
@@ -20,6 +20,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
   const [isStopping, setIsStopping]     = useState(false)
   const [isPausing, setIsPausing]       = useState(false)
   const [isResuming, setIsResuming]     = useState(false)
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false)
   // Same reasoning as EmptyState's isCheckingClarity — clarify_task can legitimately
   // take up to 15s; the follow-up bar needs its own "Checking…" state instead of
   // looking stuck, distinct from a task actually running.
@@ -35,6 +36,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
     setIsStopping(false)
     setIsPausing(false)
     setIsResuming(false)
+    setIsReviewSubmitting(false)
     const poll = async () => {
       try {
         const r = await getTask(activeTaskId)
@@ -51,12 +53,17 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
 
   const handleStop = async () => {
     if (isStopping) return
+    const wasAwaitingReview = task?.status === "awaiting_review"
     setIsStopping(true)
     try {
       await stopTask(activeTaskId)
       // Cancellation is cooperative (see backend/agents/cancellation.py) — it takes
       // effect at the next safe point, not instantly, so the regular 2s poll picks up
       // the eventual status:"stopped" rather than this handler flipping it optimistically.
+      // Exception: from "awaiting_review" there's no in-flight graph run for a cooperative
+      // check to land on, so the backend stops it synchronously — polling already halted
+      // when status left "running", so it needs restarting here to actually see it.
+      if (wasAwaitingReview) setPollGeneration(g => g + 1)
     } catch (err) {
       console.error("Failed to stop task:", err)
       setIsStopping(false)
@@ -88,9 +95,25 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
     }
   }
 
+  const handleReviewDecision = async (decision) => {
+    if (isReviewSubmitting) return
+    setIsReviewSubmitting(true)
+    try {
+      await submitReviewDecision(activeTaskId, decision)
+      setPollGeneration(g => g + 1)  // restart polling — see the effect above
+    } catch (err) {
+      console.error("Failed to submit review decision:", err)
+      setIsReviewSubmitting(false)
+    }
+  }
+
   const doFollowUp = async (text, type) => {
     try {
-      const res = await submitTask(text, "", type)
+      // Follow-ups reuse the same require_human_review choice made at initial
+      // submission rather than exposing a second toggle in the follow-up bar — a
+      // follow-up is a new task under the hood, but re-asking on every one is friction
+      // nobody asked for.
+      const res = await submitTask(text, "", type, type === "report" && requireHumanReview)
       setActiveTaskId(res.data.task_id); setActiveQuery(text); setActiveTaskType(type); setTask(null)
     } catch (err) { console.error(err) }
   }
@@ -126,24 +149,28 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
     doFollowUp(text, type)
   }
 
-  const isRunning  = task?.status === "running"
-  const isComplete = task?.status === "completed"
-  const isFailed   = task?.status === "failed"
-  const isStopped  = task?.status === "stopped"
-  const isPaused   = task?.status === "paused"
-  const isReport   = activeTaskType === "report"
+  const isRunning        = task?.status === "running"
+  const isComplete       = task?.status === "completed"
+  const isFailed         = task?.status === "failed"
+  const isStopped        = task?.status === "stopped"
+  const isPaused         = task?.status === "paused"
+  const isAwaitingReview = task?.status === "awaiting_review"
+  const isReport         = activeTaskType === "report"
 
   const headerTitle = isFailed ? "Analysis Failed"
     : isStopped ? "Analysis Stopped"
     : isPaused ? "Analysis Paused"
+    : isAwaitingReview ? "Awaiting Your Review"
     : isComplete ? (isReport ? "Research Report" : "Analysis Result")
     : (isReport ? "Report Mode" : "Analysis In Progress")
 
   const modeLabel = isReport ? brand.modeLabels.report : brand.modeLabels.qa
-  const statusLabel = isFailed ? "Failed" : isStopped ? "Stopped" : isPaused ? "Paused" : isComplete ? "Complete" : "Running"
+  const statusLabel = isFailed ? "Failed" : isStopped ? "Stopped" : isPaused ? "Paused"
+    : isAwaitingReview ? "Awaiting Review" : isComplete ? "Complete" : "Running"
   const badgeColor = isFailed ? "bg-danger/10 text-danger border-danger/30"
     : isStopped ? "bg-muted text-muted-foreground border-border"
     : isPaused ? "bg-amber-50 text-amber-600 border-amber-200"
+    : isAwaitingReview ? "bg-indigo-50 text-indigo-600 border-indigo-200"
     : isComplete ? "bg-success/10 text-success border-success/30"
     : isReport ? "bg-purple-50 text-purple-600 border-purple-200"
     : "bg-blue-50 text-blue-600 border-blue-200"
@@ -209,6 +236,19 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
                 <Play className="w-3.5 h-3.5" /> {isResuming ? "Resuming…" : "Resume"}
               </Button>
             )}
+            {isAwaitingReview && (
+              // Refine/Finalize live on the review card itself, below — this is just an
+              // escape hatch for a reviewer who never responds (mirrors Stop's cooperative
+              // mechanism, but the task isn't inside graph.invoke() right now, so the
+              // backend stops it directly instead of waiting for a node boundary).
+              <Button
+                size="sm" variant="outline" onClick={handleStop} disabled={isStopping}
+                title="Stop this analysis without waiting for a review decision"
+                className="h-8 text-body gap-1.5 text-destructive border-destructive/30"
+              >
+                <Square className="w-3.5 h-3.5" /> {isStopping ? "Stopping…" : "Stop"}
+              </Button>
+            )}
             {/* Export controls live inline with the result (CSV in ReportSections,
                 print-to-PDF in ReportView) rather than duplicated here. */}
           </div>
@@ -217,7 +257,10 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, on
         {/* CONTENT */}
         <div className="flex-1 overflow-y-auto bg-background">
           <div className="max-w-7xl mx-auto px-6 py-6">
-            <ReportPanel task={task} query={activeQuery} onFollowUp={handleFollowUp} isFollowUpBusy={isCheckingClarity} />
+            <ReportPanel
+              task={task} query={activeQuery} onFollowUp={handleFollowUp} isFollowUpBusy={isCheckingClarity}
+              onReviewDecision={handleReviewDecision} isReviewSubmitting={isReviewSubmitting}
+            />
           </div>
         </div>
       </div>

@@ -7,9 +7,9 @@ import ResearchProgress from "./ResearchProgress.jsx"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, MessageSquare, CircleStop, PauseCircle } from "lucide-react"
+import { AlertTriangle, MessageSquare, CircleStop, PauseCircle, ClipboardCheck } from "lucide-react"
 
-export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = false }) {
+export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = false, onReviewDecision, isReviewSubmitting = false }) {
   const [steerText, setSteerText] = useState("")
   const isReport  = task?.task_type === "report"
 
@@ -78,6 +78,16 @@ export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = 
   // entry per completed planner round, so its length is the best live proxy.
   const currentRound = task?.cumulative_plan?.length || 0
   const isPaused = task?.status === "paused"
+  const isAwaitingReview = task?.status === "awaiting_review"
+
+  // report_evaluator's verdict/gaps aren't persisted as their own tasks columns — they
+  // only live in the LangGraph checkpoint and in this log entry (see
+  // agents/report_evaluator.py and agents/graph.py's human_review_gate, which logs the
+  // same shape on the checkpoint-pause path). Reading the latest one is the only way the
+  // reviewer sees what the evaluator actually found, not just that a decision is pending.
+  const latestEvaluation = (task?.logs || [])
+    .filter(l => (l.agent === "report_evaluator" || l.agent === "human_review_gate") && l.verdict !== undefined)
+    .at(-1)
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-4xl mx-auto">
@@ -89,6 +99,42 @@ export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = 
               Paused — progress below is preserved. Resume (top right) restarts the step
               that was interrupted; everything before it stays as-is.
             </p>
+          </CardContent>
+        </Card>
+      )}
+      {isAwaitingReview && (
+        <Card className="border-indigo-200 bg-indigo-50">
+          <CardContent className="p-4 flex flex-col gap-3">
+            <div className="flex items-start gap-2.5">
+              <ClipboardCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-indigo-900 font-medium">
+                  Awaiting your review — refine further or finalize the report as-is.
+                </p>
+                {latestEvaluation && (
+                  <p className="text-xs text-indigo-800/80 mt-1">
+                    Evaluator recommends: <span className="font-semibold">{latestEvaluation.verdict}</span>
+                    {latestEvaluation.gaps?.length > 0 && (
+                      <> — gaps: {latestEvaluation.gaps.map(g => g.question).join("; ")}</>
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pl-6.5">
+              <Button
+                size="sm" onClick={() => onReviewDecision?.("finalize")} disabled={isReviewSubmitting}
+                className="h-8 text-body"
+              >
+                {isReviewSubmitting ? "Submitting…" : "Finalize now"}
+              </Button>
+              <Button
+                size="sm" variant="outline" onClick={() => onReviewDecision?.("refine")} disabled={isReviewSubmitting}
+                className="h-8 text-body border-indigo-200 text-indigo-700"
+              >
+                {isReviewSubmitting ? "Submitting…" : "Refine further"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

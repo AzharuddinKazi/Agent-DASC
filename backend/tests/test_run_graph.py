@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import main
-from agents.cancellation import TaskCancelled, TaskPaused
+from agents.cancellation import TaskCancelled, TaskPaused, AwaitingReview
 
 
 @pytest.mark.asyncio
@@ -41,6 +41,26 @@ async def test_run_graph_marks_task_paused_on_task_paused():
 
     update_kwargs = mock_supabase.table.return_value.update.call_args[0][0]
     assert update_kwargs == {"status": "paused"}
+    mock_sentry.capture_exception.assert_not_called()
+    mock_clear.assert_called_once_with("task-123")
+
+
+@pytest.mark.asyncio
+async def test_run_graph_marks_task_awaiting_review_on_awaiting_review():
+    """human_review_gate's pause: not an error, not resumable via the plain Resume
+    button — needs a decision via /review instead, so it gets its own distinct status."""
+    with patch.object(main, "graph") as mock_graph, \
+         patch("main.supabase") as mock_supabase, \
+         patch("main.log_event"), \
+         patch("main.sentry_sdk") as mock_sentry, \
+         patch("main.clear_cancellation") as mock_clear:
+        mock_graph.invoke.side_effect = AwaitingReview("Task task-123 awaiting human review decision")
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        await main.run_graph("task-123", {"task_id": "task-123"})
+
+    update_kwargs = mock_supabase.table.return_value.update.call_args[0][0]
+    assert update_kwargs == {"status": "awaiting_review"}
     mock_sentry.capture_exception.assert_not_called()
     mock_clear.assert_called_once_with("task-123")
 

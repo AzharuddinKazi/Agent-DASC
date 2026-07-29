@@ -3,6 +3,7 @@ from agents import cancellation
 from agents.cancellation import (
     request_stop, request_pause, is_cancelled, is_paused,
     check_interrupt, clear, TaskCancelled, TaskPaused,
+    record_review_decision, get_review_decision,
 )
 
 
@@ -10,9 +11,11 @@ from agents.cancellation import (
 def clean_state():
     cancellation._cancelled.clear()
     cancellation._paused.clear()
+    cancellation._review_decisions.clear()
     yield
     cancellation._cancelled.clear()
     cancellation._paused.clear()
+    cancellation._review_decisions.clear()
 
 
 def test_is_cancelled_false_by_default():
@@ -91,3 +94,31 @@ def test_clearing_pause_flag_allows_resume_to_proceed_without_re_pausing():
         check_interrupt("task-1")
     clear("task-1")
     check_interrupt("task-1")  # simulated resume — must not raise again
+
+
+def test_get_review_decision_none_by_default():
+    assert get_review_decision("task-1") is None
+
+
+def test_record_review_decision_then_get_returns_it():
+    record_review_decision("task-1", "refine")
+    assert get_review_decision("task-1") == "refine"
+
+
+def test_get_review_decision_pops_it():
+    """A decision is consumed exactly once — the next round's human_review_gate visit
+    must find nothing recorded and pause fresh, with no manual reset."""
+    record_review_decision("task-1", "finalize")
+    assert get_review_decision("task-1") == "finalize"
+    assert get_review_decision("task-1") is None
+
+
+def test_record_review_decision_does_not_affect_other_tasks():
+    record_review_decision("task-1", "refine")
+    assert get_review_decision("task-2") is None
+
+
+def test_clear_discards_pending_review_decision():
+    record_review_decision("task-1", "refine")
+    clear("task-1")
+    assert get_review_decision("task-1") is None

@@ -13,7 +13,7 @@ from agents.question_generator import question_generator
 from agents.writer import writer
 from agents.report_evaluator import report_evaluator
 from agents.logger import log_event
-from agents.cancellation import check_interrupt
+from agents.cancellation import check_interrupt, AwaitingReview, get_review_decision
 import json
 
 
@@ -132,13 +132,55 @@ def route_after_writer(state: TaskState) -> str:
 
 
 def route_after_report_evaluator(state: TaskState) -> str:
+    max_rounds = state.get("max_report_rounds", 2)
+    at_round_limit = state.get("report_rounds", 0) >= max_rounds
+
+    # Opt-in paper-fidelity checkpoint: let a human pick refine-vs-finalize instead of
+    # trusting report_evaluator's LLM verdict automatically — but only when refining is
+    # actually still a real choice. At the round limit there's nothing to decide (refine
+    # isn't an option), so skip straight to finalizing exactly like the automatic path.
+    if state.get("require_human_review") and not at_round_limit:
+        return "human_review_gate"
+
     if state.get("report_verdict") == "sufficient":
         return "report_finalizer"
-    max_rounds = state.get("max_report_rounds", 2)
-    if state.get("report_rounds", 0) >= max_rounds:
+    if at_round_limit:
         return "report_finalizer"
     # Add gap sub-questions and loop
     return "gap_question_generator"
+
+
+def route_after_human_review_gate(state: TaskState) -> str:
+    if state.get("human_review_decision") == "refine":
+        return "gap_question_generator"
+    return "report_finalizer"
+
+
+def human_review_gate(state: TaskState) -> dict:
+    """Opt-in checkpoint between report_evaluator and finalize/refine (see
+    route_after_report_evaluator). get_review_decision pops the decision recorded via
+    POST /api/v1/tasks/{id}/review — None means nobody's answered yet for this round, so
+    raise AwaitingReview to unwind graph.invoke() the same way a Pause does (the
+    checkpointer already durably holds state as of report_evaluator's last completed
+    run). Once a decision is recorded, main.py's run_graph resumes with
+    initial_state=None, which replays this node from scratch — this time it finds the
+    decision and returns normally."""
+    from db import supabase
+
+    decision = get_review_decision(state["task_id"])
+    if decision is None:
+        supabase.table("tasks").update({"current_agent": "human_review_gate"}).eq("task_id", state["task_id"]).execute()
+        log_event(state["task_id"], "human_review_gate",
+                  "Awaiting your decision — refine further or finalize the report",
+                  "info", {
+                      "verdict": state.get("report_verdict"),
+                      "gaps":    state.get("report_gaps"),
+                      "round":   state.get("report_rounds", 0),
+                  })
+        raise AwaitingReview(f"Task {state['task_id']} awaiting human review decision")
+
+    log_event(state["task_id"], "human_review_gate", f"Reviewer chose: {decision}", "success")
+    return {"human_review_decision": decision}
 
 
 def gap_question_generator(state: TaskState) -> dict:
@@ -153,11 +195,18 @@ def gap_question_generator(state: TaskState) -> dict:
     gaps          = state.get("report_gaps", [])
     sub_questions = list(state.get("sub_questions", []))
     hypotheses    = dict(state.get("hypotheses", {}))
+    sub_question_rounds = dict(state.get("sub_question_rounds", {}))
+
+    # report_rounds was already bumped by report_evaluator's return value before this node
+    # runs, so it's exactly the refine-round number these new sub-questions belong to (1 for
+    # the first refine loop, 2 for the second, ...) — see writer.py's citation labeling.
+    round_num = state.get("report_rounds", 0)
 
     new_qs = []
     for gap in gaps:
         q = gap["question"] if "?" in gap["question"] else f"{gap['question']}?"
         new_qs.append(q)
+        sub_question_rounds[q] = round_num
         if gap.get("hypothesis"):
             hypotheses[q] = gap["hypothesis"]
     sub_questions.extend(new_qs)
@@ -169,8 +218,9 @@ def gap_question_generator(state: TaskState) -> dict:
               "info", {"gaps": gaps, "new_questions": new_qs, "hypotheses": new_hypotheses})
 
     return {
-        "sub_questions":   sub_questions,
-        "hypotheses":      hypotheses,
+        "sub_questions":       sub_questions,
+        "hypotheses":          hypotheses,
+        "sub_question_rounds": sub_question_rounds,
         "cumulative_plan": [],
         "current_script":  "",
         "execution_result": "",
@@ -228,6 +278,7 @@ def build_graph(checkpointer=None):
     builder.add_node("writer",               _cancellable(writer))
     builder.add_node("report_evaluator",     _cancellable(report_evaluator))
     builder.add_node("gap_question_generator", _cancellable(gap_question_generator))
+    builder.add_node("human_review_gate",    _cancellable(human_review_gate))
     builder.add_node("report_finalizer",     _cancellable(report_finalizer))
 
     # ── Entry ─────────────────────────────────────────────────────────────────
@@ -294,6 +345,16 @@ def build_graph(checkpointer=None):
         route_after_report_evaluator,
         {
             "report_finalizer":      "report_finalizer",
+            "gap_question_generator": "gap_question_generator",
+            "human_review_gate":     "human_review_gate",
+        }
+    )
+
+    builder.add_conditional_edges(
+        "human_review_gate",
+        route_after_human_review_gate,
+        {
+            "report_finalizer":       "report_finalizer",
             "gap_question_generator": "gap_question_generator",
         }
     )

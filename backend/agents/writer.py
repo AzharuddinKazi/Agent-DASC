@@ -1,5 +1,6 @@
 import logging
 import re
+import string
 from agents.state import TaskState
 from agents.logger import log_event
 from llm_router import LLMRouter
@@ -9,6 +10,23 @@ import json
 
 router = LLMRouter()
 logger = logging.getLogger(__name__)
+
+
+def _citation_label(round_num: int, pos_in_round: int) -> str:
+    """Paper spec: numeric [1]..[N] for the initial round, alphabetic [a]..[z] for each
+    refine round, so a claim's round provenance is reconstructable from the citation
+    alone (a continuous numeric scheme loses this — see TASKS.md). The first refine round
+    gets plain letters ("a", "b", ...); later refine rounds are prefixed with their round
+    number ("2a", "2b", ...) since the paper doesn't specify a scheme for more than one
+    refine round and unprefixed letters would collide across rounds. Beyond 26
+    sub-questions in a single round (unlikely — question_generator caps at ~7, gap rounds
+    add a handful more) letters repeat (aa, bb, ...) rather than raising.
+    """
+    if round_num == 0:
+        return str(pos_in_round + 1)
+    letters = string.ascii_lowercase
+    letter_part = letters[pos_in_round % 26] * (pos_in_round // 26 + 1)
+    return letter_part if round_num == 1 else f"{round_num}{letter_part}"
 
 _INVALID_ESCAPE = re.compile(r'\\(?!["\\/bfnrtu])')
 
@@ -48,12 +66,14 @@ formal, publication-quality report — NOT a list of data summaries.
    that might be "Revenue Risk" / "Growth Trend"; for an operations query it might be
    "Efficiency" / "Reliability") and use them consistently as the keys in each risk_matrix
    entry's "dimensions" object.
-7. CITE your sources. Each numbered analysis above (Analysis 1, Analysis 2, ...) is a
-   citable source. Every claim in executive_summary, section bodies, key_stat, and
-   conclusions must end with a bracketed citation to the analysis/analyses it draws from,
-   e.g. "...a 8.3% rate, nearly 3× the average of 2.9% [2]." or "...across three regions
-   [1,4]." Do NOT invent a "sources" or "references" field yourself — citation numbers are
-   the only citation mechanism; the reference list is attached separately.
+7. CITE your sources. Each analysis below is labeled with the EXACT bracketed tag you must
+   use to cite it — copy that tag verbatim, do not renumber. Every claim in
+   executive_summary, section bodies, key_stat, and conclusions must end with a bracketed
+   citation to the analysis/analyses it draws from, e.g. "...a 8.3% rate, nearly 3× the
+   average of 2.9% [2]." or "...across three regions [1,4]." or "...confirmed in a
+   follow-up check [a]." Do NOT invent a "sources" or "references" field yourself —
+   citation tags are the only citation mechanism; the reference list is attached
+   separately.
 8. Where an analysis states the hypothesis it tested, explicitly say whether that hypothesis
    was CONFIRMED, REFUTED, or NUANCED (partially true, true under specific conditions, etc.)
    — don't just report the number, state what it means for the claim being tested. The
@@ -128,12 +148,24 @@ def writer(state: TaskState) -> dict:
     sub_questions = state.get("sub_questions", [])
     sub_results   = state.get("sub_results", {})
     hypotheses    = state.get("hypotheses", {})
+    sq_rounds     = state.get("sub_question_rounds", {})
+
+    # Citation label per sub-question, partitioned by the round it was added in (numeric
+    # for the initial round, alphabetic per refine round) — see _citation_label(). Position
+    # within a round is its rank among sub-questions sharing that round, in narrative order.
+    round_counts = {}
+    labels = {}
+    for sq in sub_questions:
+        r = sq_rounds.get(sq, 0)
+        pos = round_counts.get(r, 0)
+        labels[sq] = _citation_label(r, pos)
+        round_counts[r] = pos + 1
 
     sub_analyses_parts = []
-    for i, sq in enumerate(sub_questions):
+    for sq in sub_questions:
         sr = sub_results.get(sq, {})
         hypothesis_line = f"\nHypothesis tested: {hypotheses[sq]}" if hypotheses.get(sq) else ""
-        part = f"""### Analysis {i+1}: {sq}{hypothesis_line}
+        part = f"""### Analysis [{labels[sq]}]: {sq}{hypothesis_line}
 Summary: {sr.get('summary', 'No result available')}
 Key Findings: {json.dumps(sr.get('key_findings', []), indent=2)}
 Columns: {json.dumps(sr.get('columns', []))}
@@ -154,17 +186,18 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
     if report_text.startswith("```"):
         report_text = re.sub(r"^```[a-z]*\n?", "", report_text).rstrip("`").strip()
 
-    # The LLM only emits [N] citation markers in the prose — the reference list itself is
-    # built here from sub_questions, not trusted to the LLM, so citation numbers are always
-    # correct/complete even if the model omits or miscounts them.
+    # The LLM only emits [label] citation markers in the prose — the reference list itself
+    # is built here from sub_questions, not trusted to the LLM, so citation labels are
+    # always correct/complete even if the model omits or miscounts them.
     sources = [
         {
-            "id": i + 1,
+            "id": labels[sq],
+            "round": sq_rounds.get(sq, 0),
             "question": sq,
             "summary": sub_results.get(sq, {}).get("summary", ""),
             "hypothesis": hypotheses.get(sq, ""),
         }
-        for i, sq in enumerate(sub_questions)
+        for sq in sub_questions
     ]
     try:
         parsed = json.loads(report_text)

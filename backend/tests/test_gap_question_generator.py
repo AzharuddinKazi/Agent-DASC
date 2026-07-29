@@ -52,6 +52,26 @@ def test_gap_with_no_hypothesis_does_not_add_empty_entry():
     assert "No hypothesis here?" not in result["hypotheses"]
 
 
+def test_stamps_new_questions_with_current_round():
+    """report_rounds has already been bumped by report_evaluator by the time this node
+    runs, so it's exactly the refine-round number new gap questions belong to — see
+    writer.py's citation labeling (round 0 = initial, 1+ = refine rounds)."""
+    state = base_state(
+        report_rounds=1,
+        sub_question_rounds={"Fraud rate by entity?": 0},
+    )
+    with patch("db.supabase") as mock_supabase, \
+         patch("agents.graph.log_event"):
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        result = gap_question_generator(state)
+
+    assert result["sub_question_rounds"] == {
+        "Fraud rate by entity?": 0,
+        "What drives the top entity's fraud rate?": 1,
+    }
+
+
 def test_resets_qa_pipeline_state():
     with patch("db.supabase") as mock_supabase, \
          patch("agents.graph.log_event"):

@@ -79,6 +79,10 @@ def test_graph_wires_the_key_report_mode_transitions():
     assert ("gap_question_generator", "planner") in edges
     assert ("report_evaluator", "report_finalizer") in edges
     assert ("report_finalizer", "__end__") in edges
+    # Opt-in human-in-the-loop refine-vs-finalize checkpoint (see route_after_report_evaluator)
+    assert ("report_evaluator", "human_review_gate") in edges
+    assert ("human_review_gate", "report_finalizer") in edges
+    assert ("human_review_gate", "gap_question_generator") in edges
 
 
 def test_graph_wires_the_key_qa_mode_transitions():

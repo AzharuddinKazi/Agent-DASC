@@ -152,8 +152,9 @@ def question_generator(state: TaskState) -> dict:
               "success", {"sub_questions": sub_questions, "hypotheses": hypotheses})
 
     return {
-        "sub_questions":   sub_questions,
-        "hypotheses":      hypotheses,
-        "current_sub_idx": 0,
-        "sub_results":     {},
+        "sub_questions":       sub_questions,
+        "hypotheses":          hypotheses,
+        "current_sub_idx":     0,
+        "sub_results":         {},
+        "sub_question_rounds": {q: 0 for q in sub_questions},
     }

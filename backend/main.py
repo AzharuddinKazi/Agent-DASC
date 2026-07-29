@@ -9,7 +9,10 @@ import sentry_sdk
 from agents.graph import build_graph
 from agents.logger import log_event
 from agents.query_clarity import generate_clarifying_questions
-from agents.cancellation import request_stop, request_pause, clear as clear_cancellation, TaskCancelled, TaskPaused
+from agents.cancellation import (
+    request_stop, request_pause, clear as clear_cancellation,
+    record_review_decision, TaskCancelled, TaskPaused, AwaitingReview,
+)
 from auth import get_current_user
 from db import supabase
 from observability import configure_logging, configure_error_tracking
@@ -104,12 +107,17 @@ class TaskSubmission(BaseModel):
     domain_pack_id: str | None = None   # pins a specific pack for this task; None = use whichever pack is globally active
     max_rounds: int = Field(default=3, ge=1, le=5)          # QA planning steps (paper default: 3)
     max_report_rounds: int = Field(default=2, ge=1, le=4)   # writer<->evaluator passes (DS-STAR+ only)
+    require_human_review: bool = False   # opt-in refine-vs-finalize checkpoint (report mode only)
 
 
 class TaskClarification(BaseModel):
     query: str
     task_type: str = "qa"
     domain_pack_id: str | None = None
+
+
+class ReviewDecision(BaseModel):
+    decision: str   # "refine" | "finalize"
 
 
 async def run_graph(task_id: str, initial_state: dict | None):
@@ -146,6 +154,12 @@ async def run_graph(task_id: str, initial_state: dict | None):
         # and the same thread_id, which replays from exactly that point.
         log_event(task_id, "system", "Paused by user", "info")
         supabase.table("tasks").update({"status": "paused"}).eq("task_id", task_id).execute()
+    except AwaitingReview:
+        # Same reasoning as the TaskPaused branch above — nothing to persist beyond the
+        # status flip, the checkpointer already durably holds state as of
+        # report_evaluator's last completed run. human_review_gate itself already logged
+        # the verdict/gaps the reviewer needs to see (see graph.py).
+        supabase.table("tasks").update({"status": "awaiting_review"}).eq("task_id", task_id).execute()
     except Exception as e:
         logger.exception(f"Task {task_id} failed")
         sentry_sdk.capture_exception(e)
@@ -263,6 +277,8 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
         "report_gaps":           [],
         "report_rounds":         0,
         "max_report_rounds":     task.max_report_rounds,   # writer→evaluator passes before forcing finalizer
+        "require_human_review":  task.require_human_review,
+        "human_review_decision": "",
     }
 
     supabase.table("tasks").insert({
@@ -285,6 +301,7 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
         "domain_pack_id":       domain_pack_id,
         "max_rounds":           task.max_rounds,
         "max_report_rounds":    task.max_report_rounds,
+        "require_human_review": task.require_human_review,
     }
 
 
@@ -325,7 +342,21 @@ async def stop_task(task_id: str, user=Depends(get_current_user)):
     response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Task not found")
-    if response.data[0]["status"] != "running":
+    status = response.data[0]["status"]
+
+    if status == "awaiting_review":
+        # No in-flight graph.invoke() to cooperatively interrupt here — the task is
+        # parked outside it entirely, waiting on a human_review_gate decision that may
+        # never come. Stop it directly rather than via request_stop(), which only takes
+        # effect the next time the graph actually runs.
+        clear_cancellation(task_id)
+        supabase.table("tasks").update({
+            "status": "stopped", "final_result": "Stopped by user"
+        }).eq("task_id", task_id).execute()
+        log_event(task_id, "system", "Stopped by user while awaiting review", "info")
+        return {"task_id": task_id, "status": "stopped"}
+
+    if status != "running":
         raise HTTPException(status_code=409, detail="Task is not running")
 
     request_stop(task_id)
@@ -360,6 +391,28 @@ async def resume_task(task_id: str, background_tasks: BackgroundTasks, user=Depe
     supabase.table("tasks").update({"status": "running"}).eq("task_id", task_id).execute()
     log_event(task_id, "system", "Resumed by user", "info")
     # initial_state=None is the resume signal — see run_graph's docstring.
+    background_tasks.add_task(run_graph, task_id, None)
+    return {"task_id": task_id, "status": "running"}
+
+
+@app.post("/api/v1/tasks/{task_id}/review", summary="Submit Review Decision", tags=["Tasks"])
+async def submit_review_decision(task_id: str, body: ReviewDecision, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+    """Answers a human_review_gate checkpoint (see agents/graph.py) — the opt-in
+    refine-vs-finalize decision point for report mode. Mirrors resume_task's shape: same
+    404/409 checks, same initial_state=None resume signal, but records a decision first
+    so human_review_gate finds it on replay instead of pausing again."""
+    if body.decision not in ("refine", "finalize"):
+        raise HTTPException(status_code=422, detail='decision must be "refine" or "finalize"')
+
+    response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if response.data[0]["status"] != "awaiting_review":
+        raise HTTPException(status_code=409, detail="Task is not awaiting review")
+
+    record_review_decision(task_id, body.decision)
+    supabase.table("tasks").update({"status": "running"}).eq("task_id", task_id).execute()
+    log_event(task_id, "system", f"Reviewer chose: {body.decision}", "info")
     background_tasks.add_task(run_graph, task_id, None)
     return {"task_id": task_id, "status": "running"}
 

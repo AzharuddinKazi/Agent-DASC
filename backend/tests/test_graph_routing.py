@@ -7,6 +7,7 @@ from agents.graph import (
     route_after_sub_collector,
     route_after_writer,
     route_after_report_evaluator,
+    route_after_human_review_gate,
 )
 
 
@@ -139,3 +140,43 @@ def test_route_after_report_evaluator_insufficient_at_limit_goes_to_report_final
     the evaluator is still unhappy — otherwise the gap loop never terminates."""
     state = {"report_verdict": "insufficient", "report_rounds": 2, "max_report_rounds": 2}
     assert route_after_report_evaluator(state) == "report_finalizer"
+
+
+def test_route_after_report_evaluator_human_review_flag_off_is_unaffected():
+    """require_human_review defaults to False/absent — existing automatic routing must be
+    bit-for-bit unchanged when the flag isn't set."""
+    state = {"report_verdict": "sufficient", "report_rounds": 0, "max_report_rounds": 2}
+    assert route_after_report_evaluator(state) == "report_finalizer"
+    state = {"report_verdict": "insufficient", "report_rounds": 0, "max_report_rounds": 2}
+    assert route_after_report_evaluator(state) == "gap_question_generator"
+
+
+def test_route_after_report_evaluator_human_review_flag_on_under_limit_goes_to_gate():
+    """Regardless of the evaluator's own verdict, a human should get to weigh in when
+    refining is still actually possible."""
+    for verdict in ("sufficient", "insufficient"):
+        state = {"report_verdict": verdict, "report_rounds": 0, "max_report_rounds": 2,
+                  "require_human_review": True}
+        assert route_after_report_evaluator(state) == "human_review_gate"
+
+
+def test_route_after_report_evaluator_human_review_flag_on_at_limit_skips_gate():
+    """At the round limit there's no real choice left (refine isn't an option) — skip the
+    gate and finalize automatically, same as the flag-off path."""
+    state = {"report_verdict": "insufficient", "report_rounds": 2, "max_report_rounds": 2,
+              "require_human_review": True}
+    assert route_after_report_evaluator(state) == "report_finalizer"
+
+
+# ── route_after_human_review_gate ────────────────────────────────────────────
+
+def test_route_after_human_review_gate_refine_goes_to_gap_question_generator():
+    assert route_after_human_review_gate({"human_review_decision": "refine"}) == "gap_question_generator"
+
+
+def test_route_after_human_review_gate_finalize_goes_to_report_finalizer():
+    assert route_after_human_review_gate({"human_review_decision": "finalize"}) == "report_finalizer"
+
+
+def test_route_after_human_review_gate_missing_decision_defaults_to_finalizer():
+    assert route_after_human_review_gate({}) == "report_finalizer"

@@ -35,6 +35,12 @@ need this in Postgres/Redis instead, since each worker would have its own copy.
 _cancelled: set[str] = set()
 _paused: set[str] = set()
 
+# Pending human decisions for the report-mode refine-vs-finalize checkpoint (see
+# graph.py's human_review_gate). Same module-level, in-process pattern and the same
+# single-worker-process caveat as _cancelled/_paused above — not durable across a
+# multi-worker deployment, but this codebase runs `uvicorn main:app` with no --workers.
+_review_decisions: dict[str, str] = {}
+
 
 class TaskCancelled(Exception):
     """Raised from within a graph node to unwind a stopped task's graph.invoke() call."""
@@ -43,6 +49,16 @@ class TaskCancelled(Exception):
 class TaskPaused(Exception):
     """Raised from within a graph node to unwind a paused task's graph.invoke() call,
     leaving its last checkpoint intact for a later resume."""
+
+
+class AwaitingReview(Exception):
+    """Raised from human_review_gate to unwind a report-mode task's graph.invoke() call
+    when require_human_review is set and no decision has been recorded yet for the
+    current round. Same unwind mechanism as TaskPaused (the checkpointer already holds
+    state as of report_evaluator's last completed run), but a distinct exception so
+    main.py's run_graph can set a distinct status ("awaiting_review" vs "paused") — the
+    two differ in what makes them resumable: a plain Pause just needs a Resume call, this
+    needs an actual decision (see record_review_decision/get_review_decision)."""
 
 
 def request_stop(task_id: str) -> None:
@@ -59,6 +75,17 @@ def is_cancelled(task_id: str) -> bool:
 
 def is_paused(task_id: str) -> bool:
     return task_id in _paused
+
+
+def record_review_decision(task_id: str, decision: str) -> None:
+    _review_decisions[task_id] = decision
+
+
+def get_review_decision(task_id: str) -> str | None:
+    """Pops the recorded decision (if any) — a decision is consumed exactly once, so the
+    *next* round's human_review_gate visit finds nothing recorded and pauses fresh again,
+    with no separate reset step needed."""
+    return _review_decisions.pop(task_id, None)
 
 
 def check_interrupt(task_id: str) -> None:
@@ -80,3 +107,4 @@ def clear(task_id: str) -> None:
     in-memory sets from growing unboundedly over the process's lifetime."""
     _cancelled.discard(task_id)
     _paused.discard(task_id)
+    _review_decisions.pop(task_id, None)

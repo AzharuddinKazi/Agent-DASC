@@ -52,6 +52,10 @@ def test_parses_hypothesis_question_pairs():
     }
     assert result["current_sub_idx"] == 0
     assert result["sub_results"] == {}
+    assert result["sub_question_rounds"] == {
+        "Fraud rate by entity, ranked.": 0,
+        "Channel mix for the top-5 fraud entities.": 0,
+    }
 
 
 def test_dedupes_by_question_text_preserving_order():
