@@ -36,10 +36,21 @@ def test_route_after_executor_failure_under_debug_limit_goes_to_debugger():
     assert route_after_executor({"exit_code": 1, "debug_attempts": 1}) == "debugger"
 
 
-def test_route_after_executor_failure_at_debug_limit_goes_to_finalizer():
+def test_route_after_executor_failure_at_debug_limit_qa_mode_goes_to_finalizer():
     """Boundary: debug_attempts == 2 (the limit) must stop retrying, not allow one more."""
     assert route_after_executor({"exit_code": 1, "debug_attempts": 2}) == "finalizer"
     assert route_after_executor({"exit_code": 1, "debug_attempts": 5}) == "finalizer"
+    assert route_after_executor({"exit_code": 1, "debug_attempts": 2, "task_type": "qa"}) == "finalizer"
+
+
+def test_route_after_executor_failure_at_debug_limit_report_mode_goes_to_sub_result_collector():
+    """Regression test: one sub-question exhausting its debug retries in report mode
+    used to route to the QA-only finalizer, discarding every already-verified
+    sub-analysis for the whole report the moment a single later sub-question failed."""
+    assert route_after_executor(
+        {"exit_code": 1, "debug_attempts": 2, "task_type": "report"}) == "sub_result_collector"
+    assert route_after_executor(
+        {"exit_code": 1, "debug_attempts": 5, "task_type": "report"}) == "sub_result_collector"
 
 
 def test_route_after_executor_defaults_debug_attempts_to_zero():

@@ -1,5 +1,4 @@
 import logging
-import os
 
 from agents.state import TaskState, current_objective
 from agents.logger import log_event

@@ -125,8 +125,16 @@ def finalizer(state: TaskState) -> dict:
                   f"Finalizer script failed — debug attempt {attempt}/{MAX_FINALIZER_DEBUG_ATTEMPTS}",
                   "error", {"attempt": attempt})
 
-        debug_prompt = DEBUGGER_PROMPT.format(filenames=filenames, code=final_script, bug=stderr)
-        fix_result   = router.complete(agent="debugger", prompt=debug_prompt, task_id=state["task_id"])
+        if "SyntaxError" in stderr or "IndentationError" in stderr:
+            # A SyntaxError here almost always means the previous generation was cut
+            # off mid-token (e.g. a string literal left unterminated), not a logic bug
+            # to patch — asking the model to "fix" an already-incomplete fragment tends
+            # to just reproduce the same truncation. A fresh attempt from the original,
+            # complete prompt is far more likely to come back as valid, complete code.
+            fix_result = router.complete(agent="finalizer", prompt=prompt, task_id=state["task_id"])
+        else:
+            debug_prompt = DEBUGGER_PROMPT.format(filenames=filenames, code=final_script, bug=stderr)
+            fix_result   = router.complete(agent="debugger", prompt=debug_prompt, task_id=state["task_id"])
         final_script = strip_code_fences(fix_result["text"].strip())
 
         stdout, stderr, exit_code = execute_script(final_script, state["task_id"])

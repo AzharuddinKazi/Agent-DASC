@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-from main import app
+from main import app, _reconcile_orphaned_tasks
 from auth import get_current_user
 
 client = TestClient(app)
@@ -433,3 +433,88 @@ def test_get_domain_pack_config_returns_prompt_config_fields():
         "subquestion_dimensions": ["Transaction risk", "KYC compliance"],
     }
     mock_get_config.assert_called_once_with(override_pack_id="fraud-aml")
+
+
+def test_get_llm_speed_profile_returns_current_profile_and_models():
+    with patch("main.get_speed_profile", return_value="free"):
+        response = client.get("/api/v1/llm_speed_profile")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["profile"] == "free"
+    assert set(body["models"]) == {"high", "medium", "low"}
+    assert all(m.endswith(":free") for m in body["models"].values())
+
+
+def test_set_llm_speed_profile_to_fast_paid_upserts_app_settings():
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+        response = client.post("/api/v1/llm_speed_profile", json={"profile": "fast_paid"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["profile"] == "fast_paid"
+    assert not body["models"]["high"].endswith(":free")
+    assert not body["models"]["medium"].endswith(":free")
+    mock_sb.table.return_value.upsert.assert_called_once_with(
+        {"key": "llm_speed_profile", "value": "fast_paid"})
+
+
+def test_set_llm_speed_profile_rejects_an_invalid_profile():
+    response = client.post("/api/v1/llm_speed_profile", json={"profile": "ludicrous_speed"})
+    assert response.status_code == 422
+
+
+def test_set_llm_speed_profile_requires_auth():
+    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        response = client.post("/api/v1/llm_speed_profile", json={"profile": "free"})
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_reconcile_orphaned_tasks_marks_running_tasks_as_failed():
+    """The core bug this fixes: a task killed mid-run by a server restart is stuck at
+    "running" forever with nothing to ever flip it — this runs once at startup, before
+    any request is served, so any "running" row found here is provably orphaned from a
+    previous process."""
+    mock_select_result = MagicMock()
+    mock_select_result.data = [{"task_id": "orphan-1"}, {"task_id": "orphan-2"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.log_event") as mock_log_event:
+        mock_sb.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_select_result
+        mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        _reconcile_orphaned_tasks()
+
+    mock_sb.table.return_value.select.return_value.eq.assert_called_once_with("status", "running")
+    update_calls = mock_sb.table.return_value.update.call_args_list
+    assert len(update_calls) == 2
+    for call in update_calls:
+        body = call[0][0]
+        assert body["status"] == "failed"
+        assert "restart" in body["final_result"].lower()
+    assert mock_log_event.call_count == 2
+
+
+def test_reconcile_orphaned_tasks_is_a_noop_when_nothing_is_orphaned():
+    mock_select_result = MagicMock()
+    mock_select_result.data = []
+
+    with patch("main.supabase") as mock_sb, patch("main.log_event") as mock_log_event:
+        mock_sb.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_select_result
+
+        _reconcile_orphaned_tasks()
+
+    mock_sb.table.return_value.update.assert_not_called()
+    mock_log_event.assert_not_called()
+
+
+def test_reconcile_orphaned_tasks_does_not_crash_if_the_db_is_unreachable():
+    """Startup must not fail just because this best-effort cleanup couldn't run — a DB
+    outage here shouldn't block the whole app from starting."""
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.side_effect = Exception("connection refused")
+        _reconcile_orphaned_tasks()   # must not raise

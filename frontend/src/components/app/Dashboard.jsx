@@ -8,7 +8,7 @@ import ClarifyingQuestionsModal from "./ClarifyingQuestionsModal"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Menu, Pause, Play, Square } from "lucide-react"
+import { Menu, Pause, Play, Square, RotateCcw } from "lucide-react"
 
 export default function Dashboard({ query, taskId, taskType: initialTaskType, requireHumanReview = false, onNew, onDomainPacks }) {
   const [task, setTask]                 = useState(null)
@@ -20,6 +20,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
   const [isStopping, setIsStopping]     = useState(false)
   const [isPausing, setIsPausing]       = useState(false)
   const [isResuming, setIsResuming]     = useState(false)
+  const [isRerunning, setIsRerunning]   = useState(false)
   const [isReviewSubmitting, setIsReviewSubmitting] = useState(false)
   // Same reasoning as EmptyState's isCheckingClarity — clarify_task can legitimately
   // take up to 15s; the follow-up bar needs its own "Checking…" state instead of
@@ -36,6 +37,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
     setIsStopping(false)
     setIsPausing(false)
     setIsResuming(false)
+    setIsRerunning(false)
     setIsReviewSubmitting(false)
     const poll = async () => {
       try {
@@ -92,6 +94,24 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
     } catch (err) {
       console.error("Failed to resume task:", err)
       setIsResuming(false)
+    }
+  }
+
+  const handleRerun = async () => {
+    if (isRerunning) return
+    setIsRerunning(true)
+    try {
+      // A failed run's checkpoint may reflect whatever broken intermediate state
+      // caused the failure — not safe to resume from. Submitting fresh (same query/
+      // type/settings, new task_id) is the same pattern EmptyState/doFollowUp already
+      // use, and guarantees a clean start rather than replaying a known-bad state.
+      const res = await submitTask(activeQuery, "", activeTaskType, activeTaskType === "report" && requireHumanReview)
+      setActiveTaskId(res.data.task_id)
+      setTask(null)
+    } catch (err) {
+      console.error("Failed to rerun task:", err)
+    } finally {
+      setIsRerunning(false)
     }
   }
 
@@ -247,6 +267,15 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
                 className="h-8 text-body gap-1.5 text-destructive border-destructive/30"
               >
                 <Square className="w-3.5 h-3.5" /> {isStopping ? "Stopping…" : "Stop"}
+              </Button>
+            )}
+            {isFailed && (
+              <Button
+                size="sm" variant="outline" onClick={handleRerun} disabled={isRerunning}
+                title="Submit this same query again as a new analysis"
+                className="h-8 text-body gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> {isRerunning ? "Rerunning…" : "Rerun"}
               </Button>
             )}
             {/* Export controls live inline with the result (CSV in ReportSections,

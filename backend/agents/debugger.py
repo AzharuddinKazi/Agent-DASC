@@ -3,7 +3,7 @@ from agents.code_fences import strip_code_fences
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
-import logging, os
+import logging
 router = LLMRouter()
 logger = logging.getLogger(__name__)
 

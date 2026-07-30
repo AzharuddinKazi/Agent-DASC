@@ -1,6 +1,6 @@
 from db import supabase
 from agents.logger import log_event
-import logging, os
+import logging
 from agents.state import TaskState
 from agents.code_fences import strip_code_fences
 from agents.domain_knowledge import retrieve_grounded_knowledge
@@ -88,7 +88,6 @@ def coder(state: TaskState) -> dict:
     summaries = state["data_descriptions"]
     cumulative_plan = state["cumulative_plan"]
     prior_script = state.get("current_script", "")
-    current_round = state["current_round"]
 
     summaries_text = "\n".join(
         f"File: {fname}\n{desc}"

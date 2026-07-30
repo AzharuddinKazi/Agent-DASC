@@ -90,6 +90,35 @@ def test_finalizer_recovers_after_one_debug_attempt():
     assert mock_router.complete.call_args_list[1].kwargs["agent"] == "debugger"
 
 
+def test_finalizer_retries_a_syntax_error_with_a_fresh_generation_not_a_patch():
+    """Regression test: a SyntaxError almost always means the previous generation was
+    cut off mid-token (e.g. an unterminated string literal), not a logic bug to patch —
+    feeding the already-truncated fragment back into the debugger prompt as "code to
+    fix" tends to just reproduce the same truncation. Must re-run the original,
+    complete finalizer prompt fresh instead of routing through the debugger."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.side_effect = [
+            make_mock_llm_result("outpatient_df = pd.read_csv('/workspace/data/medicare"),  # truncated
+            make_mock_llm_result("print('42')"),                                             # fresh retry
+        ]
+        mock_execute.side_effect = [
+            ("", "  File \"step.py\", line 1\nSyntaxError: unterminated string literal", 1),
+            ("42\n", "", 0),
+        ]
+
+        result = finalizer(base_state())
+
+    assert result["status"] == "completed"
+    assert result["final_result"] == "42\n"
+    retry_call = mock_router.complete.call_args_list[1]
+    assert retry_call.kwargs["agent"] == "finalizer"
+    assert retry_call.kwargs["prompt"] == mock_router.complete.call_args_list[0].kwargs["prompt"]
+
+
 def test_finalizer_injects_real_debug_attempts_and_files_used_into_json_output():
     """Regression test for the fabricated-stats bug: the Insight dashboard used to show a
     client-side guessed token/cost estimate because no real provenance reached the

@@ -43,7 +43,10 @@ def _strip_invalid_escapes(text: str) -> str:
 # the active domain pack's config and can change at runtime — see _build_prompt() below.
 _PROMPT_HEAD = """
 You have completed {sub_q_count} targeted data analyses. Your job is to synthesise these into a
-formal, publication-quality report — NOT a list of data summaries.
+formal, publication-quality report — NOT a list of data summaries. Write a genuinely
+comprehensive, thorough report: do not artificially limit length. A short report that merely
+touches each theme is a worse report than a long one that actually develops its arguments —
+depth and completeness matter more than brevity here.
 
 # Research Query (the report must answer this)
 {question}
@@ -84,6 +87,10 @@ formal, publication-quality report — NOT a list of data summaries.
    "\\$592,300"; a backslash is only ever valid before ", \\, /, b, f, n, r, t, or u. Use
    plain ASCII square brackets for citations, e.g. [2] or [1,4] — never full-width or any
    other bracket variant.
+10. BE THOROUGH. This is a comprehensive report, not an abstract. Fully develop every theme
+    you raise — explain the mechanism behind a finding, not just the number; discuss its
+    implications; connect it to other findings. If a section only takes a paragraph or two to
+    state, you have not developed it enough yet.
 
 # Required Output Format (strict JSON — return ONLY this, no markdown fences)
 {{
@@ -91,11 +98,11 @@ formal, publication-quality report — NOT a list of data summaries.
 
 _PROMPT_TAIL = """
   "reporting_period": "Based on available data",
-  "executive_summary": "4-6 sentences. State the most critical findings directly. Name the standout entities. Quantify the impact. End with the overall assessment.",
+  "executive_summary": "A thorough overview (typically 8-12+ sentences, more if the findings warrant it) — do not compress this into a handful of sentences. State the most critical findings directly. Name the standout entities. Quantify the impact. Touch on every major theme the report goes on to develop. End with the overall assessment.",
   "sections": [
     {{
       "heading": "Thematic section heading (e.g. '1. Revenue Trends and Growth')",
-      "body": "3-5 paragraphs of formal narrative. Must include specific entity names/IDs, exact figures, comparisons to benchmarks, and cross-references to other dimensions. Use markdown for emphasis: **bold** for key entities, `code` for metric names.",
+      "body": "As many paragraphs as the theme genuinely warrants — typically 5-10+, not an artificial minimum. Fully develop the argument: specific entity names/IDs, exact figures, comparisons to benchmarks, cross-references to other dimensions, and discussion of what the numbers mean and why they matter. Use markdown for emphasis: **bold** for key entities, `code` for metric names.",
       "key_stat": "Single most important number from this section (e.g. 'Average growth rate: 4.2%')"
     }}
   ],
@@ -107,7 +114,7 @@ _PROMPT_TAIL = """
       "priority_action": "One-line recommended action"
     }}
   ],
-  "conclusions": "5-7 sentences summarising overall findings and the urgency of action required.",
+  "conclusions": "A comprehensive closing synthesis (typically 8-10+ sentences) summarising overall findings, tying the sections' arguments together, and stating the urgency of action required.",
   "recommendations": [
     "Specific recommendation 1 addressed to a named entity or the whole population",
     "Specific recommendation 2",
