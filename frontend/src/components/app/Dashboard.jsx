@@ -179,7 +179,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
     <div className="h-screen flex bg-background overflow-hidden font-sans">
 
       {/* Permanent sidebar (desktop) */}
-      <div className="hidden md:flex w-60 shrink-0 border-r border-border flex-col bg-sidebar">
+      <div className="hidden md:flex w-64 shrink-0 border-r border-border flex-col bg-sidebar">
         <Sidebar onNew={onNew} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={onDomainPacks} />
       </div>
 
@@ -195,7 +195,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
                   <Menu className="w-4 h-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-60 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
+              <SheetContent side="left" className="w-64 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} />
               </SheetContent>

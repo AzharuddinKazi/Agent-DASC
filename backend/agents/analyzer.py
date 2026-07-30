@@ -6,7 +6,6 @@ from agents.state import TaskState
 from agents.code_fences import strip_code_fences
 from agents.logger import log_event
 from db import supabase
-import json
 from llm_router import LLMRouter
 
 router = LLMRouter()

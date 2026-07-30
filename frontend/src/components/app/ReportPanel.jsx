@@ -20,10 +20,8 @@ export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = 
     return (
       <ReportSections
         result={task.final_result}
-        query={query}
         script={task.current_script}
         plan={task.cumulative_plan}
-        taskId={task.task_id}
         onFollowUp={onFollowUp}
         isFollowUpBusy={isFollowUpBusy}
       />
@@ -146,7 +144,7 @@ export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = 
       ) : (
         <>
           <PipelineHeader query={query} currentRound={currentRound} isReport={false} />
-          <PipelineTimeline logs={task?.logs || []} currentScript={task?.current_script} isRunning={!isPaused} />
+          <PipelineTimeline logs={task?.logs || []} currentScript={task?.current_script} />
         </>
       )}
 

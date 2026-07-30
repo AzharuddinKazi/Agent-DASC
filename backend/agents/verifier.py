@@ -3,7 +3,7 @@ from agents.domain_knowledge import retrieve_grounded_knowledge
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
-import logging, os
+import logging
 
 router = LLMRouter()
 logger = logging.getLogger(__name__)

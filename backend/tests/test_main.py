@@ -408,3 +408,28 @@ def test_get_task_not_found():
         response = client.get("/api/v1/get_task/nonexistent-id")
 
     assert response.status_code == 404
+
+
+def test_get_domain_pack_config_returns_404_for_unknown_pack():
+    response = client.get("/api/v1/domain_packs/not-a-real-pack/config")
+    assert response.status_code == 404
+
+
+def test_get_domain_pack_config_returns_prompt_config_fields():
+    with patch("main.domain_pack.get_active_pack_config") as mock_get_config:
+        mock_get_config.return_value = {
+            "pack_id": "fraud-aml",
+            "report_persona": "You are a senior AML investigator.",
+            "report_classification": "Confidential — Supervisory Use Only",
+            "subquestion_dimensions": ["Transaction risk", "KYC compliance"],
+        }
+        response = client.get("/api/v1/domain_packs/fraud-aml/config")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {
+        "report_persona": "You are a senior AML investigator.",
+        "report_classification": "Confidential — Supervisory Use Only",
+        "subquestion_dimensions": ["Transaction risk", "KYC compliance"],
+    }
+    mock_get_config.assert_called_once_with(override_pack_id="fraud-aml")

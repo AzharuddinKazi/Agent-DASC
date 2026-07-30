@@ -53,7 +53,7 @@ function collapseSteps(logs) {
   return steps
 }
 
-export default function PipelineTimeline({ logs = [], currentScript, isRunning }) {
+export default function PipelineTimeline({ logs = [], currentScript }) {
   const steps = collapseSteps(logs)
   // Some agents (Planner, Coder) only ever log a single "running" event — there's no
   // matching success/error log to close them out. If a later step has already started,
