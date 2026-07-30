@@ -2,6 +2,7 @@ import { useState } from "react"
 import { submitTask, clarifyTask } from "../../api"
 import { brand } from "../../config/brand"
 import { appendClarificationContext } from "../../lib/clarification"
+import { useActiveDomainPack } from "../../hooks/useActiveDomainPack"
 import Sidebar from "./Sidebar"
 import ClarifyingQuestionsModal from "./ClarifyingQuestionsModal"
 import { Button } from "@/components/ui/button"
@@ -10,9 +11,10 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Label } from "@/components/ui/label"
-import { ArrowUp, Menu } from "lucide-react"
+import { ArrowUp, Menu, Package } from "lucide-react"
 
 export default function EmptyState({ onSubmit, onDomainPacks }) {
+  const { pack: activePack } = useActiveDomainPack()
   const [query, setQuery]               = useState("")
   const [mode, setMode]                 = useState("qa")   // "qa" | "report"
   const [requireHumanReview, setRequireHumanReview] = useState(false)   // report mode only
@@ -23,13 +25,13 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
   const [isCheckingClarity, setIsCheckingClarity] = useState(false)
   const [error, setError]               = useState("")
   const [drawerOpen, setDrawerOpen]     = useState(false)
-  const [clarifyState, setClarifyState] = useState(null)   // { query, type, questions } | null
+  const [clarifyState, setClarifyState] = useState(null)   // { query, type, questions, domainPackId } | null
 
-  const doSubmit = async (q, type) => {
+  const doSubmit = async (q, type, domainPackId) => {
     setIsSubmitting(true)
     setError("")
     try {
-      const res = await submitTask(q, "", type, type === "report" && requireHumanReview)
+      const res = await submitTask(q, "", type, type === "report" && requireHumanReview, domainPackId)
       onSubmit(q, res.data.task_id, type, type === "report" && requireHumanReview)
     } catch (err) {
       console.error(err)
@@ -41,13 +43,17 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
   const handleRun = async (text, type = mode) => {
     const q = (typeof text === "string" ? text : query).trim()
     if (!q || isSubmitting || isCheckingClarity) return
+    // Pinned once here, at the moment the user actually asks to run — not re-read later,
+    // so a pack someone else activates/deactivates mid-flow (including during the
+    // clarify round-trip below) can't change what this task ends up scoped to.
+    const domainPackId = activePack?.id ?? null
     setIsCheckingClarity(true)
     setError("")
     try {
-      const res = await clarifyTask(q, type)
+      const res = await clarifyTask(q, type, domainPackId)
       const questions = res.data.questions || []
       if (questions.length > 0) {
-        setClarifyState({ query: q, type, questions })
+        setClarifyState({ query: q, type, questions, domainPackId })
         setIsCheckingClarity(false)
         return
       }
@@ -58,19 +64,19 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
       console.error("clarify_task failed, proceeding without it:", err)
     }
     setIsCheckingClarity(false)
-    doSubmit(q, type)
+    doSubmit(q, type, domainPackId)
   }
 
   const handleClarifyConfirm = (resolvedAnswers) => {
-    const { query: q, type } = clarifyState
+    const { query: q, type, domainPackId } = clarifyState
     setClarifyState(null)
-    doSubmit(appendClarificationContext(q, resolvedAnswers), type)
+    doSubmit(appendClarificationContext(q, resolvedAnswers), type, domainPackId)
   }
 
   const handleClarifySkip = () => {
-    const { query: q, type } = clarifyState
+    const { query: q, type, domainPackId } = clarifyState
     setClarifyState(null)
-    doSubmit(q, type)
+    doSubmit(q, type, domainPackId)
   }
 
   const handleSelect = async (id, q, type) => {
@@ -81,7 +87,7 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
     <div className="h-screen flex bg-background overflow-hidden font-sans">
 
       {/* Permanent sidebar (desktop) */}
-      <div className="hidden md:flex w-60 shrink-0 border-r border-border flex-col bg-sidebar">
+      <div className="hidden md:flex w-64 shrink-0 border-r border-border flex-col bg-sidebar">
         <Sidebar onNew={() => {}} currentTaskId={null} onSelect={handleSelect} onDomainPacks={onDomainPacks} />
       </div>
 
@@ -96,7 +102,7 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
                   <Menu className="w-4 h-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-60 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
+              <SheetContent side="left" className="w-64 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} />
               </SheetContent>
@@ -170,7 +176,26 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
 
                 <Separator />
                 {error && <p className="text-caption text-destructive px-5 pb-2 pt-2">{error}</p>}
-                <div className="flex items-center justify-end px-4 py-3.5 bg-muted/30 rounded-b-lg">
+                <div className="flex items-center justify-between px-4 py-3.5 bg-muted/30 rounded-b-lg">
+                  {activePack ? (
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-brand/30 bg-brand-tint text-brand-ink text-caption min-w-0">
+                        <Package className="w-3 h-3 shrink-0" />
+                        <span className="truncate">Using {activePack.name} domain</span>
+                      </span>
+                      <button onClick={onDomainPacks} className="hidden sm:inline text-label text-muted-foreground underline hover:text-foreground cursor-pointer shrink-0">
+                        manage here
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
+                      <Package className="w-3 h-3" />
+                      No active domain packs —{" "}
+                      <button onClick={onDomainPacks} className="underline hover:text-foreground cursor-pointer">
+                        activate one
+                      </button>
+                    </span>
+                  )}
                   <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting || isCheckingClarity} size="lg" className="gap-2 text-body px-4">
                     {isCheckingClarity ? "Checking…" : isSubmitting ? "Running…" : (<><ArrowUp className="size-5" />Analyse</>)}
                   </Button>

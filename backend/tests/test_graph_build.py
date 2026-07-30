@@ -1,12 +1,96 @@
 import pytest
-from agents.graph import build_graph, _cancellable
-from agents.cancellation import request_stop, request_pause, clear, TaskCancelled, TaskPaused
+from agents.graph import build_graph, _cancellable, _is_retryable
+from agents.cancellation import request_stop, request_pause, clear, TaskCancelled, TaskPaused, AwaitingReview
 
 
 def test_graph_builds_without_error():
     graph = build_graph()
     assert "analyzer" in graph.nodes
     assert "finalizer" in graph.nodes
+
+
+def test_every_node_has_a_retry_policy_configured():
+    """A connection timeout, a Docker daemon hiccup, or any other transient failure in
+    any single node shouldn't fail the whole task outright — see _is_retryable below for
+    the one deliberate carve-out."""
+    graph = build_graph()
+    for name, node in graph.nodes.items():
+        if name == "__start__":
+            continue
+        assert node.retry_policy, f"node {name!r} has no retry_policy configured"
+
+
+@pytest.mark.parametrize("exc", [
+    RuntimeError("llm_router gave up after retries"),
+    ConnectionError("connection reset"),
+    TimeoutError("timed out"),
+    OSError("docker daemon unreachable"),
+    ValueError("something unrelated"),
+])
+def test_is_retryable_true_for_ordinary_failures(exc):
+    assert _is_retryable(exc) is True
+
+
+@pytest.mark.parametrize("exc", [
+    TaskCancelled("stopped by user"),
+    TaskPaused("paused by user"),
+    AwaitingReview("awaiting human review"),
+])
+def test_is_retryable_false_for_deliberate_control_flow_signals(exc):
+    """Retrying a Stop/Pause/awaiting-review isn't a safety net — it would just
+    re-raise the same signal again after a pointless delay."""
+    assert _is_retryable(exc) is False
+
+
+def test_a_node_that_fails_once_then_succeeds_is_retried_transparently():
+    """Exercises the actual retry mechanism end-to-end (not just that a policy object is
+    attached) — a minimal throwaway graph rather than the full build_graph(), and a
+    near-zero interval rather than production's 1s, so this stays fast."""
+    from langgraph.graph import StateGraph, END
+    from langgraph.types import RetryPolicy
+
+    calls = {"n": 0}
+
+    def flaky(state):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ConnectionError("transient network blip")
+        return {"result": "ok"}
+
+    fast_policy = RetryPolicy(retry_on=_is_retryable, max_attempts=2, initial_interval=0.01, backoff_factor=1.0)
+    builder = StateGraph(dict)
+    builder.add_node("flaky", flaky, retry_policy=fast_policy)
+    builder.set_entry_point("flaky")
+    builder.add_edge("flaky", END)
+    graph = builder.compile()
+
+    result = graph.invoke({})
+
+    assert result == {"result": "ok"}
+    assert calls["n"] == 2   # failed once, succeeded on the retry
+
+
+def test_a_stop_signal_is_not_retried_even_though_it_is_an_exception():
+    from langgraph.graph import StateGraph, END
+    from langgraph.types import RetryPolicy
+
+    calls = {"n": 0}
+
+    def stopped(state):
+        calls["n"] += 1
+        raise TaskCancelled("stopped by user")
+
+    fast_policy = RetryPolicy(retry_on=_is_retryable, max_attempts=3, initial_interval=0.01, backoff_factor=1.0)
+    builder = StateGraph(dict)
+    builder.add_node("stopped", stopped, retry_policy=fast_policy)
+    builder.set_entry_point("stopped")
+    builder.add_edge("stopped", END)
+    graph = builder.compile()
+
+    with pytest.raises(TaskCancelled):
+        graph.invoke({})
+
+    assert calls["n"] == 1   # never retried
 
 
 def test_cancellable_raises_before_calling_the_wrapped_node_when_stopped():

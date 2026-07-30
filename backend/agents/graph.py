@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.types import RetryPolicy
 from agents.state import TaskState
 from agents.analyzer import analyzer
 from agents.planner import planner
@@ -13,7 +14,7 @@ from agents.question_generator import question_generator
 from agents.writer import writer
 from agents.report_evaluator import report_evaluator
 from agents.logger import log_event
-from agents.cancellation import check_interrupt, AwaitingReview, get_review_decision
+from agents.cancellation import check_interrupt, AwaitingReview, get_review_decision, TaskCancelled, TaskPaused
 import json
 
 
@@ -248,6 +249,20 @@ def report_finalizer(state: TaskState) -> dict:
 
 # ── Graph builder ─────────────────────────────────────────────────────────────
 
+def _is_retryable(exc: Exception) -> bool:
+    """Retry a failed node for anything — a connection timeout, a Docker daemon hiccup,
+    an LLM call that exhausted llm_router's own internal retries — except our own
+    deliberate control-flow signals. Stop/Pause/awaiting-review aren't failures, so
+    retrying them would just re-raise the same signal after a pointless delay."""
+    return not isinstance(exc, (TaskCancelled, TaskPaused, AwaitingReview))
+
+
+# Conservative on top of llm_router's own internal retries (2 retries with exponential
+# backoff before it gives up and raises) — this is a safety net for whatever gets past
+# that, not the primary retry mechanism, so one retry here is enough.
+NODE_RETRY_POLICY = RetryPolicy(retry_on=_is_retryable, max_attempts=2, initial_interval=1.0, backoff_factor=2.0)
+
+
 def _cancellable(fn):
     """Checks for a Stop or Pause request before running a node — see cancellation.py.
     Applied to every node uniformly here (not scattered across each agent file) since
@@ -263,23 +278,23 @@ def build_graph(checkpointer=None):
     builder = StateGraph(TaskState)
 
     # ── DS-STAR base nodes ────────────────────────────────────────────────────
-    builder.add_node("analyzer",          _cancellable(analyzer))
-    builder.add_node("planner",           _cancellable(planner))
-    builder.add_node("coder",             _cancellable(coder))
-    builder.add_node("executor",          _cancellable(executor))
-    builder.add_node("verifier",          _cancellable(verifier))
-    builder.add_node("router_agent",      _cancellable(router_agent))
-    builder.add_node("debugger",          _cancellable(debugger))
-    builder.add_node("finalizer",         _cancellable(finalizer))
+    builder.add_node("analyzer",          _cancellable(analyzer),          retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("planner",           _cancellable(planner),           retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("coder",             _cancellable(coder),             retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("executor",          _cancellable(executor),          retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("verifier",          _cancellable(verifier),          retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("router_agent",      _cancellable(router_agent),      retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("debugger",          _cancellable(debugger),          retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("finalizer",         _cancellable(finalizer),         retry_policy=NODE_RETRY_POLICY)
 
     # ── DS-STAR+ nodes ────────────────────────────────────────────────────────
-    builder.add_node("question_generator",   _cancellable(question_generator))
-    builder.add_node("sub_result_collector", _cancellable(sub_result_collector))
-    builder.add_node("writer",               _cancellable(writer))
-    builder.add_node("report_evaluator",     _cancellable(report_evaluator))
-    builder.add_node("gap_question_generator", _cancellable(gap_question_generator))
-    builder.add_node("human_review_gate",    _cancellable(human_review_gate))
-    builder.add_node("report_finalizer",     _cancellable(report_finalizer))
+    builder.add_node("question_generator",   _cancellable(question_generator),   retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("sub_result_collector", _cancellable(sub_result_collector), retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("writer",               _cancellable(writer),               retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("report_evaluator",     _cancellable(report_evaluator),     retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("gap_question_generator", _cancellable(gap_question_generator), retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("human_review_gate",    _cancellable(human_review_gate),    retry_policy=NODE_RETRY_POLICY)
+    builder.add_node("report_finalizer",     _cancellable(report_finalizer),     retry_policy=NODE_RETRY_POLICY)
 
     # ── Entry ─────────────────────────────────────────────────────────────────
     builder.set_entry_point("analyzer")

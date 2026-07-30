@@ -426,6 +426,21 @@ async def list_domain_packs():
     ]
 
 
+@app.get("/api/v1/domain_packs/{pack_id}/config", summary="Get Domain Pack Config", tags=["Domain Packs"])
+async def get_domain_pack_config(pack_id: str):
+    """The prompt-config side of a pack (persona/classification/dimensions) — same
+    non-sensitive data already exposed via the .zip download, surfaced here as JSON so
+    the frontend's pack-detail modal can show what a pack actually customizes."""
+    if pack_id != "generic" and not get_pack(pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+    cfg = domain_pack.get_active_pack_config(override_pack_id=pack_id)
+    return {
+        "report_persona":         cfg["report_persona"],
+        "report_classification":  cfg["report_classification"],
+        "subquestion_dimensions": cfg["subquestion_dimensions"],
+    }
+
+
 @app.post("/api/v1/domain_packs/{pack_id}/activate", summary="Activate Domain Pack", tags=["Domain Packs"])
 async def activate_domain_pack(pack_id: str, user=Depends(get_current_user)):
     if pack_id != "generic" and not get_pack(pack_id):

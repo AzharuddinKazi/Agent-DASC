@@ -11,8 +11,8 @@ API.interceptors.request.use(async config => {
   return config
 })
 
-export const submitTask  = (query, formatting_guidelines, task_type = "qa", require_human_review = false) =>
-  API.post("/api/v1/submit_task", { query, formatting_guidelines, task_type, require_human_review })
+export const submitTask  = (query, formatting_guidelines, task_type = "qa", require_human_review = false, domain_pack_id = null) =>
+  API.post("/api/v1/submit_task", { query, formatting_guidelines, task_type, require_human_review, domain_pack_id })
 // Clarification is a nice-to-have that runs a "medium" tier LLM call (occasionally two,
 // on a malformed-output retry) before the user sees anything — under free-tier OpenRouter
 // congestion this can occasionally take 15-20s+. An 8s bound was previously used, but it
@@ -32,6 +32,7 @@ export const submitReviewDecision = (id, decision) => API.post(`/api/v1/tasks/${
 export const checkHealth = () => API.get("/health")
 
 export const getDomainPacks       = () => API.get("/api/v1/domain_packs")
+export const getDomainPackConfig  = (id) => API.get(`/api/v1/domain_packs/${id}/config`)
 export const domainPackDownloadUrl = (id) => `${API_BASE}/api/v1/domain_packs/${id}/download`
 export const activateDomainPack   = (id) => API.post(`/api/v1/domain_packs/${id}/activate`)
 export const deactivateDomainPack = () => API.post(`/api/v1/domain_packs/deactivate`)

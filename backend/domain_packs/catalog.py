@@ -18,6 +18,7 @@ DOMAIN_PACKS = [
         ),
         "tags": ["Financial Services", "Compliance", "Risk"],
         "dataset_generator": "generate_synthetic_data.py",
+        "example_question": "Which institutions have the highest KYC risk this quarter?",
     },
     {
         "id": "medicare-claims",
@@ -30,6 +31,7 @@ DOMAIN_PACKS = [
             "DE-SynPUF claims data — no synthetic generator."
         ),
         "tags": ["Healthcare", "Compliance", "Fraud"],
+        "example_question": "Which HCPCS codes show the highest improper-payment risk this quarter?",
     },
 ]
 
@@ -40,6 +42,9 @@ def get_pack(pack_id: str):
 
 def public_catalog():
     return [
-        {k: v for k, v in p.items() if k not in ("dataset_generator",)}
+        {
+            **{k: v for k, v in p.items() if k not in ("dataset_generator",)},
+            "has_dataset_generator": "dataset_generator" in p,
+        }
         for p in DOMAIN_PACKS
     ]
