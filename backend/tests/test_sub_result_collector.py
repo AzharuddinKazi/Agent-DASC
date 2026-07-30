@@ -67,3 +67,28 @@ def test_non_json_result_falls_back_to_summary_dict():
 
     stored = result["sub_results"]["What is the mean age?"]
     assert stored == {"summary": "Mean age: 71.55 years", "key_findings": [], "columns": [], "rows": []}
+
+
+def test_exit_code_nonzero_records_an_explicit_failure_not_the_raw_traceback():
+    """Regression test: arriving here via route_after_executor's debug-exhaustion
+    branch (a sub-question that never ran successfully) used to store the raw Python
+    traceback as the sub-question's "summary" — which the writer would then cite as if
+    it were a real finding. Must be recorded as an explicit, clean failure instead."""
+    state = base_state(
+        exit_code=1,
+        execution_result="Traceback (most recent call last):\n  ...\nKeyError: 'X'",
+    )
+    with patch("db.supabase") as mock_supabase, \
+         patch("agents.graph.log_event") as mock_log_event:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        result = sub_result_collector(state)
+
+    stored = result["sub_results"]["What is the mean age?"]
+    assert stored["failed"] is True
+    assert "Traceback" not in stored["summary"]
+    assert "KeyError" not in stored["summary"]
+
+    log_call = mock_log_event.call_args
+    assert "failed" in log_call[0][2].lower()
+    assert log_call[0][3] == "error"

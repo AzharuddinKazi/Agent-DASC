@@ -21,6 +21,7 @@ text search at this scale.
 
 import io
 import os
+import re
 
 import requests
 from pypdf import PdfReader
@@ -50,18 +51,143 @@ def extract_text(filename: str, raw_bytes: bytes) -> str:
     raise ValueError(f"Unsupported file type: .{ext}")
 
 
+_HEADING_RE  = re.compile(r"^(#{1,6})\s+(.*)$")
+_LIST_ITEM_RE = re.compile(r"^\s*(?:\d+[.)]|[-*•])\s+")
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'\(])")
+
+
+def _split_into_units(text: str) -> list[tuple[str, str]]:
+    """Splits raw document text into (heading, unit_text) pairs along natural
+    boundaries — markdown headings, blank-line-separated paragraphs, and individual
+    list items — instead of a blind character count. A numbered procedure's steps are
+    each their own unit and are never merged with unrelated surrounding prose, and a
+    unit is never split mid-sentence/mid-item unless it's larger than chunk_size on its
+    own (see _chunk_unit below). `heading` is the most recent heading line seen, carried
+    forward onto every unit under it, so a chunk built from these units keeps its
+    section context even if the heading itself ended up in an earlier chunk.
+    """
+    units, current_heading, paragraph_lines = [], "", []
+
+    def flush_paragraph():
+        if not paragraph_lines:
+            return
+        para = "\n".join(paragraph_lines).strip()
+        paragraph_lines.clear()
+        if not para:
+            return
+        # Each list item is its own unit (steps of a procedure must stay individually
+        # addressable), but non-list prose within the same paragraph stays merged.
+        lines = para.split("\n")
+        buf = []
+        for line in lines:
+            if _LIST_ITEM_RE.match(line):
+                if buf:
+                    units.append((current_heading, "\n".join(buf).strip()))
+                    buf = []
+                units.append((current_heading, line.strip()))
+            else:
+                buf.append(line)
+        if buf:
+            units.append((current_heading, "\n".join(buf).strip()))
+
+    for line in text.split("\n"):
+        heading_match = _HEADING_RE.match(line)
+        if heading_match:
+            flush_paragraph()
+            current_heading = heading_match.group(2).strip()
+            units.append((current_heading, line.strip()))
+        elif line.strip() == "":
+            flush_paragraph()
+        else:
+            paragraph_lines.append(line)
+    flush_paragraph()
+
+    return [(h, u) for h, u in units if u]
+
+
+def _chunk_unit(unit: str, chunk_size: int) -> list[str]:
+    """A single unit (paragraph or list item) larger than chunk_size can't be packed
+    whole — split it on sentence boundaries first (keeps a sentence intact), and only
+    fall back to a raw character window for a single run-on sentence/table row that's
+    still too large on its own. This is the one place raw windowing still happens, and
+    only as a last resort for content with no usable structure at all."""
+    if len(unit) <= chunk_size:
+        return [unit]
+    pieces, buf = [], ""
+    for sentence in _SENTENCE_SPLIT_RE.split(unit):
+        candidate = f"{buf} {sentence}".strip() if buf else sentence
+        if len(candidate) <= chunk_size:
+            buf = candidate
+        else:
+            if buf:
+                pieces.append(buf)
+            if len(sentence) <= chunk_size:
+                buf = sentence
+            else:
+                for start in range(0, len(sentence), chunk_size):
+                    pieces.append(sentence[start:start + chunk_size])
+                buf = ""
+    if buf:
+        pieces.append(buf)
+    return pieces
+
+
 def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> list[str]:
+    """Structure-aware chunking: split on markdown headings/paragraphs/list items
+    (_split_into_units), then greedily pack consecutive units into ~chunk_size chunks
+    without ever splitting a unit across a chunk boundary — unlike a blind sliding
+    character window, a numbered step or a fact can't get sliced in half. Each chunk is
+    prefixed with its section heading (when known) so retrieval keeps that context even
+    though the heading line itself may live in an earlier chunk. `overlap` carries the
+    last unit of one chunk forward as the start of the next, preserving the original
+    chunker's boundary-continuity property without re-slicing by raw character count.
+    """
     text = text.strip()
     if not text:
         return []
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
-        start += chunk_size - overlap
+
+    units = _split_into_units(text)
+    if not units:
+        return []
+
+    chunks: list[str] = []
+    # The heading this chunk STARTS under — set once when a chunk begins, not updated
+    # as later units (possibly under a different heading) get packed in. A chunk that
+    # happens to span a section boundary should describe where it begins, not whichever
+    # heading was most recently seen when it was flushed.
+    chunk_start_heading = ""
+    current_units: list[str] = []
+    current_len = 0
+
+    def flush_chunk():
+        if not current_units:
+            return
+        body = "\n\n".join(current_units)
+        prefix = (
+            f"{chunk_start_heading}\n\n"
+            if chunk_start_heading and chunk_start_heading not in current_units[0]
+            else ""
+        )
+        chunks.append((prefix + body).strip())
+
+    for heading, unit in units:
+        for piece in _chunk_unit(unit, chunk_size):
+            piece_len = len(piece) + 2  # matches the "\n\n".join separator above
+            if current_units and current_len + piece_len > chunk_size:
+                flush_chunk()
+                # Carry the last unit forward as overlap, same purpose as the original
+                # fixed-window overlap — bounded so one huge unit can't itself become
+                # the whole of the next chunk's "overlap".
+                carry = current_units[-1] if current_units and len(current_units[-1]) <= overlap else None
+                current_units = [carry] if carry else []
+                current_len = len(carry) + 2 if carry else 0
+                chunk_start_heading = heading
+            if not current_units:
+                chunk_start_heading = heading
+            current_units.append(piece)
+            current_len += piece_len
+    flush_chunk()
+
     return chunks
 
 

@@ -11,17 +11,39 @@ Typical usage:
 """
 
 from dotenv import load_dotenv
+import logging
 import os
 import time
 import requests
 
 from agents.logger import log_event
 
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+VALID_SPEED_PROFILES = {"free", "fast_paid"}
+
+
+def get_speed_profile() -> str:
+    """Reads the live LLM speed profile from app_settings — a toggle, not a deployment
+    setting, so it's read fresh on every call rather than cached/baked in at import
+    time. Set via POST /api/v1/llm_speed_profile, takes effect on the very next LLM
+    call with no restart needed. "free" is the hardcoded default — both before anyone
+    has ever toggled it (no app_settings row yet) and if the DB is unreachable — so a
+    stray leftover env var or a DB hiccup can never silently switch a run onto billed
+    models (matches domain_pack.py's own fail-closed-to-generic pattern)."""
+    from db import supabase
+    try:
+        row = supabase.table("app_settings").select("value").eq("key", "llm_speed_profile").execute()
+        value = row.data[0]["value"] if row.data else "free"
+        return value if value in VALID_SPEED_PROFILES else "free"
+    except Exception:
+        return "free"
+
 
 # Matches the sandbox executor's own 120s ceiling (executor.py) — without this, a hung
 # API call (network partition, provider stall) leaves a task running forever with no
@@ -52,9 +74,13 @@ class LLMRouter:
     than editing this file.
 
     Attributes:
-        MODELS: Maps tier names to OpenRouter model ids. Change a model
-            here (or via OPENROUTER_MODEL_HIGH/MEDIUM/LOW) and it applies everywhere.
         AGENT_TIERS: Maps each DS-STAR agent to its quality tier.
+
+    The active speed profile ("free" or "fast_paid" — see get_speed_profile()) is a
+    live, DB-backed toggle read fresh on every complete() call, not baked in at import
+    time — flip it via POST /api/v1/llm_speed_profile and it applies to the very next
+    call, no restart needed. Change a tier's model via the matching
+    OPENROUTER_MODEL_*/OPENROUTER_MODEL_*_FAST env var.
 
     Example:
         router = LLMRouter()
@@ -64,7 +90,7 @@ class LLMRouter:
 
     # Maps tier names to OpenRouter model ids. All three are free-tier as of this
     # writing (verified against GET /api/v1/models) — no billing required.
-    MODELS = {
+    _FREE_MODELS = {
         # 120B MoE, explicitly built for "complex multi-agent applications" — the
         # largest free model available, used for the agents where reasoning quality
         # matters most.
@@ -74,6 +100,29 @@ class LLMRouter:
         # Small/fast, tuned for lightweight classification-style tasks.
         "low":    os.getenv("OPENROUTER_MODEL_LOW",    "nvidia/nemotron-nano-9b-v2:free"),
     }
+
+    # Paid model actually chosen for cheapest-and-still-fast (not just "not free") — for
+    # the fast_paid profile's speed testing, not everyday use. `:nitro` is
+    # OpenRouter's own throughput-priority routing shortcut (equivalent to
+    # provider.sort="throughput") — it always picks whichever provider serving this
+    # model currently has the highest tokens/sec, which is the actual "fast" half of
+    # "cheap but fast." At ~$0.02/$0.04 per M input/output tokens, a full pipeline run
+    # costs a small fraction of a cent — verify current pricing at
+    # https://openrouter.ai/meta-llama/llama-3.1-8b-instruct before relying on it,
+    # OpenRouter pricing and model availability both change.
+    _FAST_MODEL_DEFAULT = "meta-llama/llama-3.1-8b-instruct:nitro"
+    _FAST_PAID_MODELS = {
+        "high":   os.getenv("OPENROUTER_MODEL_HIGH_FAST",   _FAST_MODEL_DEFAULT),
+        "medium": os.getenv("OPENROUTER_MODEL_MEDIUM_FAST", _FAST_MODEL_DEFAULT),
+        # low (analyzer, sub_result_collector) is lightweight, infrequent work — not
+        # the speed bottleneck this profile exists to test, so it stays on the same
+        # genuinely free model as the free profile rather than paying for it too.
+        "low":    os.getenv("OPENROUTER_MODEL_LOW_FAST",    _FREE_MODELS["low"]),
+    }
+
+    @classmethod
+    def models_for_profile(cls, profile: str) -> dict:
+        return cls._FAST_PAID_MODELS if profile == "fast_paid" else cls._FREE_MODELS
 
     # Maps each DS-STAR agent to its quality tier.
     # Planner, Coder, Verifier, Debugger use high — errors here compound downstream.
@@ -167,7 +216,7 @@ class LLMRouter:
         # Look up which tier this agent belongs to.
         # Unknown agents default to medium — safe fallback but should be investigated.
         tier = self.AGENT_TIERS.get(agent, "medium")
-        model = self.MODELS[tier]
+        model = self.models_for_profile(get_speed_profile())[tier]
 
         start = time.time()
         last_error = None

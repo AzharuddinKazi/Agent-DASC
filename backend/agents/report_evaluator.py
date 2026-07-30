@@ -27,6 +27,15 @@ Your task is to evaluate whether a generated research report sufficiently answer
 5. Is the report coherent and well-structured?
 6. Do the hypotheses build into a cohesive investigative narrative — each finding informing
    the next — rather than reading as disconnected topic summaries?
+7. Is each section developed with real depth — explaining the mechanism behind a finding and
+   its implications, not just stating a number — or is it thin/superficial, reading like an
+   abstract rather than a comprehensive professional report? A section that only takes a
+   paragraph or two to make its point has NOT been developed enough.
+
+A report that is well-structured and correct but shallow — covering every theme in only a
+sentence or two each — should be marked "insufficient" on criterion 7 alone, with gaps asking
+for the underdeveloped themes to be investigated further and expanded with more depth and
+supporting detail, not just re-verified.
 
 # Your task
 Evaluate the report against the criteria above.

@@ -30,6 +30,15 @@ def route_after_executor(state: TaskState) -> str:
     if state["exit_code"] != 0:
         if state.get("debug_attempts", 0) < 2:
             return "debugger"
+        # In report mode, one sub-question exhausting its debug retries must not kill
+        # the whole report — route to sub_result_collector (which records this one as
+        # failed and moves on) so the writer can still produce a report from whatever
+        # sub-questions DID succeed, same as route_after_verifier's own task_type
+        # branch below. Routing to the QA-only finalizer here previously discarded
+        # every already-verified sub-analysis the moment a single later sub-question
+        # failed.
+        if state.get("task_type") == "report":
+            return "sub_result_collector"
         return "finalizer"
     return "verifier"
 
@@ -68,22 +77,34 @@ def sub_result_collector(state: TaskState) -> dict:
     # Parse and store the result for the current sub-question
     current_q = sub_questions[current_sub_idx] if current_sub_idx < len(sub_questions) else None
     if current_q:
-        raw = state.get("final_result") or state.get("execution_result", "")
-        parsed = {}
-        try:
-            s = raw.strip()
-            if s.startswith("```"):
-                import re
-                s = re.sub(r"^```[a-z]*\n?", "", s).rstrip("`").strip()
-            candidate = json.loads(s)
-            # A script that prints a bare number/string (e.g. "71.55") is valid JSON but
-            # not a dict — writer.py's sr.get("summary", ...) crashes with AttributeError
-            # on anything else, so only accept genuinely dict-shaped results here.
-            if not isinstance(candidate, dict):
-                raise ValueError("parsed JSON is not an object")
-            parsed = candidate
-        except Exception:
-            parsed = {"summary": raw, "key_findings": [], "columns": [], "rows": []}
+        if state.get("exit_code", 0) != 0:
+            # Arrived here via route_after_executor's debug-exhaustion branch, not a
+            # verified success — record this sub-question as failed explicitly rather
+            # than leaking a raw Python traceback into sub_results, which the writer
+            # would otherwise cite as if it were a real analytical finding.
+            parsed = {
+                "summary": "This sub-question could not be answered — the analysis "
+                            "script failed after exhausting debug retries.",
+                "key_findings": [], "columns": [], "rows": [], "failed": True,
+            }
+        else:
+            raw = state.get("final_result") or state.get("execution_result", "")
+            parsed = {}
+            try:
+                s = raw.strip()
+                if s.startswith("```"):
+                    import re
+                    s = re.sub(r"^```[a-z]*\n?", "", s).rstrip("`").strip()
+                candidate = json.loads(s)
+                # A script that prints a bare number/string (e.g. "71.55") is valid JSON
+                # but not a dict — writer.py's sr.get("summary", ...) crashes with
+                # AttributeError on anything else, so only accept genuinely dict-shaped
+                # results here.
+                if not isinstance(candidate, dict):
+                    raise ValueError("parsed JSON is not an object")
+                parsed = candidate
+            except Exception:
+                parsed = {"summary": raw, "key_findings": [], "columns": [], "rows": []}
         sub_results[current_q] = parsed
 
     next_idx = current_sub_idx + 1
@@ -93,9 +114,11 @@ def sub_result_collector(state: TaskState) -> dict:
     }).eq("task_id", state["task_id"]).execute()
 
     if current_q:
+        failed = sub_results[current_q].get("failed", False)
         log_event(state["task_id"], "sub_result_collector",
-                  f"✓ Sub-Q {current_sub_idx + 1}/{len(sub_questions)} complete — '{current_q[:80]}'",
-                  "success",
+                  f"{'✗' if failed else '✓'} Sub-Q {current_sub_idx + 1}/{len(sub_questions)} "
+                  f"{'failed — skipping' if failed else 'complete'} — '{current_q[:80]}'",
+                  "error" if failed else "success",
                   {"sub_q_idx": current_sub_idx + 1, "sub_q_total": len(sub_questions), "sub_q_text": current_q})
 
     return {
@@ -312,7 +335,12 @@ def build_graph(checkpointer=None):
     builder.add_conditional_edges(
         "executor",
         route_after_executor,
-        {"debugger": "debugger", "verifier": "verifier", "finalizer": "finalizer"}
+        {
+            "debugger":             "debugger",
+            "verifier":             "verifier",
+            "finalizer":            "finalizer",
+            "sub_result_collector": "sub_result_collector",
+        }
     )
 
     builder.add_conditional_edges(

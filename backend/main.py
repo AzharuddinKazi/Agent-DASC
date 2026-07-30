@@ -18,8 +18,11 @@ from db import supabase
 from observability import configure_logging, configure_error_tracking
 import domain_pack
 from domain_packs.catalog import get_pack, public_catalog
+from llm_router import LLMRouter, get_speed_profile, VALID_SPEED_PROFILES
 from knowledge import ingest_document
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg_pool import AsyncConnectionPool
+from psycopg.rows import dict_row
 from dotenv import load_dotenv
 import logging, os, uuid, asyncio, io, zipfile, subprocess, time
 
@@ -63,6 +66,39 @@ _pipeline_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PIPELINES)
 
 graph = None
 
+def _reconcile_orphaned_tasks():
+    """Marks every task left in "running" as "failed" at startup.
+
+    A task's status is only ever "running" while its run_graph background task is
+    live in this process's event loop. If the backend dies (crash, kill, restart)
+    mid-run, that in-memory task is simply gone — nothing ever runs the except/finally
+    that would flip its status, so the row is stuck at "running" forever with no way
+    for a caller (or the Dashboard polling loop) to ever tell it apart from a task that
+    is still genuinely working. Since this runs once at process startup, before any
+    request is served, every "running" row found here is provably orphaned from a
+    previous process — this one hasn't invoked anything yet. Doesn't touch "paused" or
+    "awaiting_review": those are deliberately parked, checkpointed states that Resume/
+    the review endpoint already know how to pick back up correctly.
+    """
+    try:
+        orphaned = supabase.table("tasks").select("task_id").eq("status", "running").execute()
+    except Exception:
+        logger.exception("Failed to query for orphaned tasks at startup — skipping reconciliation")
+        return
+
+    for row in orphaned.data or []:
+        task_id = row["task_id"]
+        supabase.table("tasks").update({
+            "status": "failed",
+            "final_result": "Task was interrupted by a server restart and could not resume automatically. Please resubmit.",
+        }).eq("task_id", task_id).execute()
+        log_event(task_id, "system", "Marked failed — orphaned by a server restart while running", "error")
+        logger.warning(f"Reconciled orphaned task {task_id}: running -> failed")
+
+    if orphaned.data:
+        logger.warning(f"Startup reconciliation: marked {len(orphaned.data)} orphaned task(s) as failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Pre-existing bug this fixes: the checkpointer used to be opened, set up, and closed
@@ -73,20 +109,40 @@ async def lifespan(app: FastAPI):
     # stay open for the app's whole lifetime instead, since graph.invoke() calls happen
     # continuously while the app serves requests, not just at startup.
     #
+    # A second bug found later: a single raw AsyncConnection (from_conn_string) held for
+    # the app's entire lifetime would periodically go stale — Supabase's pooler drops
+    # idle connections server-side after some interval — and once that happened, every
+    # subsequent task failed at the very first checkpoint read
+    # (psycopg.OperationalError: "server closed the connection unexpectedly") until the
+    # backend was manually restarted. AsyncPostgresSaver natively accepts a connection
+    # POOL instead of one raw connection (see langgraph's _ainternal.Conn type) — each
+    # checkpoint operation then acquires-and-releases a connection from the pool, and
+    # psycopg_pool validates/replaces a dead connection on acquisition rather than the
+    # app being stuck reusing the exact same broken connection object forever. A small
+    # pool is enough — checkpoint reads/writes are brief, this isn't the Docker sandbox.
+    #
     # AsyncPostgresSaver's sync methods (used by the synchronous graph.invoke() this
     # codebase calls via run_in_executor) are supported specifically when called from a
     # different thread than the one holding the event loop — verified this is the
     # intended, safe usage pattern (see AsyncPostgresSaver.get_tuple's own thread check),
     # which matches run_in_executor's worker-thread execution exactly.
     global graph
-    checkpointer_cm = AsyncPostgresSaver.from_conn_string(os.getenv("SUPABASE_DB_URL"))
-    checkpointer = await checkpointer_cm.__aenter__()
+    pool = AsyncConnectionPool(
+        conninfo=os.getenv("SUPABASE_DB_URL"),
+        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+        min_size=1,
+        max_size=5,
+        open=False,
+    )
+    await pool.open()
+    checkpointer = AsyncPostgresSaver(conn=pool)
     await checkpointer.setup()
     graph = build_graph(checkpointer=checkpointer)
+    _reconcile_orphaned_tasks()
     try:
         yield
     finally:
-        await checkpointer_cm.__aexit__(None, None, None)
+        await pool.close()
 
 app = FastAPI(title="DSStar Backend API", version="1.0", lifespan=lifespan)
 
@@ -118,6 +174,10 @@ class TaskClarification(BaseModel):
 
 class ReviewDecision(BaseModel):
     decision: str   # "refine" | "finalize"
+
+
+class LLMSpeedProfileUpdate(BaseModel):
+    profile: str   # "free" | "fast_paid"
 
 
 async def run_graph(task_id: str, initial_state: dict | None):
@@ -415,6 +475,27 @@ async def submit_review_decision(task_id: str, body: ReviewDecision, background_
     log_event(task_id, "system", f"Reviewer chose: {body.decision}", "info")
     background_tasks.add_task(run_graph, task_id, None)
     return {"task_id": task_id, "status": "running"}
+
+
+@app.get("/api/v1/llm_speed_profile", summary="Get LLM Speed Profile", tags=["Admin"])
+async def get_llm_speed_profile():
+    """A test/ops toggle, not a deployment setting — see llm_router.py's module
+    docstring. Read fresh on every LLM call, so flipping it via the POST below applies
+    to the very next call with no backend restart needed."""
+    profile = get_speed_profile()
+    return {"profile": profile, "models": LLMRouter.models_for_profile(profile)}
+
+
+@app.post("/api/v1/llm_speed_profile", summary="Set LLM Speed Profile", tags=["Admin"])
+async def set_llm_speed_profile(body: LLMSpeedProfileUpdate, user=Depends(get_current_user)):
+    if body.profile not in VALID_SPEED_PROFILES:
+        raise HTTPException(status_code=422, detail=f"profile must be one of {sorted(VALID_SPEED_PROFILES)}")
+    supabase.table("app_settings").upsert({"key": "llm_speed_profile", "value": body.profile}).execute()
+    if body.profile == "fast_paid":
+        logger.warning(f"LLM speed profile switched to fast_paid (billed models) by user {user.id}")
+    else:
+        logger.info(f"LLM speed profile switched to free by user {user.id}")
+    return {"profile": body.profile, "models": LLMRouter.models_for_profile(body.profile)}
 
 
 @app.get("/api/v1/domain_packs", summary="List Domain Packs", tags=["Domain Packs"])
