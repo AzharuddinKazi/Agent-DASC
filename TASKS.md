@@ -176,36 +176,41 @@ judgment call (checkpoints first — see rationale), not a commitment.
 
 - [x] General interrupt/resume mechanism — see Completed above (Stop/Pause/Resume). The
       `AsyncPostgresSaver` checkpointer is now actually wired up and working (was silently
-      broken — see completed entry). What remains is the more specific case below.
-- [ ] **Report-mode paper fidelity — citation round-partitioning + refine/finalize HITL
-      checkpoint.** Structural fidelity audit (this session) compared the actual DS-STAR+
-      paper spec, this repo's own never-implemented planning doc
-      (`specs/agents/writer.md`), and what's really built (`agents/writer.py`,
-      `agents/report_evaluator.py`, `graph.py`'s `gap_question_generator` loop,
-      `ReportView.jsx`). Two genuine paper-fidelity gaps identified, both still open:
-      1. **Citations don't partition by round.** Paper uses numeric `[1]..[N]` for the
-         init round and alphabetic `[a]..[z]` for each refine round specifically so a
-         claim's *round provenance* is reconstructable from the citation alone. Current
-         implementation uses one continuous numeric scheme across the report's whole
-         life (robust against the paper's own LLM-citation-counting fragility — the
-         reference list is server-built, not LLM-trusted — but it loses round
-         provenance entirely; a claim added in gap-round 3 looks identical to one from
-         round 1).
-      2. **No human refine-vs-finalize checkpoint.** Paper (and this repo's own locked
-         spec) calls for a person to decide "refine further" or "finalize" between report
-         rounds. Actual mechanism (`report_evaluator.py` + `gap_question_generator`) is a
-         fully automatic LLM-judged loop, confirmed zero human checkpoint anywhere in
-         that path (`route_after_writer`/`route_after_report_evaluator` in `graph.py`).
-         This is the single biggest behavioral divergence from what the paper calls
-         DS-STAR+ — trades real oversight for reduced friction, an explicit product
-         choice worth confirming is still wanted rather than an oversight.
-      Everything else the audit found (a Methodology section, standalone HTML+PDF export
-      via Playwright) traces back to this repo's own abandoned planning doc, not the
-      paper itself — optional polish, not fidelity gaps. Full audit detail is in this
-      session's transcript if picked up fresh; re-run the same file reads
-      (`agents/writer.py`, `agents/report_evaluator.py`, `graph.py`, `ReportView.jsx`,
-      `specs/prompts.yaml` lines 227-320, `specs/agents/writer.md`) to re-derive it if the
-      transcript isn't available.
+      broken — see completed entry).
+- [x] **Report-mode paper fidelity — citation round-partitioning + refine/finalize HITL
+      checkpoint** (PR #15 follow-up, `b413015`). Structural fidelity audit (prior session)
+      compared the actual DS-STAR+ paper spec, this repo's own never-implemented planning
+      doc (`specs/agents/writer.md`), and what was actually built. Two gaps identified,
+      both now closed:
+      1. **Citations now partition by round.** `writer.py`'s `_citation_label()` gives the
+         initial round numeric labels (`[1]..[N]`) and each refine round its own alphabetic
+         labels (`[a]..[z]` for the first refine round, round-prefixed `[2a]..[2z]` for a
+         second, since the paper doesn't specify a scheme beyond one refine round and
+         unprefixed letters would collide across rounds). `agents/state.py` gained
+         `sub_question_rounds` to track which round each sub-question was added in
+         (`question_generator.py` stamps round 0, `graph.py`'s `gap_question_generator`
+         stamps the current refine round). `report.sources` now carries a `round` field;
+         `ReportView.jsx` shows a "Refine round N" badge on those source entries.
+      2. **Human refine-vs-finalize checkpoint added, opt-in.** New `require_human_review`
+         flag (off by default — an explicit product choice, not every report run should
+         pay the friction) on `TaskSubmission`/`TaskState`. When set, a new
+         `human_review_gate` node (`graph.py`) sits between `report_evaluator` and
+         finalize/refine, reusing the existing Stop/Pause cooperative-interrupt/
+         checkpoint-resume mechanism (`agents/cancellation.py`'s `AwaitingReview`
+         exception + a `_review_decisions` store) rather than inventing a new pause
+         primitive — skipped automatically at the round limit, where there's no real
+         choice left. New `POST /api/v1/tasks/{id}/review` endpoint
+         (`{"decision": "refine"|"finalize"}`), new `awaiting_review` task status, and
+         `stop_task` extended to handle stopping a task parked at this checkpoint (no
+         in-flight graph run to cooperatively interrupt there, so it stops directly).
+         Frontend: opt-in checkbox in `EmptyState.jsx` (report mode only), an indigo
+         review card in `ReportPanel.jsx` showing the evaluator's actual verdict/gaps
+         (from `tasks.logs`, not placeholder text) with Finalize/Refine buttons.
+      Everything else the original audit found (a Methodology section, standalone
+      HTML+PDF export via Playwright) traces back to this repo's own abandoned planning
+      doc, not the paper itself — optional polish, not fidelity gaps, not tracked here.
+      25 new backend tests (routing, the gate node, the cancellation store, the endpoint's
+      404/409/422/happy-path cases); full suite green in CI before merge.
 - [ ] Live streaming (WebSocket/SSE) instead of 2s polling of the `tasks.logs` JSONB array —
       pipeline runs would feel real-time instead of laggy, especially in report mode.
 - [ ] Follow-up / conversational refinement without a full pipeline re-run — e.g. "now break

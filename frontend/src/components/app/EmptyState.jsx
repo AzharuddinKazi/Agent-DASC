@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Label } from "@/components/ui/label"
-import { ArrowUp, Paperclip, SlidersHorizontal, Menu } from "lucide-react"
+import { ArrowUp, Menu } from "lucide-react"
 
 export default function EmptyState({ onSubmit, onDomainPacks }) {
   const [query, setQuery]               = useState("")
@@ -22,8 +22,6 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
   // identical to — or worse, indistinguishable from being stuck at — actual submission.
   const [isCheckingClarity, setIsCheckingClarity] = useState(false)
   const [error, setError]               = useState("")
-  const [showAttach, setShowAttach]     = useState(false)
-  const [showFormat, setShowFormat]     = useState(false)
   const [drawerOpen, setDrawerOpen]     = useState(false)
   const [clarifyState, setClarifyState] = useState(null)   // { query, type, questions } | null
 
@@ -157,73 +155,22 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
               </Label>
             )}
 
-            <Card className="w-full shadow-sm border-border focus-within:ring-2 focus-within:ring-ring/20 focus-within:border-foreground/30 transition-all">
+            <Card className="animated-border w-full shadow-sm border-border focus-within:ring-2 focus-within:ring-ring/20 focus-within:border-foreground/30 transition-all">
               <CardContent className="p-0">
                 <Textarea
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder="e.g. Which entities have the highest value in [metric] relative to [metric] this quarter?"
-                  className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none px-5 pt-5 pb-3 text-prompt md:text-prompt text-foreground rounded-b-none"
-                  style={{ minHeight: '110px' }}
+                  className="border-none bg-transparent shadow-none focus-visible:ring-0 resize-none px-5 pt-4 pb-2 text-body text-foreground rounded-b-none"
+                  style={{ minHeight: '56px' }}
                   onKeyDown={e => {
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleRun() }
                   }}
                 />
 
-                {showAttach && (
-                  <div className="px-4 pb-3">
-                    <Separator className="mb-3" />
-                    <p className="text-caption font-semibold text-foreground mb-2">Attach files</p>
-                    <div className="border border-dashed border-border rounded-lg py-6 text-center">
-                      <p className="text-caption text-muted-foreground">
-                        Drop files here or <span className="text-foreground underline cursor-pointer">browse</span>
-                      </p>
-                      <p className="text-label text-muted-foreground mt-1">CSV, Excel, JSON, PDF · up to 500 MB per file</p>
-                      <p className="text-label text-muted-foreground/70 mt-1">Files are stored in your workspace and never leave this deployment</p>
-                    </div>
-                  </div>
-                )}
-
-                {showFormat && (
-                  <div className="px-4 pb-3">
-                    <Separator className="mb-3" />
-                    <p className="text-caption font-semibold text-foreground mb-2">Output formatting</p>
-                    <div className="grid grid-cols-3 gap-3 text-caption">
-                      {[
-                        { label: "Output style", opts: ["Auto", "Table", "Bullet summary", "Narrative"] },
-                        { label: "Number format", opts: ["Auto", "Currency", "Percentage", "Index"] },
-                        { label: "Include charts", opts: ["Auto", "Always", "Never"] },
-                      ].map(g => (
-                        <div key={g.label}>
-                          <p className="text-label text-muted-foreground mb-1.5">{g.label}</p>
-                          <div className="flex flex-wrap gap-1">
-                            {g.opts.map((o, i) => (
-                              <span key={o} className={`px-2 py-1 rounded border text-label ${i === 0 ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground"}`}>{o}</span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <Separator />
                 {error && <p className="text-caption text-destructive px-5 pb-2 pt-2">{error}</p>}
-                <div className="flex items-center justify-between px-4 py-3.5 bg-muted/30 rounded-b-lg">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setShowAttach(v => !v); setShowFormat(false) }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-body font-medium transition-colors ${showAttach ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/60"}`}
-                    >
-                      <Paperclip className="w-4 h-4" /> Attach files
-                    </button>
-                    <button
-                      onClick={() => { setShowFormat(v => !v); setShowAttach(false) }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-body font-medium transition-colors ${showFormat ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/60"}`}
-                    >
-                      <SlidersHorizontal className="w-4 h-4" /> Formatting
-                    </button>
-                  </div>
+                <div className="flex items-center justify-end px-4 py-3.5 bg-muted/30 rounded-b-lg">
                   <Button onClick={() => handleRun()} disabled={!query.trim() || isSubmitting || isCheckingClarity} size="lg" className="gap-2 text-body px-4">
                     {isCheckingClarity ? "Checking…" : isSubmitting ? "Running…" : (<><ArrowUp className="size-5" />Analyse</>)}
                   </Button>
