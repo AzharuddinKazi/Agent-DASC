@@ -131,7 +131,7 @@ function FeedbackBar() {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function ReportSections({ result, query, script, plan = [], taskId, onFollowUp, isFollowUpBusy = false }) {
+export default function ReportSections({ result, script, plan = [], onFollowUp, isFollowUpBusy = false }) {
   const [showCode, setShowCode]         = useState(false)
   const [showAudit, setShowAudit]       = useState(false)
   const [showPlan, setShowPlan]         = useState(false)

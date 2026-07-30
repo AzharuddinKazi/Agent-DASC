@@ -1,4 +1,4 @@
-import logging, os
+import logging
 from db import supabase
 from agents.state import TaskState, current_objective
 from agents.logger import log_event
