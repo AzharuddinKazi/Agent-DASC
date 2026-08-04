@@ -167,6 +167,55 @@ longer matched reality and has been replaced; git history retains it if ever nee
         server-built sources list).
       - Test count: 94 → 196 backend tests, all passing against CI's actual dummy-credential
         environment (fully mocked, no live network, sub-second run).
+- [x] DS-STAR+ report mode producing thin reports — **root-caused and fixed 2026-08-04**,
+      found by testing report-mode output quality live against real Medicare data (not
+      a prompt-tuning issue, despite the Writer's own prompt already explicitly demanding
+      "5-10+ paragraphs" per section). Traced through the full pipeline:
+      1. `finalizer.py`'s generated script, for genuinely complex multi-step queries
+         (regressions, multi-group comparisons, percentile thresholds), would sometimes
+         exit 0 having printed raw pandas output (e.g. a bare `describe()` dump) instead
+         of the required JSON shape — and this was **completely invisible**: the
+         existing `except (json.JSONDecodeError, TypeError): pass` around the
+         post-execution parse swallowed the failure with no log, no retry, task still
+         reported `completed`. `agents/graph.py`'s `sub_result_collector` then dumped the
+         entire raw text into `summary` and left `key_findings`/`rows`/`columns` empty —
+         confirmed live: a real report's `sub_results` had empty `key_findings`/`rows`
+         for all 6 sub-questions. The Writer, fed six unstructured text blobs instead of
+         real findings/example rows, had almost nothing to synthesize from — hence thin
+         sections despite its own prompt's explicit demand for depth.
+      2. **Fix**: `finalizer.py`'s self-debug retry loop (previously only triggered by a
+         nonzero exit code) now also triggers when the script exits 0 but
+         `_is_malformed_finalizer_json()` finds the output isn't a JSON object. First
+         version of this fix routed the retry through `DEBUGGER_PROMPT` — verified live
+         that this reliably failed to converge within 2 attempts on real complex queries
+         (that prompt carries no JSON schema, question, or guidelines at all, just
+         "here's an error, fix it"). Corrected to re-send the **full original
+         `FINALIZER_PROMPT`** (complete schema/question/guidelines) plus a
+         `FORMAT_RETRY_SUFFIX` addendum describing what went wrong — same reasoning
+         already used for the pre-existing SyntaxError-retry branch. Also added a
+         preventive rule to the base prompt itself ("never print a pandas Series/
+         DataFrame or statistical object directly"). Verified live on the exact hard
+         query that failed in the original diagnostic (DRG/procedure cross-analysis,
+         real 10K-row Medicare data): converged to fully-structured JSON (20 populated
+         rows, real quantified key_findings) after one retry; a simple query converged
+         on the first attempt with zero retries.
+      3. **Second layer**: `report_evaluator.py` — the report pipeline's own
+         "verifier" — got a deterministic backstop, `_find_structurally_thin_sub_results()`,
+         since its LLM call only ever judges the Writer's rendered prose and, confirmed
+         live, judged a report "sufficient" on the first pass despite every one of its
+         6 sub-analyses having empty `key_findings`/`rows`. Any sub-result with no
+         findings and no rows now forces the verdict to "insufficient" and adds a gap
+         asking that sub-question be re-analyzed with concrete structured findings —
+         regardless of what the evaluator's own LLM call concluded — bounded by the
+         existing `max_report_rounds` so it can't loop forever.
+      9 new tests across `test_finalizer.py`/`test_report_evaluator.py` (retry
+      convergence, retry exhaustion still ships rather than fails the task, the
+      structural-thinness override and its exemption for already-recorded failures);
+      suite green (320 passed). Verified live at three levels: an isolated simple-query
+      finalizer call (converged immediately), an isolated hard-query finalizer call
+      using the exact reference data from the failing diagnostic (converged after one
+      retry), and a full graph run that confirmed the `report_evaluator` backstop
+      correctly overrides a false "sufficient" verdict end-to-end.
 
 ## Product differentiators (good → wow)
 

@@ -74,18 +74,18 @@ def test_finalizer_recovers_after_one_debug_attempt():
          patch("agents.finalizer.execute_script") as mock_execute:
         mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
         mock_router.complete.side_effect = [
-            make_mock_llm_result("raise ValueError('boom')"),  # initial finalizer script
-            make_mock_llm_result("print('fixed')"),             # debugger's fix
+            make_mock_llm_result("raise ValueError('boom')"),        # initial finalizer script
+            make_mock_llm_result('print(\'{"summary": "fixed"}\')'),  # debugger's fix
         ]
         mock_execute.side_effect = [
             ("", "ValueError: boom", 1),
-            ("fixed\n", "", 0),
+            ('{"summary": "fixed"}', "", 0),
         ]
 
         result = finalizer(base_state())
 
     assert result["status"] == "completed"
-    assert result["final_result"] == "fixed\n"
+    assert json.loads(result["final_result"])["summary"] == "fixed"
     assert mock_execute.call_count == 2
     assert mock_router.complete.call_args_list[1].kwargs["agent"] == "debugger"
 
@@ -103,17 +103,17 @@ def test_finalizer_retries_a_syntax_error_with_a_fresh_generation_not_a_patch():
         mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
         mock_router.complete.side_effect = [
             make_mock_llm_result("outpatient_df = pd.read_csv('/workspace/data/medicare"),  # truncated
-            make_mock_llm_result("print('42')"),                                             # fresh retry
+            make_mock_llm_result('print(\'{"summary": "42"}\')'),                            # fresh retry
         ]
         mock_execute.side_effect = [
             ("", "  File \"step.py\", line 1\nSyntaxError: unterminated string literal", 1),
-            ("42\n", "", 0),
+            ('{"summary": "42"}', "", 0),
         ]
 
         result = finalizer(base_state())
 
     assert result["status"] == "completed"
-    assert result["final_result"] == "42\n"
+    assert json.loads(result["final_result"])["summary"] == "42"
     retry_call = mock_router.complete.call_args_list[1]
     assert retry_call.kwargs["agent"] == "finalizer"
     assert retry_call.kwargs["prompt"] == mock_router.complete.call_args_list[0].kwargs["prompt"]
@@ -275,6 +275,66 @@ def test_finalizer_sanitizes_nan_in_a_non_dict_json_output():
         result = finalizer(base_state())
 
     assert result["final_result"] == "[1, null, 3]"
+
+
+def test_finalizer_retries_when_script_exits_0_but_prints_non_json_output():
+    """Regression test for the root cause behind thin DS-STAR+ reports: a script that
+    runs successfully (exit 0) but ignores the required JSON output contract used to be
+    silently accepted as-is. sub_result_collector then had nothing structured to parse,
+    leaving key_findings/rows empty for that sub-question — poisoning the Writer's input
+    even though the Writer's own prompt explicitly demands depth. Retried with the full
+    original finalizer prompt (schema + question + guidelines) plus an addendum, not
+    DEBUGGER_PROMPT — an earlier version of this fix routed through the debugger, whose
+    prompt carries no schema at all and reliably failed to converge on real complex
+    queries (confirmed live)."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.side_effect = [
+            make_mock_llm_result("print('Total: 42 units, up 3% from last month')"),  # non-JSON
+            make_mock_llm_result('print(\'{"summary": "42 units"}\')'),               # debugger's fix
+        ]
+        mock_execute.side_effect = [
+            ("Total: 42 units, up 3% from last month\n", "", 0),   # exit 0, not JSON
+            ('{"summary": "42 units"}', "", 0),                     # exit 0, valid JSON
+        ]
+
+        result = finalizer(base_state())
+
+    assert result["status"] == "completed"
+    parsed = json.loads(result["final_result"])
+    assert parsed["summary"] == "42 units"
+    assert mock_execute.call_count == 2
+    retry_kwargs = mock_router.complete.call_args_list[1].kwargs
+    assert retry_kwargs["agent"] == "finalizer"
+    assert "did not follow the required output format" in retry_kwargs["prompt"]
+    assert "Total: 42 units, up 3% from last month" in retry_kwargs["prompt"]
+    # The full original prompt (schema, question, guidelines) must still be present —
+    # this is an addendum to it, not a replacement.
+    assert "What is the total transaction volume?" in retry_kwargs["prompt"]
+
+
+def test_finalizer_gives_up_after_exhausting_retries_on_persistent_non_json_output():
+    """Must not fail the whole task just because the model never converges on the JSON
+    contract — after exhausting MAX_FINALIZER_DEBUG_ATTEMPTS, ship the best available
+    (still exit-0) output rather than reporting the task as failed, same tolerance the
+    pre-existing non-JSON-output test already covers for a single attempt."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result("print('still just plain text')")
+        mock_execute.return_value = ("still just plain text\n", "", 0)
+
+        result = finalizer(base_state())
+
+    assert result["status"] == "completed"
+    assert result["final_result"] == "still just plain text\n"
+    # Initial attempt + MAX_FINALIZER_DEBUG_ATTEMPTS retries, no more.
+    assert mock_execute.call_count == 3
 
 
 def test_finalizer_strips_code_fence_even_when_closing_fence_is_missing():

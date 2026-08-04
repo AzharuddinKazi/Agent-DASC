@@ -93,6 +93,75 @@ def test_empty_response_defaults_to_insufficient_with_no_gaps():
     assert result["report_gaps"] == []
 
 
+def test_overrides_sufficient_verdict_when_a_sub_result_is_structurally_thin():
+    """Regression test: a report can read as coherent prose (and get judged 'sufficient'
+    by the evaluator's own LLM call) while actually being built on a sub-analysis with no
+    real structured findings — confirmed live, where a report was accepted as sufficient
+    on the first pass despite every one of its 6 sub-analyses having empty
+    key_findings/rows. This is a deterministic backstop independent of the LLM's
+    judgment of the rendered report text."""
+    state = base_state(sub_results={
+        "Fraud rate by entity?": {
+            "summary": "Entity-07 has a 3.2% dtype: float64\nmean 0.032...",  # raw dump
+            "key_findings": [], "rows": [], "columns": [],
+        }
+    })
+    with patch("agents.report_evaluator.supabase") as mock_supabase, \
+         patch("agents.report_evaluator.log_event") as mock_log_event, \
+         patch("agents.report_evaluator.router") as mock_router:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result(json.dumps({"verdict": "sufficient", "gaps": []}))
+
+        result = report_evaluator(state)
+
+    assert result["report_verdict"] == "insufficient"
+    assert len(result["report_gaps"]) == 1
+    assert "Fraud rate by entity?" in result["report_gaps"][0]["question"]
+    assert result["report_gaps"][0]["question"] != "Fraud rate by entity?"  # must not collide with the original key
+    log_call = mock_log_event.call_args
+    assert log_call.args[4]["structurally_thin_sub_results"] == ["Fraud rate by entity?"]
+
+
+def test_does_not_override_verdict_when_sub_results_have_real_structure():
+    state = base_state(sub_results={
+        "Fraud rate by entity?": {
+            "summary": "Entity-07 leads at 3.2%.",
+            "key_findings": ["Entity-07: 3.2%"], "rows": [["Entity-07", 0.032]], "columns": ["entity", "rate"],
+        }
+    })
+    with patch("agents.report_evaluator.supabase") as mock_supabase, \
+         patch("agents.report_evaluator.log_event"), \
+         patch("agents.report_evaluator.router") as mock_router:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result(json.dumps({"verdict": "sufficient", "gaps": []}))
+
+        result = report_evaluator(state)
+
+    assert result["report_verdict"] == "sufficient"
+    assert result["report_gaps"] == []
+
+
+def test_does_not_flag_an_already_recorded_failure_as_structurally_thin():
+    """A sub-question that failed outright (debug retries exhausted) is already recorded
+    as failed=True with an explanatory summary — a separate, already-visible failure
+    mode, not the silent-empty-structure case this backstop targets."""
+    state = base_state(sub_results={
+        "Fraud rate by entity?": {
+            "summary": "This sub-question could not be answered — the analysis script failed.",
+            "key_findings": [], "rows": [], "columns": [], "failed": True,
+        }
+    })
+    with patch("agents.report_evaluator.supabase") as mock_supabase, \
+         patch("agents.report_evaluator.log_event"), \
+         patch("agents.report_evaluator.router") as mock_router:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result(json.dumps({"verdict": "sufficient", "gaps": []}))
+
+        result = report_evaluator(state)
+
+    assert result["report_verdict"] == "sufficient"
+
+
 def test_includes_hypotheses_in_prompt():
     with patch("agents.report_evaluator.supabase") as mock_supabase, \
          patch("agents.report_evaluator.log_event"), \

@@ -92,7 +92,50 @@ is invalid Python syntax. Build the inner strings in a separate variable/list fi
 variable into the outer string — this applies to the "raw" and "summary" text fields too.
 No space after the thousands-separator comma in an f-string format spec — write
 f"{{x:,.2f}}", never f"{{x:, .2f}}" (a stray space there is a ValueError at runtime, not
-a formatting choice)."""
+a formatting choice).
+However complex the underlying computation (a groupby table, a regression summary, a
+multi-percentile breakdown), NEVER print a pandas Series/DataFrame or a statistical
+object directly (e.g. `print(df.describe())`, `print(model.summary())`) — that prints
+the object's own repr, not the required JSON. Always extract the specific numbers you
+need from it in Python first, then build and print the JSON object yourself out of
+those plain values."""
+
+# Appended to the ORIGINAL finalizer prompt (not sent alone) when a previous attempt ran
+# successfully but ignored the JSON output contract — reusing the full prompt keeps the
+# schema/guidelines/question in context; DEBUGGER_PROMPT alone doesn't carry any of that,
+# which is why routing this failure through it (the first version of this fix) still
+# reliably failed to converge on genuinely complex multi-step queries.
+FORMAT_RETRY_SUFFIX = """
+
+# Your previous attempt did not follow the required output format
+The script above ran successfully but printed output that is NOT a valid JSON object —
+it printed this instead:
+
+{previous_output}
+
+Restructure your analysis so the script prints a single JSON object with exactly the
+keys specified in the Output format section above. Extract the specific values you need
+from your computation into plain Python values first (see the "never print a pandas
+object directly" rule above) — do not print a DataFrame/Series repr, and do not just
+wrap the previous raw text output in a JSON string."""
+
+
+def _is_malformed_finalizer_json(stdout: str) -> bool:
+    """True when the script's stdout isn't a JSON object — FINALIZER_PROMPT's Output
+    format section requires the script to always print one, but a model can still exit
+    0 having printed raw text (e.g. a bare pandas describe()/Series dump) instead. That
+    used to be silently accepted as "succeeded" (see finalizer()'s own best-effort
+    json.loads a few lines below, which already tolerated this) — invisible in QA mode,
+    where the frontend falls back to a raw-text view, but structurally poisonous in
+    report mode: sub_result_collector (agents/graph.py) has nothing to parse either, so
+    it stores the entire raw dump as `summary` and leaves key_findings/rows/columns
+    empty, and the Writer then has almost nothing structured to synthesize from — this
+    is what made real DS-STAR+ reports come back thin despite the Writer's own prompt
+    explicitly demanding depth."""
+    try:
+        return not isinstance(json.loads(stdout.strip()), dict)
+    except (json.JSONDecodeError, TypeError):
+        return True
 
 
 def finalizer(state: TaskState) -> dict:
@@ -122,26 +165,48 @@ def finalizer(state: TaskState) -> dict:
 
     filenames = "\n".join(summaries.keys())
     attempt = 0
-    while exit_code != 0 and attempt < MAX_FINALIZER_DEBUG_ATTEMPTS:
+    malformed_json = exit_code == 0 and _is_malformed_finalizer_json(stdout)
+    while (exit_code != 0 or malformed_json) and attempt < MAX_FINALIZER_DEBUG_ATTEMPTS:
         attempt += 1
-        logger.error(f"Finalizer script failed (attempt {attempt}): {stderr[:200]}")
-        log_event(state["task_id"], "finalizer",
-                  f"Finalizer script failed — debug attempt {attempt}/{MAX_FINALIZER_DEBUG_ATTEMPTS}",
-                  "error", {"attempt": attempt})
 
-        if "SyntaxError" in stderr or "IndentationError" in stderr:
-            # A SyntaxError here almost always means the previous generation was cut
-            # off mid-token (e.g. a string literal left unterminated), not a logic bug
-            # to patch — asking the model to "fix" an already-incomplete fragment tends
-            # to just reproduce the same truncation. A fresh attempt from the original,
-            # complete prompt is far more likely to come back as valid, complete code.
-            fix_result = router.complete(agent="finalizer", prompt=prompt, task_id=state["task_id"])
+        if exit_code != 0:
+            logger.error(f"Finalizer script failed (attempt {attempt}): {stderr[:200]}")
+            log_event(state["task_id"], "finalizer",
+                      f"Finalizer script failed — debug attempt {attempt}/{MAX_FINALIZER_DEBUG_ATTEMPTS}",
+                      "error", {"attempt": attempt})
+
+            if "SyntaxError" in stderr or "IndentationError" in stderr:
+                # A SyntaxError here almost always means the previous generation was cut
+                # off mid-token (e.g. a string literal left unterminated), not a logic
+                # bug to patch — asking the model to "fix" an already-incomplete fragment
+                # tends to just reproduce the same truncation. A fresh attempt from the
+                # original, complete prompt is far more likely to come back valid.
+                fix_result = router.complete(agent="finalizer", prompt=prompt, task_id=state["task_id"])
+            else:
+                debug_prompt = DEBUGGER_PROMPT.format(filenames=filenames, code=final_script, bug=stderr)
+                fix_result   = router.complete(agent="debugger", prompt=debug_prompt, task_id=state["task_id"])
         else:
-            debug_prompt = DEBUGGER_PROMPT.format(filenames=filenames, code=final_script, bug=stderr)
-            fix_result   = router.complete(agent="debugger", prompt=debug_prompt, task_id=state["task_id"])
+            # Ran fine, but ignored the required JSON output contract. This is a
+            # restructuring problem, not a code bug — DEBUGGER_PROMPT doesn't even carry
+            # the JSON schema, chart-type rules, or original question/guidelines, so a
+            # model handed only "this isn't JSON, fix it" has to reconstruct the whole
+            # contract from a stripped-down prompt with no schema, and on real multi-step
+            # analytical queries reliably failed to converge within 2 such attempts.
+            # Same fix as the SyntaxError branch above, for the same reason: re-send the
+            # complete original prompt (full schema, guidelines, question) rather than a
+            # fragment, plus an addendum showing exactly what went wrong last time so the
+            # retry isn't a blind resample.
+            logger.warning(f"Finalizer script exited 0 but printed non-JSON output (attempt {attempt}): {stdout[:200]!r}")
+            log_event(state["task_id"], "finalizer",
+                      f"Finalizer output wasn't valid JSON — debug attempt {attempt}/{MAX_FINALIZER_DEBUG_ATTEMPTS}",
+                      "error", {"attempt": attempt})
+            retry_prompt = prompt + FORMAT_RETRY_SUFFIX.format(previous_output=stdout[:2000])
+            fix_result   = router.complete(agent="finalizer", prompt=retry_prompt, task_id=state["task_id"])
+
         final_script = strip_code_fences(fix_result["text"].strip())
 
         stdout, stderr, exit_code = execute_script(final_script, state["task_id"])
+        malformed_json = exit_code == 0 and _is_malformed_finalizer_json(stdout)
 
     final_output = stdout if exit_code == 0 else f"Execution failed: {summarize_script_failure(stderr)}"
 

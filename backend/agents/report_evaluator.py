@@ -52,6 +52,23 @@ on to pad coverage.
 Return only the JSON object."""
 
 
+def _find_structurally_thin_sub_results(sub_results: dict) -> list[str]:
+    """A sub-result with no key_findings AND no rows is a strong signal that
+    finalizer.py's script printed unstructured text instead of the required JSON shape
+    for that sub-question — even after its own self-debug retries exhausted (see
+    finalizer.py's _is_malformed_finalizer_json). The evaluator's own LLM call only ever
+    sees the Writer's rendered prose, not this raw structure, so a report built on
+    entirely unstructured sub-analyses can still read as coherent and get judged
+    "sufficient" — confirmed live: a real report was accepted as sufficient on the first
+    pass while every one of its 6 sub-analyses had empty key_findings/rows. This is a
+    deterministic backstop for that specific structural failure, not a replacement for
+    the LLM's judgment of narrative quality/depth."""
+    return [
+        q for q, sr in sub_results.items()
+        if not sr.get("failed") and not sr.get("key_findings") and not sr.get("rows")
+    ]
+
+
 def _normalize_gaps(raw) -> list[dict]:
     """Tolerates the model returning plain gap strings despite the requested shape —
     treated as a question with no hypothesis, same degradation pattern as
@@ -102,16 +119,39 @@ def report_evaluator(state: TaskState) -> dict:
         gaps    = []
         parse_failed = True
 
+    thin_questions = _find_structurally_thin_sub_results(state.get("sub_results", {}))
+    if thin_questions and verdict == "sufficient":
+        logger.warning(f"Overriding 'sufficient' verdict — {len(thin_questions)} sub-result(s) have no key_findings/rows: {thin_questions}")
+        verdict = "insufficient"
+        # Distinct question text from the original — gap_question_generator appends
+        # gaps as new sub_questions into the same list the original occupies, and every
+        # downstream dict (sub_results, hypotheses, citation labels in writer.py) is
+        # keyed by that exact string; reusing the original text verbatim would collide
+        # with it instead of cleanly adding a fresh re-attempt.
+        gaps = gaps + [
+            {
+                "question": f"{q} (re-analyze and report concrete structured findings — "
+                             "specific figures and example data rows, not a narrative-only summary)",
+                "hypothesis": "The prior analysis for this question produced no structured "
+                               "findings or data rows, only unstructured text.",
+            }
+            for q in thin_questions
+        ]
+
     logger.info(f"Verdict: {verdict}, gaps: {gaps}")
     gap_text = f" — gaps: {'; '.join(g['question'] for g in gaps[:3])}" if gaps else ""
     if parse_failed:
         message = "Report quality check failed to parse — treating conservatively as insufficient"
         level = "error"
+    elif thin_questions:
+        message = f"Report quality: insufficient — {len(thin_questions)} sub-analysis(es) had no structured findings{gap_text}"
+        level = "info"
     else:
         message = f"Report quality: {'sufficient ✓' if verdict == 'sufficient' else f'insufficient{gap_text}'}"
         level = "success" if verdict == "sufficient" else "info"
     log_event(state["task_id"], "report_evaluator", message, level,
-              {"verdict": verdict, "gaps": gaps, "round": state.get("report_rounds", 0) + 1, "parse_failed": parse_failed})
+              {"verdict": verdict, "gaps": gaps, "round": state.get("report_rounds", 0) + 1,
+               "parse_failed": parse_failed, "structurally_thin_sub_results": thin_questions})
 
     return {
         "report_verdict": verdict,
