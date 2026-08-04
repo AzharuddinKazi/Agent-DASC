@@ -368,19 +368,17 @@ are now resolved (see each item below for what changed and why).
 ### P2 / P3 — hardening & polish
 
 **Resume-here note (2026-08-04):** working through this list one item at a time, in the
-priority order below (correctness/security first, cleanup/cosmetic last). 11 of 18 done so
-far (the NaN/`JSON.parse` item and the `npm run lint` item, both newly found/tackled this
-session, are now resolved — see their entries below). Remaining, in the agreed order:
-1. README roadmap misrepresents current state
-2. Git tags/CHANGELOG/rollback mechanism — flagged for user input on approach, not just
+priority order below (correctness/security first, cleanup/cosmetic last). 12 of 18 done so
+far. Remaining, in the agreed order:
+1. Git tags/CHANGELOG/rollback mechanism — flagged for user input on approach, not just
    picked unilaterally, since it's a process/workflow decision more than a code fix
-3. Prompt-formatting duplication across agent files
-4. Duplicated JSON-parsing/chart-style/follow-up-bar code (`ReportView` vs `ReportSections`)
-5. Frontend bundle inflated 1.6MB by `@hugeicons`
-6. Silent console-only failures on task-list/poll fetch errors
-7. Sortable table headers not keyboard/screen-reader accessible
-8. Commented-out dead code + `router`/`router_agent` naming collision (backend)
-9. 66 arbitrary Tailwind pixel values fragment the type scale
+2. Prompt-formatting duplication across agent files
+3. Duplicated JSON-parsing/chart-style/follow-up-bar code (`ReportView` vs `ReportSections`)
+4. Frontend bundle inflated 1.6MB by `@hugeicons`
+5. Silent console-only failures on task-list/poll fetch errors
+6. Sortable table headers not keyboard/screen-reader accessible
+7. Commented-out dead code + `router`/`router_agent` naming collision (backend)
+8. 66 arbitrary Tailwind pixel values fragment the type scale
 
 Working pattern per item (established over items 1–8, keep using it): implement → add/
 update tests → run full suite → verify live against the running app when the change has
@@ -475,7 +473,34 @@ DB writes.
       compiles." CI's frontend lint step, previously `continue-on-error: true`, now
       gates like `Test`/`Build`. `npm run lint` exits clean (0 errors, 0 warnings);
       `npm run test` (19 passed) and `npm run build` unaffected.
-- [ ] README roadmap misrepresents current state
+- [x] ~~README roadmap misrepresents current state~~ — **resolved**: both READMEs described
+      an app that no longer exists in one major way and several minor ones. Biggest:
+      both said "A Gemini API key" as the LLM prerequisite and `backend/README.md`'s
+      "LLM routing" section described a Gemini `heavy`/`light` tier split — the backend
+      has called OpenRouter exclusively for a while (`llm_router.py`,
+      `OPENROUTER_API_KEY`, no `GEMINI_API_KEY` anywhere), with `high`/`medium`/`low`
+      tiers and a live DB-backed `"free"`/`"fast_paid"` speed-profile toggle
+      (`GET`/`POST /api/v1/llm_speed_profile`) neither README mentioned at all. Root
+      README's feature description and pipeline diagram were also missing four shipped,
+      TASKS.md-confirmed features: the `human_review_gate` HITL checkpoint, Stop/Pause/
+      Resume task controls, DS-STAR+ citations, and the Domain Packs marketplace/RAG
+      knowledge base — added to the intro paragraph and the report-pipeline prose.
+      `backend/README.md`'s API table had 10 of 19 actual routes; rebuilt from
+      `main.py`'s route decorators. Its agent-graph table was missing the
+      `human_review_gate` node and `cancellation.py`/`query_clarity.py` (real files,
+      no dedicated node) entirely; added, plus a note listing the cross-cutting
+      `agents/` files (schemas, sanitizers, etc.) the table's "one file per node"
+      framing undersold. Root README's stale "frontend has no automated test suite"
+      claim (vitest was added weeks ago, per this file's own Completed section) fixed,
+      plus a copy-paste bug in the new testing snippet (`cd frontend` after `cd
+      backend` from repo root would fail — needed `cd ../frontend`). Also flagged
+      `specs/agents/writer.md` and similar planning docs as historical/superseded
+      rather than presenting `specs/` as uniformly current, per this file's own note
+      that the writer spec's checkpoint design predates and differs from what was
+      actually built. No code changes — docs only; not re-run through the test suite
+      for that reason, but every route/env-var/model-tier claim was checked against
+      the actual source (`main.py`, `graph.py`, `llm_router.py`, `.env.example`) before
+      writing it down, not carried over from memory.
 - [x] ~~Unbounded read-modify-write on the logs array (race-prone)~~ — **resolved**:
       `agents/logger.py`'s `log_event()` used to SELECT `logs`, append in Python, then
       UPDATE the whole array — a real race, not theoretical: a user's Stop/Pause request

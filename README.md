@@ -7,11 +7,19 @@ DS-STAR turns a natural-language question about a dataset into an executable, se
 data analysis pipeline. A user submits a query; a graph of specialized LLM agents plans an
 analysis, writes Python to carry it out, runs that code in an isolated Docker sandbox, checks
 whether the output actually answers the question, and iterates — re-planning or debugging —
-until it does (or gives up after a bounded number of rounds).
+until it does (or gives up after a bounded number of rounds). A genuinely ambiguous query gets
+a clarifying-questions prompt before the pipeline even starts.
 
 It also supports a second mode, **DS-STAR+ (report)**, which decomposes a broader question into
 several sub-questions, runs the QA pipeline on each one, and has a Writer/Evaluator pair draft
-and critique a combined report until it's judged complete.
+and critique a combined, numbered-and-cited report (`[N]`) until it's judged complete — with an
+optional human refine-vs-finalize checkpoint before it ships.
+
+A task can be self-serve signed up for (Supabase Auth, per-user row scoping) and, once running,
+stopped/paused/resumed cooperatively rather than only ever run to completion or killed outright.
+A **domain pack** (browsable/downloadable in-app) can bias the whole pipeline's framing toward a
+specific domain — e.g. fraud/AML — and ground its answers in uploaded reference documents via a
+per-pack RAG knowledge base.
 
 This repo is a monorepo: a Python/FastAPI backend that runs the agent graph, and a React
 frontend that submits tasks and renders results.
@@ -30,7 +38,9 @@ DSStar/
 ├── backend/       FastAPI API + LangGraph agent pipeline — see backend/README.md
 ├── frontend/      React (Vite) SPA — see frontend/README.md
 ├── sandbox/       Docker image the backend spins up to execute generated scripts
-├── specs/         Design specs: API contracts, agent prompts, DB schema, feature docs
+├── specs/         Design specs: API contracts, agent prompts, DB schema, feature docs — some
+│                  predate and differ from what was actually built (see TASKS.md), not all
+│                  current
 ├── data/          Local datasets the pipeline reads (gitignored except data/test.csv)
 ├── docker-compose.yml   Runs backend + frontend together
 └── TASKS.md       Live backlog / known issues, ranked by priority
@@ -68,13 +78,24 @@ analyzer → planner → coder → executor ─┬─(success)→ verifier ─�
 **Report pipeline** (`task_type: "report"`, DS-STAR+): a **question_generator** first breaks the
 query into sub-questions; each runs through the QA loop above; a **sub_result_collector** stores
 each answer and advances to the next sub-question; once all are done, a **writer** drafts a
-report and a **report_evaluator** critiques it — looping through a **gap_question_generator**
-(which turns missing dimensions back into sub-questions and re-enters the QA loop) for up to
-`max_report_rounds` passes before a **report_finalizer** stores the final report.
+report (citing each sub-analysis inline, `[N]`) and a **report_evaluator** critiques it —
+looping through a **gap_question_generator** (which turns missing dimensions back into
+sub-questions and re-enters the QA loop, its own citations labeled `[a]`, `[b]`... to distinguish
+a refine round from the initial one) for up to `max_report_rounds` passes. If the task was
+submitted with `require_human_review: true`, an insufficient-but-not-final-round verdict parks
+the task at a **human_review_gate** checkpoint instead of auto-refining — a person decides
+refine vs. finalize — before a **report_finalizer** stores the final report.
+
+A running or paused task at any point in either pipeline can be stopped or paused/resumed
+(`agents/cancellation.py`), checked cooperatively at every node boundary rather than killed
+outright — an in-flight Docker sandbox run is force-killed rather than waited out.
 
 Full agent-by-agent and API detail: [`backend/README.md`](backend/README.md). Frontend structure:
 [`frontend/README.md`](frontend/README.md). Design specs (API contracts, prompts, DB schema):
-[`specs/`](specs/).
+[`specs/`](specs/) — some documents there are historical planning docs superseded by what was
+actually implemented (e.g. `specs/agents/writer.md`'s checkpoint design differs from the
+`human_review_gate`/`require_human_review` mechanism actually shipped); TASKS.md's "Completed"
+section is the reliable record of current behavior.
 
 ## Prerequisites
 
@@ -82,8 +103,10 @@ Full agent-by-agent and API detail: [`backend/README.md`](backend/README.md). Fr
 - Node.js 20+
 - Docker (daemon running — the backend needs it both to build the sandbox image and, at
   runtime, to launch sandbox containers via the host socket)
-- A Supabase project (Postgres + Auth) — see [`specs/database-schema.sql`](specs/database-schema.sql)
-- A Gemini API key
+- A Supabase project (Postgres + Auth — the app has self-serve signup/sign-in built in, backed
+  by per-user row-level security) — see [`specs/database-schema.sql`](specs/database-schema.sql)
+- An OpenRouter API key ([openrouter.ai/keys](https://openrouter.ai/keys) — free tier covers
+  every model this repo uses by default, no billing required)
 
 ## Running it
 
@@ -145,9 +168,13 @@ launches an ephemeral container from it (via the Docker socket) for each script 
 ```bash
 cd backend
 uv run pytest
+
+cd ../frontend
+npm run test
 ```
 
-The frontend currently has no automated test suite (see `TASKS.md`).
+Both suites are fully mocked (no live LLM/Docker/Supabase calls) and run in CI on every push/PR
+to `main`, gating the build.
 
 ## Known issues / roadmap
 
