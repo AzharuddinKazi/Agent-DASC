@@ -2,6 +2,8 @@ import { useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Check, Loader2 } from "lucide-react"
 
+const EMPTY_LOGS = []
+
 const PHASES = [
   { key: "question_generator", label: "Sub-question Generation" },
   { key: "analysis",           label: "DS-STAR Analysis" },
@@ -46,7 +48,7 @@ function deriveFromLogs(logs) {
 }
 
 export default function ResearchProgress({ task }) {
-  const logs = task?.logs || []
+  const logs = task?.logs || EMPTY_LOGS
   const agent = task?.current_agent
   const phaseIdx = currentPhase(agent)
 

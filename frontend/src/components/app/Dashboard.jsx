@@ -31,14 +31,26 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
   // so it bumps this to re-trigger the effect below.
   const [pollGeneration, setPollGeneration] = useState(0)
 
-  useEffect(() => {
-    if (!activeTaskId) return
+  // Resetting task/isX state for a new poll cycle (new task selected, or the same task
+  // restarting after resume/review) is a derived-state adjustment keyed on
+  // activeTaskId+pollGeneration, not a side effect — done during render (React's
+  // documented "adjusting state when a prop changes" pattern, same approach
+  // ReportSections.jsx already uses for its page-reset) rather than as the first thing
+  // inside the polling effect below.
+  const pollKey = `${activeTaskId}:${pollGeneration}`
+  const [resetForPollKey, setResetForPollKey] = useState(pollKey)
+  if (activeTaskId && pollKey !== resetForPollKey) {
+    setResetForPollKey(pollKey)
     setTask(null)
     setIsStopping(false)
     setIsPausing(false)
     setIsResuming(false)
     setIsRerunning(false)
     setIsReviewSubmitting(false)
+  }
+
+  useEffect(() => {
+    if (!activeTaskId) return
     let cancelled = false
     const poll = async () => {
       try {

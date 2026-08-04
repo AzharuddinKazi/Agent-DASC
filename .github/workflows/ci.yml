@@ -57,12 +57,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Test
         run: npm run test
 
       - name: Build
         run: npm run build
-
-      - name: Lint (report only — known pre-existing errors, see TASKS.md)
-        run: npm run lint
-        continue-on-error: true

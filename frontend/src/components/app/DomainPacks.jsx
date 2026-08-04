@@ -42,6 +42,7 @@ function usePackDocuments(packId) {
 
   useEffect(() => {
     if (!packId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch/poll-on-mount: `load` sets state after an await, not synchronously.
     load()
     const t = setInterval(load, 3000)
     return () => clearInterval(t)
@@ -165,6 +166,7 @@ function PackCustomization({ packId }) {
     finally { setLoading(false) }
   }, [packId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount: `load` sets state after an await, not synchronously.
   useEffect(() => { load() }, [load])
 
   if (loading) return <p className="text-caption text-muted-foreground">Loading…</p>
@@ -307,6 +309,7 @@ export default function DomainPacks({ onNew, onSelect }) {
     finally { setLoading(false) }
   }, [])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount: `loadPacks` sets state after an await, not synchronously.
   useEffect(() => { loadPacks() }, [loadPacks])
 
   const handleToggleActive = async pack => {

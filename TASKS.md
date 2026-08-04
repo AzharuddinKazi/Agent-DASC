@@ -368,20 +368,19 @@ are now resolved (see each item below for what changed and why).
 ### P2 / P3 — hardening & polish
 
 **Resume-here note (2026-08-04):** working through this list one item at a time, in the
-priority order below (correctness/security first, cleanup/cosmetic last). 10 of 18 done so
-far (the NaN/`JSON.parse` item, newly found 2026-08-03, is now also resolved — see its
-entry below). Remaining, in the agreed order:
-1. `npm run lint` fails (26 errors)
-2. README roadmap misrepresents current state
-3. Git tags/CHANGELOG/rollback mechanism — flagged for user input on approach, not just
+priority order below (correctness/security first, cleanup/cosmetic last). 11 of 18 done so
+far (the NaN/`JSON.parse` item and the `npm run lint` item, both newly found/tackled this
+session, are now resolved — see their entries below). Remaining, in the agreed order:
+1. README roadmap misrepresents current state
+2. Git tags/CHANGELOG/rollback mechanism — flagged for user input on approach, not just
    picked unilaterally, since it's a process/workflow decision more than a code fix
-4. Prompt-formatting duplication across agent files
-5. Duplicated JSON-parsing/chart-style/follow-up-bar code (`ReportView` vs `ReportSections`)
-6. Frontend bundle inflated 1.6MB by `@hugeicons`
-7. Silent console-only failures on task-list/poll fetch errors
-8. Sortable table headers not keyboard/screen-reader accessible
-9. Commented-out dead code + `router`/`router_agent` naming collision (backend)
-10. 66 arbitrary Tailwind pixel values fragment the type scale
+3. Prompt-formatting duplication across agent files
+4. Duplicated JSON-parsing/chart-style/follow-up-bar code (`ReportView` vs `ReportSections`)
+5. Frontend bundle inflated 1.6MB by `@hugeicons`
+6. Silent console-only failures on task-list/poll fetch errors
+7. Sortable table headers not keyboard/screen-reader accessible
+8. Commented-out dead code + `router`/`router_agent` naming collision (backend)
+9. 66 arbitrary Tailwind pixel values fragment the type scale
 
 Working pattern per item (established over items 1–8, keep using it): implement → add/
 update tests → run full suite → verify live against the running app when the change has
@@ -450,7 +449,32 @@ DB writes.
       agent and server-side operators actually need. 8 new tests (sanitizer unit tests,
       finalizer/executor/run_graph integration tests proving file paths and a fake
       credential string don't survive into what's served); suite green (301 passed).
-- [ ] `npm run lint` fails (26 errors) — mostly vendored shadcn boilerplate
+- [x] ~~`npm run lint` fails (26 errors) — mostly vendored shadcn boilerplate~~ —
+      **resolved**: 20 of the remaining errors (count had already dropped from 26 by
+      this session) were genuine vendored-shadcn boilerplate — an unused `import * as
+      React` in 12 `components/ui/*.jsx` files (dead since the new JSX transform), an
+      unused `useRef` in `ReportView.jsx`, `__dirname` undefined in `vite.config.js`
+      (ESM — switched to `import.meta.dirname`), and a `useMemo` dependency-stability
+      warning in `ResearchProgress.jsx` (same `EMPTY_ARRAY`-reuse fix as the earlier
+      `ReportSections.jsx` pagination regression). The remaining 4 were
+      `react-hooks/set-state-in-effect`, a stricter rule new in
+      `eslint-plugin-react-hooks` v7's `recommended` config: one in `Dashboard.jsx`
+      was a real instance of the antipattern the rule targets (resetting `task`/`isX`
+      state synchronously at the top of the polling effect on every `activeTaskId`/
+      `pollGeneration` change) — fixed by moving the reset to a render-time
+      derived-state check keyed on `` `${activeTaskId}:${pollGeneration}` ``, the same
+      "adjusting state when a prop changes" pattern `ReportSections.jsx` already uses
+      for its page-reset, rather than restructuring the actual network-polling effect.
+      The other 3 (`DomainPacks.jsx`) were standard fetch/poll-on-mount code — an
+      async function that sets state after an `await`, not synchronously — which the
+      rule can't distinguish from the real antipattern; addressed with scoped
+      `eslint-disable-next-line` comments rather than forcing a data-fetching
+      component into an unnatural shape to satisfy a rule limitation.
+      `Dashboard.test.jsx`'s existing task-switch coverage (unchanged) still passes
+      against the refactored reset logic — real regression protection, not just "it
+      compiles." CI's frontend lint step, previously `continue-on-error: true`, now
+      gates like `Test`/`Build`. `npm run lint` exits clean (0 errors, 0 warnings);
+      `npm run test` (19 passed) and `npm run build` unaffected.
 - [ ] README roadmap misrepresents current state
 - [x] ~~Unbounded read-modify-write on the logs array (race-prone)~~ — **resolved**:
       `agents/logger.py`'s `log_event()` used to SELECT `logs`, append in Python, then
