@@ -204,6 +204,28 @@ def test_writer_logs_warning_on_schema_mismatch_but_still_ships_report(caplog):
     assert "doesn't match expected schema" in caplog.text
 
 
+def test_writer_sanitizes_nan_so_frontend_json_parse_never_sees_it():
+    """Regression test: Python's json module parses/re-emits bare NaN tokens without
+    error, but the frontend's JSON.parse rejects them, losing the structured report
+    view. A model emitting NaN in a numeric field (e.g. an unset key_stat) must not
+    leak it into draft_report."""
+    with patch("agents.writer.supabase") as mock_supabase, \
+         patch("agents.writer.log_event"), \
+         patch("agents.writer.router") as mock_router, \
+         patch("agents.writer.get_active_pack_config") as mock_pack:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_pack.return_value = {"report_persona": "You are an analyst.", "report_classification": None}
+        base = json.loads(report_json())
+        base["total_records_analysed"] = float("nan")
+        mock_router.complete.return_value = make_mock_llm_result(json.dumps(base))
+
+        result = writer(base_state())
+
+    assert "NaN" not in result["draft_report"]
+    report = json.loads(result["draft_report"])
+    assert report["total_records_analysed"] is None
+
+
 def test_writer_survives_non_json_output_without_crashing():
     with patch("agents.writer.supabase") as mock_supabase, \
          patch("agents.writer.log_event"), \

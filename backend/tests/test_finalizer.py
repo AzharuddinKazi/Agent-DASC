@@ -223,6 +223,60 @@ def test_finalizer_logs_warning_on_schema_mismatch_but_still_ships_output(caplog
     assert "doesn't match expected schema" in caplog.text
 
 
+def test_finalizer_sanitizes_nan_so_frontend_json_parse_never_sees_it():
+    """Regression test: Python's json module accepts bare NaN/Infinity tokens on both
+    dump and parse, but the frontend's spec-compliant JSON.parse rejects them outright,
+    losing the structured view for an otherwise-successful result. A generated script
+    emitting a NaN (e.g. from an unfilled pandas mean()) must not leak it into
+    final_result."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result("print('{\"summary\": \"ok\", \"rows\": [[1, NaN]]}')")
+        mock_execute.return_value = ('{"summary": "ok", "rows": [[1, NaN]]}', "", 0)
+
+        result = finalizer(base_state())
+
+    assert "NaN" not in result["final_result"]
+    parsed = json.loads(result["final_result"])
+    assert parsed["rows"] == [[1, None]]
+
+
+def test_finalizer_leaves_non_json_scalar_output_byte_for_byte_unchanged():
+    """A scalar JSON value with no NaN/Infinity token must not be re-serialized —
+    re-dumping unconditionally would silently reformat whitespace (e.g. drop a
+    trailing newline) for output that never needed touching."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result("print(42)")
+        mock_execute.return_value = ("42\n", "", 0)
+
+        result = finalizer(base_state())
+
+    assert result["final_result"] == "42\n"
+
+
+def test_finalizer_sanitizes_nan_in_a_non_dict_json_output():
+    """A bare NaN can also appear in a top-level JSON list/scalar, not just an object —
+    e.g. a script that prints a raw list of rows. Must be sanitized the same way."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result("print('[1, NaN, 3]')")
+        mock_execute.return_value = ("[1, NaN, 3]", "", 0)
+
+        result = finalizer(base_state())
+
+    assert result["final_result"] == "[1, null, 3]"
+
+
 def test_finalizer_strips_code_fence_even_when_closing_fence_is_missing():
     """Same bug class as the coder.py fix: a cut-off model response with no closing
     ``` used to silently drop the last real line of the generated script."""

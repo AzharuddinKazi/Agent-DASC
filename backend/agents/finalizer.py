@@ -6,6 +6,7 @@ from agents.debugger import DEBUGGER_PROMPT
 from agents.code_fences import strip_code_fences
 from agents.logger import log_event
 from agents.schemas import FinalizerOutput, validate_and_log
+from agents.json_sanitize import sanitize_json_floats, has_non_finite_token
 from agents.error_sanitizer import summarize_script_failure
 from agents.prompt_safety import format_file_summaries
 from llm_router import LLMRouter
@@ -153,12 +154,16 @@ def finalizer(state: TaskState) -> dict:
     # rather than requiring a new API contract.
     if exit_code == 0:
         try:
-            parsed = json.loads(final_output.strip())
+            stripped = final_output.strip()
+            parsed = json.loads(stripped)
             if isinstance(parsed, dict):
+                parsed = sanitize_json_floats(parsed)
                 validate_and_log(FinalizerOutput, parsed, task_id=state["task_id"], agent="finalizer")
                 parsed["debug_attempts"] = attempt
                 parsed["files_used"] = list(summaries.keys())
                 final_output = json.dumps(parsed)
+            elif has_non_finite_token(stripped):
+                final_output = json.dumps(sanitize_json_floats(parsed))
         except (json.JSONDecodeError, TypeError):
             pass  # non-JSON finalizer output — nothing to attach provenance to
 

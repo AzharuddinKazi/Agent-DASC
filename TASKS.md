@@ -367,22 +367,21 @@ are now resolved (see each item below for what changed and why).
 
 ### P2 / P3 — hardening & polish
 
-**Resume-here note (2026-08-03):** working through this list one item at a time, in the
-priority order below (correctness/security first, cleanup/cosmetic last). 8 of 18 done so
-far. Remaining, in the agreed order:
+**Resume-here note (2026-08-04):** working through this list one item at a time, in the
+priority order below (correctness/security first, cleanup/cosmetic last). 10 of 18 done so
+far (the NaN/`JSON.parse` item, newly found 2026-08-03, is now also resolved — see its
+entry below). Remaining, in the agreed order:
 1. `npm run lint` fails (26 errors)
-2. Frontend bundle inflated 1.6MB by `@hugeicons`
-3. Sortable table headers not keyboard/screen-reader accessible
-4. Silent console-only failures on task-list/poll fetch errors
-5. README roadmap misrepresents current state
-6. Prompt-formatting duplication across agent files
-7. Duplicated JSON-parsing/chart-style/follow-up-bar code (`ReportView` vs `ReportSections`)
-8. Commented-out dead code + `router`/`router_agent` naming collision (backend)
-9. 66 arbitrary Tailwind pixel values fragment the type scale
-10. Git tags/CHANGELOG/rollback mechanism — flagged for user input on approach, not just
-    picked unilaterally, since it's a process/workflow decision more than a code fix
-11. New finding, not yet fixed: Finalizer/Writer output containing `NaN` fails
-    `JSON.parse` on the frontend (see its own entry below for the fix approach)
+2. README roadmap misrepresents current state
+3. Git tags/CHANGELOG/rollback mechanism — flagged for user input on approach, not just
+   picked unilaterally, since it's a process/workflow decision more than a code fix
+4. Prompt-formatting duplication across agent files
+5. Duplicated JSON-parsing/chart-style/follow-up-bar code (`ReportView` vs `ReportSections`)
+6. Frontend bundle inflated 1.6MB by `@hugeicons`
+7. Silent console-only failures on task-list/poll fetch errors
+8. Sortable table headers not keyboard/screen-reader accessible
+9. Commented-out dead code + `router`/`router_agent` naming collision (backend)
+10. 66 arbitrary Tailwind pixel values fragment the type scale
 
 Working pattern per item (established over items 1–8, keep using it): implement → add/
 update tests → run full suite → verify live against the running app when the change has
@@ -522,17 +521,21 @@ DB writes.
       code via `git stash` and pass after. Suite green (19 passed), build/lint clean.
 - [ ] Commented-out dead code + `router`/`router_agent` naming collision (backend)
 - [ ] 66 arbitrary Tailwind pixel values fragment the type scale
-- [ ] Finalizer/Writer output containing a `NaN` value fails `JSON.parse` on the frontend —
-      **newly found 2026-08-03** during the same live end-to-end run: a generated script's
-      `json.dumps()` output included bare `NaN` tokens (from pandas/numpy `NaN` values
-      serialized by Python's `json` module, which — unlike the JSON spec — allows
-      `NaN`/`Infinity`/`-Infinity` by default). The frontend's `JSON.parse` correctly
-      rejects that as invalid JSON and falls back to the raw-text display (no crash, by
-      design — see `ReportSections.jsx`'s `parseFailed` handling), but the structured
-      view (table, chart, key findings) is lost for any result containing a NaN. Fix
-      belongs server-side: either `json.dumps(..., allow_nan=False)` after sanitizing
-      NaN/Inf to `null` before serializing, or a schema-level check in the new
-      `agents/schemas.py` validation path.
+- [x] ~~Finalizer/Writer output containing a `NaN` value fails `JSON.parse` on the
+      frontend~~ — **resolved**: new `agents/json_sanitize.py`
+      (`sanitize_json_floats()`) recursively replaces `NaN`/`Infinity`/`-Infinity`
+      floats with `None` before re-serialization — Python's `json` module accepts
+      those tokens on both dump and load (unlike the JSON spec), so a generated
+      script's output round-trips through `json.loads()` unchanged and would
+      otherwise re-emit the same non-spec-compliant tokens the frontend's
+      `JSON.parse` then rejects. Applied in `finalizer.py` (dict output: sanitized
+      unconditionally, same place provenance is injected; non-dict/scalar or list
+      output: sanitized only if a `has_non_finite_token()` pre-check finds one, so a
+      plain-text or already-clean scalar result isn't needlessly re-dumped and
+      reformatted) and `writer.py` (report is always a dict). 9 new tests
+      (`test_json_sanitize.py` unit tests plus one integration test per agent, plus
+      a byte-for-byte "untouched when clean" regression test for the finalizer's
+      non-dict path); suite green (315 passed).
 
 ## Deferred (explicit user decision)
 - [ ] Rotate exposed Supabase/Gemini credentials — deferred, not forgotten
