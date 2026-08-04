@@ -184,6 +184,26 @@ def test_writer_partitions_citations_by_round():
     assert "### Analysis [2a]:" in prompt
 
 
+def test_writer_logs_warning_on_schema_mismatch_but_still_ships_report(caplog):
+    """Schema validation is visibility-only — a report missing the expected "title" field
+    still ships with sources attached, it's just logged."""
+    broken = json.dumps({"executive_summary": "no title field here", "sections": []})
+    with patch("agents.writer.supabase") as mock_supabase, \
+         patch("agents.writer.log_event"), \
+         patch("agents.writer.router") as mock_router, \
+         patch("agents.writer.get_active_pack_config") as mock_pack:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_pack.return_value = {"report_persona": "You are an analyst.", "report_classification": None}
+        mock_router.complete.return_value = make_mock_llm_result(broken)
+
+        with caplog.at_level("WARNING"):
+            result = writer(base_state())
+        report = json.loads(result["draft_report"])
+
+    assert report["sources"][0]["id"] == "1"
+    assert "doesn't match expected schema" in caplog.text
+
+
 def test_writer_survives_non_json_output_without_crashing():
     with patch("agents.writer.supabase") as mock_supabase, \
          patch("agents.writer.log_event"), \

@@ -9,6 +9,9 @@ from db import supabase
 from agents.logger import log_event
 from agents.state import TaskState
 from agents.cancellation import is_cancelled, is_paused, TaskCancelled, TaskPaused
+from agents.script_repair import repair_fstring_format_specs
+from agents.sandbox_security import docker_security_args
+from agents.error_sanitizer import summarize_script_failure
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,7 @@ POLL_INTERVAL_S = 0.5
 
 
 def execute_script(script: str, task_id: str | None = None) -> tuple:
+    script = repair_fstring_format_specs(script)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(script)
         script_path = f.name
@@ -38,6 +42,7 @@ def execute_script(script: str, task_id: str | None = None) -> tuple:
                 "--name", container_name,
                 "--network=none",
                 "--memory=2g",
+                *docker_security_args(),
                 "-v", f"{os.getenv('DSSTAR')}/data:/workspace/data:ro",
                 "-v", f"{script_path}:/workspace/scripts/step.py:ro",
                 "dsstar-sandbox:latest",
@@ -102,9 +107,16 @@ def executor(state: TaskState) -> dict:
                   f"{label}Script executed successfully · Round {state['current_round']}",
                   "success", {"round": state["current_round"]})
     else:
+        # Sanitized for the same reason as finalizer.py's final_result — this message and
+        # meta are served through GET /api/v1/get_task via tasks.logs, so the first N raw
+        # characters of a traceback (internal container file paths, library internals,
+        # and usually just the unhelpful "Traceback (most recent call last):" header
+        # rather than the actual error) shouldn't be what a caller sees. Full stderr is
+        # still in the `logger.error` call above for server-side diagnostics.
+        failure_summary = summarize_script_failure(stderr)
         log_event(state["task_id"], "executor",
-                  f"{label}Script failed · {stderr[:120]}",
-                  "error", {"round": state["current_round"], "stderr": stderr[:300]})
+                  f"{label}Script failed · {failure_summary}",
+                  "error", {"round": state["current_round"], "error_summary": failure_summary})
 
     return {
         "execution_result": stdout if exit_code == 0 else stderr,

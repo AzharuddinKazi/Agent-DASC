@@ -122,11 +122,11 @@ def test_stop_task_requests_cancellation_for_a_running_task():
          patch("main.request_stop") as mock_request_stop, \
          patch("main.log_event"):
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/task-123/stop")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/stop")
 
     assert response.status_code == 200
-    assert response.json() == {"task_id": "task-123", "status": "stopping"}
-    mock_request_stop.assert_called_once_with("task-123")
+    assert response.json() == {"task_id": "11111111-1111-1111-1111-111111111111", "status": "stopping"}
+    mock_request_stop.assert_called_once_with("11111111-1111-1111-1111-111111111111")
 
 
 def test_stop_task_returns_404_when_task_not_found_or_not_owned():
@@ -136,7 +136,7 @@ def test_stop_task_returns_404_when_task_not_found_or_not_owned():
     with patch("main.supabase") as mock_sb, \
          patch("main.request_stop") as mock_request_stop:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/nonexistent/stop")
+        response = client.post("/api/v1/tasks/22222222-2222-2222-2222-222222222222/stop")
 
     assert response.status_code == 404
     mock_request_stop.assert_not_called()
@@ -149,7 +149,7 @@ def test_stop_task_returns_409_when_task_is_not_running():
     with patch("main.supabase") as mock_sb, \
          patch("main.request_stop") as mock_request_stop:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/task-123/stop")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/stop")
 
     assert response.status_code == 409
     mock_request_stop.assert_not_called()
@@ -158,10 +158,23 @@ def test_stop_task_returns_409_when_task_is_not_running():
 def test_stop_task_requires_auth():
     app.dependency_overrides.pop(get_current_user, None)
     try:
-        response = client.post("/api/v1/tasks/task-123/stop")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/stop")
         assert response.status_code == 401
     finally:
         app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_stop_task_rejects_a_malformed_task_id_before_touching_the_db():
+    """task_id is now typed uuid.UUID on the route, not str — FastAPI rejects a
+    non-UUID path segment with 422 before the handler body (and therefore any DB query)
+    ever runs, closing off SQL-injection-shaped or just malformed input reaching the
+    `.eq("task_id", ...)` filter."""
+    with patch("main.supabase") as mock_sb, patch("main.request_stop") as mock_request_stop:
+        response = client.post("/api/v1/tasks/not-a-uuid/stop")
+
+    assert response.status_code == 422
+    mock_sb.table.assert_not_called()
+    mock_request_stop.assert_not_called()
 
 
 def test_stop_task_stops_directly_when_awaiting_review():
@@ -177,12 +190,12 @@ def test_stop_task_stops_directly_when_awaiting_review():
          patch("main.log_event"):
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
-        response = client.post("/api/v1/tasks/task-123/stop")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/stop")
 
     assert response.status_code == 200
-    assert response.json() == {"task_id": "task-123", "status": "stopped"}
+    assert response.json() == {"task_id": "11111111-1111-1111-1111-111111111111", "status": "stopped"}
     mock_request_stop.assert_not_called()
-    mock_clear.assert_called_once_with("task-123")
+    mock_clear.assert_called_once_with("11111111-1111-1111-1111-111111111111")
     update_kwargs = mock_sb.table.return_value.update.call_args[0][0]
     assert update_kwargs["status"] == "stopped"
 
@@ -195,11 +208,11 @@ def test_pause_task_requests_pause_for_a_running_task():
          patch("main.request_pause") as mock_request_pause, \
          patch("main.log_event"):
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/task-123/pause")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/pause")
 
     assert response.status_code == 200
-    assert response.json() == {"task_id": "task-123", "status": "pausing"}
-    mock_request_pause.assert_called_once_with("task-123")
+    assert response.json() == {"task_id": "11111111-1111-1111-1111-111111111111", "status": "pausing"}
+    mock_request_pause.assert_called_once_with("11111111-1111-1111-1111-111111111111")
 
 
 def test_pause_task_returns_404_when_task_not_found_or_not_owned():
@@ -209,7 +222,7 @@ def test_pause_task_returns_404_when_task_not_found_or_not_owned():
     with patch("main.supabase") as mock_sb, \
          patch("main.request_pause") as mock_request_pause:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/nonexistent/pause")
+        response = client.post("/api/v1/tasks/22222222-2222-2222-2222-222222222222/pause")
 
     assert response.status_code == 404
     mock_request_pause.assert_not_called()
@@ -222,7 +235,7 @@ def test_pause_task_returns_409_when_task_is_not_running():
     with patch("main.supabase") as mock_sb, \
          patch("main.request_pause") as mock_request_pause:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/task-123/pause")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/pause")
 
     assert response.status_code == 409
     mock_request_pause.assert_not_called()
@@ -231,10 +244,19 @@ def test_pause_task_returns_409_when_task_is_not_running():
 def test_pause_task_requires_auth():
     app.dependency_overrides.pop(get_current_user, None)
     try:
-        response = client.post("/api/v1/tasks/task-123/pause")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/pause")
         assert response.status_code == 401
     finally:
         app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_pause_task_rejects_a_malformed_task_id_before_touching_the_db():
+    with patch("main.supabase") as mock_sb, patch("main.request_pause") as mock_request_pause:
+        response = client.post("/api/v1/tasks/not-a-uuid/pause")
+
+    assert response.status_code == 422
+    mock_sb.table.assert_not_called()
+    mock_request_pause.assert_not_called()
 
 
 def test_resume_task_marks_running_and_schedules_run_graph_with_none_state():
@@ -248,13 +270,13 @@ def test_resume_task_marks_running_and_schedules_run_graph_with_none_state():
          patch("main.run_graph") as mock_run_graph:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
-        response = client.post("/api/v1/tasks/task-123/resume")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/resume")
 
     assert response.status_code == 200
-    assert response.json() == {"task_id": "task-123", "status": "running"}
+    assert response.json() == {"task_id": "11111111-1111-1111-1111-111111111111", "status": "running"}
     update_kwargs = mock_sb.table.return_value.update.call_args[0][0]
     assert update_kwargs == {"status": "running"}
-    mock_run_graph.assert_called_once_with("task-123", None)
+    mock_run_graph.assert_called_once_with("11111111-1111-1111-1111-111111111111", None)
 
 
 def test_resume_task_returns_404_when_task_not_found_or_not_owned():
@@ -264,7 +286,7 @@ def test_resume_task_returns_404_when_task_not_found_or_not_owned():
     with patch("main.supabase") as mock_sb, \
          patch("main.run_graph") as mock_run_graph:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/nonexistent/resume")
+        response = client.post("/api/v1/tasks/22222222-2222-2222-2222-222222222222/resume")
 
     assert response.status_code == 404
     mock_run_graph.assert_not_called()
@@ -277,7 +299,7 @@ def test_resume_task_returns_409_when_task_is_not_paused():
     with patch("main.supabase") as mock_sb, \
          patch("main.run_graph") as mock_run_graph:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/task-123/resume")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/resume")
 
     assert response.status_code == 409
     mock_run_graph.assert_not_called()
@@ -286,10 +308,19 @@ def test_resume_task_returns_409_when_task_is_not_paused():
 def test_resume_task_requires_auth():
     app.dependency_overrides.pop(get_current_user, None)
     try:
-        response = client.post("/api/v1/tasks/task-123/resume")
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/resume")
         assert response.status_code == 401
     finally:
         app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_resume_task_rejects_a_malformed_task_id_before_touching_the_db():
+    with patch("main.supabase") as mock_sb, patch("main.run_graph") as mock_run_graph:
+        response = client.post("/api/v1/tasks/not-a-uuid/resume")
+
+    assert response.status_code == 422
+    mock_sb.table.assert_not_called()
+    mock_run_graph.assert_not_called()
 
 
 def test_submit_review_decision_records_decision_and_schedules_run_graph():
@@ -302,14 +333,14 @@ def test_submit_review_decision_records_decision_and_schedules_run_graph():
          patch("main.run_graph") as mock_run_graph:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
-        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "refine"})
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/review", json={"decision": "refine"})
 
     assert response.status_code == 200
-    assert response.json() == {"task_id": "task-123", "status": "running"}
-    mock_record.assert_called_once_with("task-123", "refine")
+    assert response.json() == {"task_id": "11111111-1111-1111-1111-111111111111", "status": "running"}
+    mock_record.assert_called_once_with("11111111-1111-1111-1111-111111111111", "refine")
     update_kwargs = mock_sb.table.return_value.update.call_args[0][0]
     assert update_kwargs == {"status": "running"}
-    mock_run_graph.assert_called_once_with("task-123", None)
+    mock_run_graph.assert_called_once_with("11111111-1111-1111-1111-111111111111", None)
 
 
 def test_submit_review_decision_accepts_finalize():
@@ -322,15 +353,15 @@ def test_submit_review_decision_accepts_finalize():
          patch("main.run_graph"):
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
         mock_sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
-        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "finalize"})
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/review", json={"decision": "finalize"})
 
     assert response.status_code == 200
-    mock_record.assert_called_once_with("task-123", "finalize")
+    mock_record.assert_called_once_with("11111111-1111-1111-1111-111111111111", "finalize")
 
 
 def test_submit_review_decision_rejects_invalid_decision():
     with patch("main.record_review_decision") as mock_record:
-        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "maybe"})
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/review", json={"decision": "maybe"})
 
     assert response.status_code == 422
     mock_record.assert_not_called()
@@ -343,7 +374,7 @@ def test_submit_review_decision_returns_404_when_task_not_found_or_not_owned():
     with patch("main.supabase") as mock_sb, \
          patch("main.record_review_decision") as mock_record:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/nonexistent/review", json={"decision": "refine"})
+        response = client.post("/api/v1/tasks/22222222-2222-2222-2222-222222222222/review", json={"decision": "refine"})
 
     assert response.status_code == 404
     mock_record.assert_not_called()
@@ -356,7 +387,7 @@ def test_submit_review_decision_returns_409_when_task_is_not_awaiting_review():
     with patch("main.supabase") as mock_sb, \
          patch("main.record_review_decision") as mock_record:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "refine"})
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/review", json={"decision": "refine"})
 
     assert response.status_code == 409
     mock_record.assert_not_called()
@@ -365,15 +396,56 @@ def test_submit_review_decision_returns_409_when_task_is_not_awaiting_review():
 def test_submit_review_decision_requires_auth():
     app.dependency_overrides.pop(get_current_user, None)
     try:
-        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "refine"})
+        response = client.post("/api/v1/tasks/11111111-1111-1111-1111-111111111111/review", json={"decision": "refine"})
         assert response.status_code == 401
     finally:
         app.dependency_overrides[get_current_user] = lambda: FakeUser()
 
 
+def test_submit_review_decision_rejects_a_malformed_task_id_before_touching_the_db():
+    with patch("main.supabase") as mock_sb, patch("main.record_review_decision") as mock_record:
+        response = client.post("/api/v1/tasks/not-a-uuid/review", json={"decision": "refine"})
+
+    assert response.status_code == 422
+    mock_sb.table.assert_not_called()
+    mock_record.assert_not_called()
+
+
 def test_submit_task_missing_query():
     response = client.post("/api/v1/submit_task", json={})
     assert response.status_code == 422
+
+
+def test_submit_task_rejects_an_oversized_query():
+    response = client.post("/api/v1/submit_task", json={"query": "x" * 20_001})
+    assert response.status_code == 422
+
+
+def test_clarify_task_rejects_an_oversized_query():
+    response = client.post("/api/v1/clarify_task", json={"query": "x" * 20_001})
+    assert response.status_code == 422
+
+
+def test_submit_task_rate_limits_repeated_submissions_from_the_same_caller():
+    """Uses its own Authorization header so its request count doesn't share a rate-limit
+    bucket with every other submit_task call in this file (see main._rate_limit_key —
+    keyed by bearer token, not just remote address, precisely so one caller flooding the
+    endpoint can't be masked/amplified by shared-IP effects)."""
+    from main import SUBMIT_TASK_RATE_LIMIT
+    limit = int(SUBMIT_TASK_RATE_LIMIT.split("/")[0])
+    headers = {"Authorization": "Bearer rate-limit-test-token"}
+
+    mock_result = MagicMock()
+    mock_result.data = [{"task_id": "123"}]
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.insert.return_value.execute.return_value = mock_result
+        responses = [
+            client.post("/api/v1/submit_task", json={"query": "test"}, headers=headers)
+            for _ in range(limit + 1)
+        ]
+
+    assert [r.status_code for r in responses[:limit]] == [202] * limit
+    assert responses[limit].status_code == 429
 
 
 def test_submit_task_requires_auth():
@@ -405,9 +477,17 @@ def test_get_task_not_found():
 
     with patch("main.supabase") as mock_sb:
         mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
-        response = client.get("/api/v1/get_task/nonexistent-id")
+        response = client.get("/api/v1/get_task/22222222-2222-2222-2222-222222222222")
 
     assert response.status_code == 404
+
+
+def test_get_task_rejects_a_malformed_task_id_before_touching_the_db():
+    with patch("main.supabase") as mock_sb:
+        response = client.get("/api/v1/get_task/not-a-uuid")
+
+    assert response.status_code == 422
+    mock_sb.table.assert_not_called()
 
 
 def test_get_domain_pack_config_returns_404_for_unknown_pack():

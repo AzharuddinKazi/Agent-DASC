@@ -28,6 +28,31 @@ export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = 
     )
   }
 
+  // A "completed" task with no final_result (the generated script ran cleanly — exit 0
+  // — but printed nothing, or a report's draft never made it to final_result) used to
+  // fall through to the loading/pipeline UI below with nothing left polling to ever
+  // update it — status is already terminal, so it stayed there forever with no visible
+  // explanation. This is a distinct, explicit terminal state instead.
+  if (task?.status === "completed" && !task?.final_result) {
+    return (
+      <Card className="border-border bg-muted/30 max-w-2xl mx-auto mt-6">
+        <CardHeader>
+          <CardTitle className="text-sm text-foreground flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-muted-foreground" />
+            Analysis Completed With No Result
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            The pipeline finished without producing any output — this usually means the
+            generated script ran without errors but printed nothing. Start a new analysis
+            to try again.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (task?.status === "stopped") {
     return (
       <Card className="border-border bg-muted/30 max-w-2xl mx-auto mt-6">

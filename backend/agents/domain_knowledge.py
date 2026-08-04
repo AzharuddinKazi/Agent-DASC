@@ -39,6 +39,7 @@ import re
 
 from domain_pack import get_active_pack_config
 from knowledge import retrieve_domain_knowledge, retrieve_domain_knowledge_fts
+from agents.prompt_safety import wrap_untrusted
 
 # Column names in this pipeline's datasets are upper snake case with at least one
 # underscore (SP_CHF, BENE_BIRTH_DT, CLM_PMT_AMT, HCPCS_CD_1, ...) — long enough to rule
@@ -153,5 +154,5 @@ def retrieve_grounded_knowledge(text: str, state: dict) -> str:
     expert, not just a technical one. Pay special attention to any documented value
     coding for columns you use (e.g. flags coded 1/2 instead of 0/1) — using a raw code
     as if it were already a clean count or boolean is a common, silent correctness bug.
-    {joined}
+    {wrap_untrusted("domain_knowledge_reference", joined)}
 """

@@ -1,5 +1,6 @@
 from agents.state import TaskState, current_objective
 from agents.domain_knowledge import retrieve_grounded_knowledge
+from agents.prompt_safety import format_file_summaries
 from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
@@ -57,10 +58,7 @@ def verifier(state: TaskState) -> dict:
     current_script   = state["current_script"]
     execution_result = state["execution_result"]
 
-    summaries_text = "\n".join(
-        f"File: {fname}\n{desc}"
-        for fname, desc in summaries.items()
-    )
+    summaries_text = format_file_summaries(summaries)
 
     plan_text = "\n".join(
         f"Step {i+1}: {step}"

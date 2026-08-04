@@ -61,21 +61,26 @@ def test_tolerates_plain_string_gaps_from_model():
     assert result["report_gaps"] == [{"question": "Missing driver analysis", "hypothesis": ""}]
 
 
-def test_malformed_json_defaults_to_sufficient_with_no_gaps():
-    """Existing defensive behavior — a parse failure must not stall the report loop."""
+def test_malformed_json_defaults_to_insufficient_with_no_gaps():
+    """A parse failure must not silently ship an unevaluated report as 'sufficient' — treat
+    it conservatively as insufficient (bounded by max_report_rounds, so it can't loop
+    forever) and surface an error-level log entry instead of a false pass."""
     with patch("agents.report_evaluator.supabase") as mock_supabase, \
-         patch("agents.report_evaluator.log_event"), \
+         patch("agents.report_evaluator.log_event") as mock_log_event, \
          patch("agents.report_evaluator.router") as mock_router:
         mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
         mock_router.complete.return_value = make_mock_llm_result("not json at all")
 
         result = report_evaluator(base_state())
 
-    assert result["report_verdict"] == "sufficient"
+    assert result["report_verdict"] == "insufficient"
     assert result["report_gaps"] == []
+    log_call = mock_log_event.call_args
+    assert log_call.args[3] == "error"
+    assert log_call.args[4]["parse_failed"] is True
 
 
-def test_empty_response_defaults_to_sufficient_with_no_gaps():
+def test_empty_response_defaults_to_insufficient_with_no_gaps():
     with patch("agents.report_evaluator.supabase") as mock_supabase, \
          patch("agents.report_evaluator.log_event"), \
          patch("agents.report_evaluator.router") as mock_router:
@@ -84,7 +89,7 @@ def test_empty_response_defaults_to_sufficient_with_no_gaps():
 
         result = report_evaluator(base_state())
 
-    assert result["report_verdict"] == "sufficient"
+    assert result["report_verdict"] == "insufficient"
     assert result["report_gaps"] == []
 
 

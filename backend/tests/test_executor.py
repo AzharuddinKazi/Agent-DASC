@@ -44,6 +44,32 @@ def test_execute_script_invokes_docker_with_expected_flags():
     assert "--name" in args
     container_name = args[args.index("--name") + 1]
     assert container_name.startswith("dsstar-exec-")
+    # Sandbox hardening (see agents/sandbox_security.py) — a script here is untrusted
+    # LLM-generated code, so no fork-bombing, no new capabilities, no persisting to disk.
+    assert "--read-only" in args
+    assert "--cap-drop" in args
+    assert "--pids-limit" in args
+
+
+def test_execute_script_repairs_malformed_fstring_format_spec_before_writing_the_script():
+    """Regression test for the "no sanitization/repair logic" gap: a script with the
+    observed stray-comma format-spec bug must be repaired before it ever reaches the
+    sandbox, not left to fail and rely purely on the generic debug-and-retry loop."""
+    captured = {}
+    real_unlink = os.unlink
+
+    def spy_unlink(path):
+        with open(path) as f:
+            captured["written"] = f.read()
+        real_unlink(path)
+
+    with patch("agents.executor.subprocess.Popen") as mock_popen, \
+         patch("agents.executor.os.unlink", side_effect=spy_unlink):
+        mock_popen.return_value = make_mock_proc(returncode=0, communicate_result=("42\n", ""))
+
+        execute_script('print(f"Total: {1234.5:, .2f}")')
+
+    assert captured["written"] == 'print(f"Total: {1234.5:,.2f}")'
 
 
 def test_execute_script_cleans_up_temp_file_even_on_exception():
@@ -179,6 +205,31 @@ def test_executor_failure_increments_debug_attempts_and_uses_stderr_as_result():
         result = executor(state)
 
     assert result == {"execution_result": "Traceback: boom", "exit_code": 1, "debug_attempts": 2}
+
+
+def test_executor_logs_a_sanitized_failure_summary_not_the_raw_traceback():
+    """Regression test: the log_event call on failure is served through GET
+    /api/v1/get_task via tasks.logs — a raw multi-line traceback there exposes internal
+    container file paths. execution_result (used internally by the debugger) still gets
+    the full raw stderr; only what's logged for API/UI consumption is sanitized."""
+    traceback_text = (
+        "Traceback (most recent call last):\n"
+        '  File "/workspace/scripts/step.py", line 3, in <module>\n'
+        "ValueError: could not convert string to float: 'N/A'"
+    )
+    with patch("agents.executor.supabase") as mock_supabase, \
+         patch("agents.executor.log_event") as mock_log_event, \
+         patch("agents.executor.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_execute.return_value = ("", traceback_text, 1)
+
+        result = executor(base_state())
+
+    assert result["execution_result"] == traceback_text  # unsanitized, for the debugger
+    log_call = mock_log_event.call_args
+    assert "/workspace/scripts/step.py" not in log_call.args[2]
+    assert "ValueError: could not convert string to float: 'N/A'" in log_call.args[2]
+    assert "/workspace/scripts/step.py" not in log_call.args[4]["error_summary"]
 
 
 def test_executor_defaults_debug_attempts_to_zero_when_absent():

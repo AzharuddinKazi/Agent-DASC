@@ -31,6 +31,25 @@ def log_event(
     }
 
     try:
+        # Atomic at the database level (see migrations/2026-08-03_atomic_log_append.sql)
+        # — a single UPDATE ... logs = logs || entry, no read-modify-write window in this
+        # process. Two log_event() calls for the same task_id are genuinely concurrent in
+        # practice (a user's Stop/Pause request on the main event loop vs. the graph's
+        # currently-running node logging from run_graph's background thread), and the old
+        # select-then-append-then-update here would silently drop whichever write lost
+        # the race.
+        supabase.rpc("append_task_log", {"p_task_id": task_id, "p_entry": entry}).execute()
+    except Exception as e:
+        logger.warning(f"append_task_log RPC failed, falling back to read-modify-write: {e}")
+        _append_log_entry_read_modify_write(task_id, entry)
+
+
+def _append_log_entry_read_modify_write(task_id: str, entry: dict) -> None:
+    """Fallback for an environment where migrations/2026-08-03_atomic_log_append.sql
+    hasn't been applied yet — same race window the migration exists to close, kept only
+    so logging degrades to the old (imperfect but functional) behavior instead of losing
+    the entry outright."""
+    try:
         res = supabase.table("tasks").select("logs").eq("task_id", task_id).execute()
         current = []
         if res.data:

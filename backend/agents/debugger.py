@@ -30,6 +30,8 @@ Fix the error in the code above.
   (e.g. f"...{{', '.join([f'{{row[\"X\"]}}' for _, row in df.iterrows()])}}...") — fix
   by building the inner strings in a separate variable/list first, then interpolating
   that plain variable into the outer f-string instead of nesting.
+- ValueError from an f-string format spec: check for a stray space after the
+  thousands-separator comma (f"{{x:, .2f}}" instead of f"{{x:,.2f}}") and remove it.
 - No error output at all (empty error message, non-zero exit): the process was almost
   certainly killed for exceeding the sandbox's 2GB memory limit — always add
   nrows=10000 to any pd.read_csv call, especially before an operation that multiplies

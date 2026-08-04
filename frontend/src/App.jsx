@@ -3,6 +3,7 @@ import EmptyState from "./components/app/EmptyState"
 import Dashboard from "./components/app/Dashboard"
 import DomainPacks from "./components/app/DomainPacks"
 import Login from "./components/app/Login"
+import ErrorBoundary from "./components/app/ErrorBoundary"
 import { TooltipProvider } from "./components/ui/tooltip"
 import { useAuth } from "./hooks/useAuth"
 
@@ -45,13 +46,19 @@ export default function App() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-surface-subtle text-slate-900">
-        {view === "empty" && <EmptyState onSubmit={handleSubmit} onDomainPacks={handleDomainPacks} />}
-        {view === "dashboard" && (
-          <Dashboard query={query} taskId={taskId} taskType={taskType} requireHumanReview={requireHumanReview} onNew={handleNew} onDomainPacks={handleDomainPacks} />
-        )}
-        {view === "domainPacks" && (
-          <DomainPacks onNew={handleNew} onSelect={handleSubmit} />
-        )}
+        {/* Keyed by view+taskId so navigating away (e.g. "New") always remounts a fresh
+            boundary instead of carrying a caught error into whatever's shown next.
+            onReset falls back to the empty state — retrying the exact same render that
+            just crashed (e.g. a malformed LLM report) would just crash again. */}
+        <ErrorBoundary key={`${view}:${taskId ?? ""}`} onReset={handleNew}>
+          {view === "empty" && <EmptyState onSubmit={handleSubmit} onDomainPacks={handleDomainPacks} />}
+          {view === "dashboard" && (
+            <Dashboard query={query} taskId={taskId} taskType={taskType} requireHumanReview={requireHumanReview} onNew={handleNew} onDomainPacks={handleDomainPacks} />
+          )}
+          {view === "domainPacks" && (
+            <DomainPacks onNew={handleNew} onSelect={handleSubmit} />
+          )}
+        </ErrorBoundary>
       </div>
     </TooltipProvider>
   )

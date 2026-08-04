@@ -178,6 +178,51 @@ def test_finalizer_leaves_non_json_output_untouched():
     assert result["final_result"] == "42\n"
 
 
+def test_finalizer_strips_internal_file_paths_from_a_multiline_traceback():
+    """Regression test: final_result is served directly through GET /api/v1/get_task and
+    rendered verbatim in the frontend's failure view — a raw multi-line traceback
+    exposes internal container file paths and library internals there. Only the final
+    "ExceptionType: message" line should survive into final_result."""
+    traceback_text = (
+        "Traceback (most recent call last):\n"
+        '  File "/workspace/scripts/step.py", line 5, in <module>\n'
+        "    df['x'].astype(float)\n"
+        "ValueError: could not convert string to float: 'N/A'"
+    )
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result("df['x'].astype(float)")
+        mock_execute.side_effect = [("", traceback_text, 1)] * 3
+
+        result = finalizer(base_state())
+
+    assert result["final_result"] == "Execution failed: ValueError: could not convert string to float: 'N/A'"
+    assert "/workspace/scripts/step.py" not in result["final_result"]
+
+
+def test_finalizer_logs_warning_on_schema_mismatch_but_still_ships_output(caplog):
+    """Schema validation is visibility-only — output missing the expected "summary" field
+    still reaches final_result unchanged, it's just logged so the mismatch isn't a mystery
+    later on the frontend."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result('{"foo": "bar"}')
+        mock_execute.return_value = ('{"foo": "bar"}', "", 0)
+
+        with caplog.at_level("WARNING"):
+            result = finalizer(base_state())
+
+    parsed = json.loads(result["final_result"])
+    assert parsed["foo"] == "bar"
+    assert "doesn't match expected schema" in caplog.text
+
+
 def test_finalizer_strips_code_fence_even_when_closing_fence_is_missing():
     """Same bug class as the coder.py fix: a cut-off model response with no closing
     ``` used to silently drop the last real line of the generated script."""

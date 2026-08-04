@@ -1,14 +1,18 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import Depends, FastAPI, HTTPException, BackgroundTasks, Response, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, BackgroundTasks, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 import requests
 import sentry_sdk
 from agents.graph import build_graph
 from agents.logger import log_event
 from agents.query_clarity import generate_clarifying_questions
+from agents.error_sanitizer import GENERIC_INFRASTRUCTURE_ERROR
 from agents.cancellation import (
     request_stop, request_pause, clear as clear_cancellation,
     record_review_decision, TaskCancelled, TaskPaused, AwaitingReview,
@@ -155,9 +159,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def _rate_limit_key(request: Request) -> str:
+    """Keys by the caller's bearer token when present rather than raw IP — every rate-
+    limited route here sits behind auth, and IP-based keying alone would let every user
+    behind the same NAT/office IP share one bucket (too strict) while doing nothing to
+    stop a single user hitting the API from many IPs (too permissive). Falls back to IP
+    only for the pathological case of a request reaching this without an Authorization
+    header at all (rate limiting runs before FastAPI's own auth dependency)."""
+    return request.headers.get("authorization") or get_remote_address(request)
+
+
+# In-memory limiter (slowapi/limits default storage) — same reasoning as the concurrency
+# semaphore above: this problem doesn't need a new piece of infra (Redis) to solve for a
+# single-process deployment. Submissions above the limit get a 429, not a silent queue —
+# submit_task/clarify_task both cost a real LLM call (and submit_task a real Docker
+# sandbox run), so this is specifically about capping that spend/load, distinct from the
+# semaphore's job of capping concurrent execution.
+limiter = Limiter(key_func=_rate_limit_key)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+SUBMIT_TASK_RATE_LIMIT = os.getenv("SUBMIT_TASK_RATE_LIMIT", "20/minute")
+CLARIFY_TASK_RATE_LIMIT = os.getenv("CLARIFY_TASK_RATE_LIMIT", "30/minute")
+
 class TaskSubmission(BaseModel):
-    query: str
-    formatting_guidelines: str = ""
+    query: str = Field(max_length=20_000)
+    formatting_guidelines: str = Field(default="", max_length=5_000)
     task_type: str = "qa"   # "qa" | "report"
     use_domain_knowledge: bool = True
     domain_pack_id: str | None = None   # pins a specific pack for this task; None = use whichever pack is globally active
@@ -167,7 +195,7 @@ class TaskSubmission(BaseModel):
 
 
 class TaskClarification(BaseModel):
-    query: str
+    query: str = Field(max_length=20_000)
     task_type: str = "qa"
     domain_pack_id: str | None = None
 
@@ -223,8 +251,12 @@ async def run_graph(task_id: str, initial_state: dict | None):
     except Exception as e:
         logger.exception(f"Task {task_id} failed")
         sentry_sdk.capture_exception(e)
+        # Full exception detail stays server-side (logger.exception + Sentry above) —
+        # an unexpected infrastructure error here (DB, our own code, not a generated
+        # script) could plausibly include connection strings or other internals in
+        # str(e), so the API/UI only ever see a generic message.
         supabase.table("tasks").update({
-            "status": "failed", "final_result": str(e)
+            "status": "failed", "final_result": GENERIC_INFRASTRUCTURE_ERROR
         }).eq("task_id", task_id).execute()
     finally:
         clear_cancellation(task_id)
@@ -278,7 +310,8 @@ async def health(response: Response):
 
 
 @app.post("/api/v1/clarify_task", summary="Get Clarifying Questions", tags=["Tasks"])
-async def clarify_task(task: TaskClarification, user=Depends(get_current_user)):
+@limiter.limit(CLARIFY_TASK_RATE_LIMIT)
+async def clarify_task(request: Request, task: TaskClarification, user=Depends(get_current_user)):
     """Runs before submit_task, not as part of the graph — cheap (no Docker sandbox, one
     LLM completion, occasionally two on a malformed-output retry) so the frontend can show
     a popup and block submission on the answer without a queueing/polling dance. Returns
@@ -300,7 +333,8 @@ async def clarify_task(task: TaskClarification, user=Depends(get_current_user)):
 
 
 @app.post("/api/v1/submit_task", summary="Submit Task", tags=["Tasks"], status_code=202)
-async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+@limiter.limit(SUBMIT_TASK_RATE_LIMIT)
+async def submit_task(request: Request, task: TaskSubmission, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
     task_id   = str(uuid.uuid4())
     task_type = task.task_type if task.task_type in ("qa", "report") else "qa"
 
@@ -372,8 +406,9 @@ async def get_tasks(user=Depends(get_current_user)):
 
 
 @app.get("/api/v1/get_task/{task_id}", summary="Get Task", tags=["Tasks"])
-async def get_task(task_id: str, user=Depends(get_current_user)):
+async def get_task(task_id: uuid.UUID, user=Depends(get_current_user)):
     import json as _json
+    task_id = str(task_id)
     response = supabase.table("tasks").select("*").eq("task_id", task_id).eq("user_id", user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -392,13 +427,14 @@ async def get_task(task_id: str, user=Depends(get_current_user)):
 
 
 @app.post("/api/v1/tasks/{task_id}/stop", summary="Stop Task", tags=["Tasks"])
-async def stop_task(task_id: str, user=Depends(get_current_user)):
+async def stop_task(task_id: uuid.UUID, user=Depends(get_current_user)):
     """Cooperative cancellation — see agents/cancellation.py for why this can't be an
     instant kill. Takes effect at the next graph-node boundary (seconds, for the common
     case of an LLM-call node) or, for a Docker execution in progress, within
     executor.POLL_INTERVAL_S (well under a second) since execute_script polls the same
     flag and kills the container directly rather than waiting out its own node boundary.
     """
+    task_id = str(task_id)
     response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -425,10 +461,11 @@ async def stop_task(task_id: str, user=Depends(get_current_user)):
 
 
 @app.post("/api/v1/tasks/{task_id}/pause", summary="Pause Task", tags=["Tasks"])
-async def pause_task(task_id: str, user=Depends(get_current_user)):
+async def pause_task(task_id: uuid.UUID, user=Depends(get_current_user)):
     """Same cooperative-interrupt mechanism as Stop (see stop_task above and
     agents/cancellation.py), but resumable: the step that was interrupted gets re-run
     from scratch on Resume rather than the task ending permanently."""
+    task_id = str(task_id)
     response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -441,7 +478,8 @@ async def pause_task(task_id: str, user=Depends(get_current_user)):
 
 
 @app.post("/api/v1/tasks/{task_id}/resume", summary="Resume Task", tags=["Tasks"])
-async def resume_task(task_id: str, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+async def resume_task(task_id: uuid.UUID, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+    task_id = str(task_id)
     response = supabase.table("tasks").select("status").eq("task_id", task_id).eq("user_id", user.id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -456,11 +494,12 @@ async def resume_task(task_id: str, background_tasks: BackgroundTasks, user=Depe
 
 
 @app.post("/api/v1/tasks/{task_id}/review", summary="Submit Review Decision", tags=["Tasks"])
-async def submit_review_decision(task_id: str, body: ReviewDecision, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+async def submit_review_decision(task_id: uuid.UUID, body: ReviewDecision, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
     """Answers a human_review_gate checkpoint (see agents/graph.py) — the opt-in
     refine-vs-finalize decision point for report mode. Mirrors resume_task's shape: same
     404/409 checks, same initial_state=None resume signal, but records a decision first
     so human_review_gate finds it on replay instead of pausing again."""
+    task_id = str(task_id)
     if body.decision not in ("refine", "finalize"):
         raise HTTPException(status_code=422, detail='decision must be "refine" or "finalize"')
 

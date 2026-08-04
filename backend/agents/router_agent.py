@@ -2,6 +2,7 @@ import logging
 from db import supabase
 from agents.state import TaskState, current_objective
 from agents.logger import log_event
+from agents.prompt_safety import format_file_summaries
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -40,10 +41,7 @@ def router_agent(state: TaskState) -> dict:
     cumulative_plan = state["cumulative_plan"]
     execution_result = state["execution_result"]
 
-    summaries_text = "\n".join(
-        f"File: {fname}\n{desc}"
-        for fname, desc in summaries.items()
-    )
+    summaries_text = format_file_summaries(summaries)
 
     plan_text = "\n".join(
         f"Step {i+1}: {step}"

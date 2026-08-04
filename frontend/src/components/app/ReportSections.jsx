@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   ChevronRight, ChevronDown, ChevronUp, ChevronsUpDown,
-  Download, ListTodo, CheckCircle2, RotateCcw, FileStack,
+  ChevronLeft, Download, ListTodo, CheckCircle2, RotateCcw, FileStack,
   TrendingUp, Send, Sparkles, ShieldAlert,
   ThumbsUp, ThumbsDown, Flag
 } from "lucide-react"
@@ -130,6 +130,17 @@ function FeedbackBar() {
   )
 }
 
+const TABLE_PAGE_SIZE = 50
+
+// A fresh `[]` literal is a new reference every render — harmless for most uses here,
+// but the pagination reset below (and any future logic keying off these by reference)
+// needs a stable "empty" identity so it doesn't see a "change" on every single render
+// when a result genuinely has no rows/columns/etc. (e.g. a scalar-answer query with no
+// table data at all). This is what caused a real "Too many re-renders" crash, caught
+// live by ErrorBoundary — see the pagination reset's dependency on `rows`/`sortCol`/
+// `sortDir` identity below.
+const EMPTY_ARRAY = []
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ReportSections({ result, script, plan = [], onFollowUp, isFollowUpBusy = false }) {
   const [showCode, setShowCode]         = useState(false)
@@ -138,6 +149,7 @@ export default function ReportSections({ result, script, plan = [], onFollowUp, 
   const [followUpText, setFollowUpText] = useState("")
   const [sortCol, setSortCol]           = useState(null)
   const [sortDir, setSortDir]           = useState("desc")
+  const [page, setPage]                 = useState(0)
 
   // ── Parse result ────────────────────────────────────────────────────────────
   const parsed = useMemo(() => {
@@ -156,9 +168,9 @@ export default function ReportSections({ result, script, plan = [], onFollowUp, 
   // and put the raw text in the monospace fallback block below instead.
   const parseFailed  = !parsed && !!result
   const summary      = parsed?.summary || (parseFailed ? "Could not parse structured output — see raw result below." : "Analysis complete.")
-  const keyFindings  = parsed?.key_findings || []
-  const columns      = parsed?.columns      || []
-  const rows         = parsed?.rows         || []
+  const keyFindings  = parsed?.key_findings || EMPTY_ARRAY
+  const columns      = parsed?.columns      || EMPTY_ARRAY
+  const rows         = parsed?.rows         || EMPTY_ARRAY
   const chart        = parsed?.chart        || null
   const rawText      = parsed?.raw || (parseFailed ? (typeof result === "string" ? result : JSON.stringify(result, null, 2)) : "")
   const hasTableData = columns.length > 0 && rows.length > 0
@@ -167,7 +179,7 @@ export default function ReportSections({ result, script, plan = [], onFollowUp, 
   // previous client-side estimate (`plan.length * 2500` tokens) that had no connection
   // to what actually happened during the run.
   const debugAttempts = parsed?.debug_attempts ?? null
-  const filesUsed      = parsed?.files_used || []
+  const filesUsed      = parsed?.files_used || EMPTY_ARRAY
   const rounds          = plan.length || 1
 
   // ── Numeric detection ───────────────────────────────────────────────────────
@@ -233,6 +245,23 @@ export default function ReportSections({ result, script, plan = [], onFollowUp, 
     }
     return list
   }, [rows, sortCol, sortDir, hasTableData])
+
+  // A new result (new task) or a re-sort invalidates whatever page was showing — most
+  // visibly when a smaller dataset leaves `page` pointing past the new last page, which
+  // would otherwise render an empty table with no obvious explanation. Adjusted during
+  // render (React's documented pattern for resetting state in response to a prop/derived
+  // value change) rather than in an effect, which would cost an extra unnecessary render.
+  const [prevPagingKey, setPrevPagingKey] = useState({ rows, sortCol, sortDir })
+  if (prevPagingKey.rows !== rows || prevPagingKey.sortCol !== sortCol || prevPagingKey.sortDir !== sortDir) {
+    setPrevPagingKey({ rows, sortCol, sortDir })
+    setPage(0)
+  }
+
+  const pageCount = Math.max(1, Math.ceil(sortedRows.length / TABLE_PAGE_SIZE))
+  const pagedRows = useMemo(
+    () => sortedRows.slice(page * TABLE_PAGE_SIZE, (page + 1) * TABLE_PAGE_SIZE),
+    [sortedRows, page]
+  )
 
   const riskColIdx = useMemo(() => columns.findIndex(c => ["risk","level","alert","class"].some(k => c.toLowerCase().includes(k))), [columns])
 
@@ -346,9 +375,9 @@ export default function ReportSections({ result, script, plan = [], onFollowUp, 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedRows.map((row, i) => (
-                      <TableRow key={i} className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${row === topRow ? "bg-accent/40" : ""}`}>
-                        <TableCell className="px-4 py-3 w-10 tabular-nums text-label text-muted-foreground font-medium">{i + 1}</TableCell>
+                    {pagedRows.map((row, i) => (
+                      <TableRow key={page * TABLE_PAGE_SIZE + i} className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${row === topRow ? "bg-accent/40" : ""}`}>
+                        <TableCell className="px-4 py-3 w-10 tabular-nums text-label text-muted-foreground font-medium">{page * TABLE_PAGE_SIZE + i + 1}</TableCell>
                         {row.map((cell, ci) => {
                           if (ci === riskColIdx) return <TableCell key={ci} className="px-4 py-3">{renderBadge(cell)}</TableCell>
                           if (ci === 0) return <TableCell key={ci} className="px-4 py-3 text-sm font-semibold text-foreground">{cell}</TableCell>
@@ -370,6 +399,32 @@ export default function ReportSections({ result, script, plan = [], onFollowUp, 
                     ))}
                   </TableBody>
                 </Table>
+                {sortedRows.length > TABLE_PAGE_SIZE && (
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-label text-muted-foreground">
+                    <span>
+                      Showing {page * TABLE_PAGE_SIZE + 1}–{Math.min((page + 1) * TABLE_PAGE_SIZE, sortedRows.length)} of {sortedRows.length.toLocaleString()}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline" size="sm" className="h-7 w-7 p-0"
+                        onClick={() => setPage(p => Math.max(0, p - 1))}
+                        disabled={page === 0}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </Button>
+                      <span className="tabular-nums">Page {page + 1} of {pageCount}</span>
+                      <Button
+                        variant="outline" size="sm" className="h-7 w-7 p-0"
+                        onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}
+                        disabled={page >= pageCount - 1}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

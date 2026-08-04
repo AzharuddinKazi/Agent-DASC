@@ -102,6 +102,30 @@ async def test_run_graph_marks_task_failed_on_other_exceptions():
 
 
 @pytest.mark.asyncio
+async def test_run_graph_never_stores_the_raw_exception_message_on_infrastructure_failure():
+    """Regression test: final_result on an unexpected infrastructure error (a bug in our
+    own code, a DB error — not a generated script's own error) used to be str(e)
+    verbatim, served directly through GET /api/v1/get_task. That could plausibly include
+    connection strings or other internals depending on what actually broke. Full detail
+    still reaches Sentry/logger.exception — just not the API response."""
+    with patch.object(main, "graph") as mock_graph, \
+         patch("main.supabase") as mock_supabase, \
+         patch("main.log_event"), \
+         patch("main.logger"), \
+         patch("main.sentry_sdk"), \
+         patch("main.clear_cancellation"):
+        mock_graph.invoke.side_effect = RuntimeError("postgresql://user:hunter2@internal-host/db unreachable")
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        await main.run_graph("task-123", {"task_id": "task-123"})
+
+    update_kwargs = mock_supabase.table.return_value.update.call_args[0][0]
+    assert "hunter2" not in update_kwargs["final_result"]
+    assert "postgresql://" not in update_kwargs["final_result"]
+    assert update_kwargs["final_result"] == main.GENERIC_INFRASTRUCTURE_ERROR
+
+
+@pytest.mark.asyncio
 async def test_run_graph_clears_cancellation_flag_on_success():
     with patch.object(main, "graph") as mock_graph, \
          patch("main.supabase") as mock_supabase, \

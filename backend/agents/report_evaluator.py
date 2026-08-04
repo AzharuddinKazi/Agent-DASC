@@ -87,24 +87,31 @@ def report_evaluator(state: TaskState) -> dict:
     result = router.complete(agent="report_evaluator", prompt=prompt, task_id=state["task_id"])
     text   = result["text"].strip()
 
-    import json, re
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-z]*\n?", "", text).rstrip("`").strip()
+    import json
+    from agents.code_fences import strip_code_fences
+    text = strip_code_fences(text)
 
     try:
         parsed  = json.loads(text)
         verdict = parsed.get("verdict", "sufficient")
         gaps    = _normalize_gaps(parsed.get("gaps", []))
+        parse_failed = False
     except Exception:
-        verdict = "sufficient"
+        logger.warning(f"report_evaluator response wasn't valid JSON — treating conservatively as insufficient: {text[:200]!r}")
+        verdict = "insufficient"
         gaps    = []
+        parse_failed = True
 
     logger.info(f"Verdict: {verdict}, gaps: {gaps}")
     gap_text = f" — gaps: {'; '.join(g['question'] for g in gaps[:3])}" if gaps else ""
-    log_event(state["task_id"], "report_evaluator",
-              f"Report quality: {'sufficient ✓' if verdict == 'sufficient' else f'insufficient{gap_text}'}",
-              "success" if verdict == "sufficient" else "info",
-              {"verdict": verdict, "gaps": gaps, "round": state.get("report_rounds", 0) + 1})
+    if parse_failed:
+        message = "Report quality check failed to parse — treating conservatively as insufficient"
+        level = "error"
+    else:
+        message = f"Report quality: {'sufficient ✓' if verdict == 'sufficient' else f'insufficient{gap_text}'}"
+        level = "success" if verdict == "sufficient" else "info"
+    log_event(state["task_id"], "report_evaluator", message, level,
+              {"verdict": verdict, "gaps": gaps, "round": state.get("report_rounds", 0) + 1, "parse_failed": parse_failed})
 
     return {
         "report_verdict": verdict,

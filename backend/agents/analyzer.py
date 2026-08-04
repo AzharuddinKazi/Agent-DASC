@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import subprocess
@@ -5,6 +6,7 @@ import tempfile
 from agents.state import TaskState
 from agents.code_fences import strip_code_fences
 from agents.logger import log_event
+from agents.sandbox_security import docker_security_args
 from db import supabase
 from llm_router import LLMRouter
 
@@ -40,6 +42,28 @@ If nrows is not 'all', use pd.read_csv('/workspace/data/{filename}', nrows={nrow
 - Your response should only contain a single Python code block"""
 
 
+_HASH_SAMPLE_BYTES = 65_536
+
+
+def _content_fingerprint(filepath: str, file_size: int) -> str:
+    """Cheap stand-in for a full content hash: size + a sample of the first/last 64KB.
+    A true full-file SHA256 would mean re-reading every byte of every dataset on every
+    single analyzer run just to validate the cache — including the 470MB file this repo
+    already ships with real data (see CLAUDE.md) — which defeats the point of caching (the
+    whole read would cost more than the Docker+LLM call the cache exists to skip). Sampling
+    the head/tail is enough to catch the actual failure mode this closes (two files that
+    happen to share both a filename and a byte size), without that cost.
+    """
+    h = hashlib.sha256()
+    h.update(str(file_size).encode())
+    with open(filepath, "rb") as f:
+        h.update(f.read(_HASH_SAMPLE_BYTES))
+        if file_size > _HASH_SAMPLE_BYTES:
+            f.seek(max(file_size - _HASH_SAMPLE_BYTES, 0))
+            h.update(f.read(_HASH_SAMPLE_BYTES))
+    return h.hexdigest()
+
+
 def analyze_file(filename: str, filepath: str, task_id: str) -> str:
     file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
     nrows = 10000 if file_size_mb > 50 else None
@@ -58,6 +82,7 @@ def analyze_file(filename: str, filepath: str, task_id: str) -> str:
                 "docker", "run", "--rm",
                 "--network=none",
                 "--memory=2g",
+                *docker_security_args(),
                 "-v", f"{os.getenv('DSSTAR')}/data:/workspace/data:ro",
                 "-v", f"{script_path}:/workspace/scripts/analyze.py:ro",
                 "dsstar-sandbox:latest",
@@ -95,14 +120,17 @@ def analyzer(state: TaskState) -> dict:
             continue
 
         file_size = os.path.getsize(filepath)
+        content_hash = _content_fingerprint(filepath, file_size)
 
         # check cache
         cached = supabase.table("file_descriptions") \
-            .select("description, file_size_bytes") \
+            .select("description, file_size_bytes, content_hash") \
             .eq("filename", fname) \
             .execute()
 
-        if cached.data and cached.data[0]["file_size_bytes"] == file_size:
+        if (cached.data
+                and cached.data[0]["file_size_bytes"] == file_size
+                and cached.data[0].get("content_hash") == content_hash):
             logger.info(f"{fname}: using cached description")
             descriptions[fname] = cached.data[0]["description"]
             continue
@@ -116,6 +144,7 @@ def analyzer(state: TaskState) -> dict:
             "filename":        fname,
             "description":     description,
             "file_size_bytes": file_size,
+            "content_hash":    content_hash,
         }).execute()
 
     file_names = list(descriptions.keys())

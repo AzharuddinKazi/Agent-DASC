@@ -4,6 +4,7 @@ from agents.logger import log_event
 from llm_router import LLMRouter
 from db import supabase
 from domain_pack import get_active_pack_config
+from agents.prompt_safety import format_file_summaries
 
 router = LLMRouter()
 logger = logging.getLogger(__name__)
@@ -114,10 +115,7 @@ def question_generator(state: TaskState) -> dict:
     question  = state["query"]
     summaries = state["data_descriptions"]
 
-    summaries_text = "\n".join(
-        f"File: {fname}\n{desc}"
-        for fname, desc in summaries.items()
-    )
+    summaries_text = format_file_summaries(summaries)
 
     prompt = QUESTION_GENERATOR_PROMPT.format(
         question=question,

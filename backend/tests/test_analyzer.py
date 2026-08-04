@@ -1,6 +1,6 @@
 import os
 from unittest.mock import patch, MagicMock
-from agents.analyzer import analyze_file, analyzer
+from agents.analyzer import analyze_file, analyzer, _content_fingerprint
 
 
 def make_mock_llm_result(text):
@@ -65,6 +65,24 @@ def test_analyze_file_uses_row_limit_for_large_files(tmp_path):
     assert "nrows=10000" in prompt
 
 
+def test_analyze_file_invokes_docker_with_sandbox_hardening_flags(tmp_path):
+    filepath = tmp_path / "test.csv"
+    filepath.write_text("a,b\n1,2\n")
+    with patch("agents.analyzer.router") as mock_router, \
+         patch("agents.analyzer.subprocess.run") as mock_run:
+        mock_router.complete.return_value = make_mock_llm_result("print('ok')")
+        mock_run.return_value = make_completed_process(stdout="ok", returncode=0)
+
+        analyze_file("test.csv", str(filepath), "task-123")
+
+        args = mock_run.call_args[0][0]
+
+    assert "--network=none" in args
+    assert "--read-only" in args
+    assert "--cap-drop" in args
+    assert "--pids-limit" in args
+
+
 def test_analyze_file_cleans_up_temp_file_even_on_exception(tmp_path):
     filepath = tmp_path / "test.csv"
     filepath.write_text("a,b\n1,2\n")
@@ -84,18 +102,20 @@ def base_state():
     return {"task_id": "test-123"}
 
 
-def test_analyzer_uses_cached_description_when_file_size_matches(tmp_path):
+def test_analyzer_uses_cached_description_when_size_and_hash_match(tmp_path):
     data_dir = tmp_path / "data"
     data_dir.mkdir()
-    (data_dir / "test.csv").write_text("a,b\n1,2\n")
-    file_size = (data_dir / "test.csv").stat().st_size
+    filepath = data_dir / "test.csv"
+    filepath.write_text("a,b\n1,2\n")
+    file_size = filepath.stat().st_size
+    content_hash = _content_fingerprint(str(filepath), file_size)
     with patch.dict(os.environ, {"DSSTAR": str(tmp_path)}), \
          patch("agents.analyzer.supabase") as mock_supabase, \
          patch("agents.analyzer.log_event"), \
          patch("agents.analyzer.analyze_file") as mock_analyze:
         mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
         mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[{"description": "cached description", "file_size_bytes": file_size}]
+            data=[{"description": "cached description", "file_size_bytes": file_size, "content_hash": content_hash}]
         )
 
         result = analyzer(base_state())
@@ -114,7 +134,7 @@ def test_analyzer_reanalyzes_when_cached_size_does_not_match(tmp_path):
          patch("agents.analyzer.analyze_file") as mock_analyze:
         mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
         mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[{"description": "stale description", "file_size_bytes": 1}]  # deliberately wrong size
+            data=[{"description": "stale description", "file_size_bytes": 1, "content_hash": "irrelevant"}]  # deliberately wrong size
         )
         mock_supabase.table.return_value.upsert.return_value.execute.return_value = MagicMock()
         mock_analyze.return_value = "fresh description"
@@ -123,6 +143,74 @@ def test_analyzer_reanalyzes_when_cached_size_does_not_match(tmp_path):
 
     assert result["data_descriptions"]["test.csv"] == "fresh description"
     mock_analyze.assert_called_once()
+
+
+def test_analyzer_reanalyzes_on_same_name_and_size_but_different_content(tmp_path):
+    """Regression test for the actual gap this closes: a same-name-different-content file
+    that happens to share a byte count with whatever was cached must not serve the wrong
+    dataset's description."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    filepath = data_dir / "test.csv"
+    filepath.write_text("a,b\n9,9\n")  # same length as "a,b\n1,2\n", different content
+    file_size = filepath.stat().st_size
+    with patch.dict(os.environ, {"DSSTAR": str(tmp_path)}), \
+         patch("agents.analyzer.supabase") as mock_supabase, \
+         patch("agents.analyzer.log_event"), \
+         patch("agents.analyzer.analyze_file") as mock_analyze:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"description": "wrong dataset's cached description", "file_size_bytes": file_size,
+                   "content_hash": "not-the-real-hash"}]
+        )
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+        mock_analyze.return_value = "fresh description"
+
+        result = analyzer(base_state())
+
+    assert result["data_descriptions"]["test.csv"] == "fresh description"
+    mock_analyze.assert_called_once()
+
+
+def test_analyzer_reanalyzes_when_cached_row_predates_content_hash_column(tmp_path):
+    """Old cache rows written before this migration have no content_hash — must miss the
+    cache once (safe default: re-analyze) rather than trust a size-only match."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    filepath = data_dir / "test.csv"
+    filepath.write_text("a,b\n1,2\n")
+    file_size = filepath.stat().st_size
+    with patch.dict(os.environ, {"DSSTAR": str(tmp_path)}), \
+         patch("agents.analyzer.supabase") as mock_supabase, \
+         patch("agents.analyzer.log_event"), \
+         patch("agents.analyzer.analyze_file") as mock_analyze:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"description": "old cached description", "file_size_bytes": file_size}]  # no content_hash key
+        )
+        mock_supabase.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+        mock_analyze.return_value = "fresh description"
+
+        result = analyzer(base_state())
+
+    assert result["data_descriptions"]["test.csv"] == "fresh description"
+    mock_analyze.assert_called_once()
+
+
+def test_content_fingerprint_differs_for_same_size_different_content(tmp_path):
+    a = tmp_path / "a.csv"
+    b = tmp_path / "b.csv"
+    a.write_text("a,b\n1,2\n")
+    b.write_text("a,b\n9,9\n")
+    assert a.stat().st_size == b.stat().st_size
+    assert _content_fingerprint(str(a), a.stat().st_size) != _content_fingerprint(str(b), b.stat().st_size)
+
+
+def test_content_fingerprint_stable_for_identical_content(tmp_path):
+    a = tmp_path / "a.csv"
+    a.write_text("a,b\n1,2\n")
+    size = a.stat().st_size
+    assert _content_fingerprint(str(a), size) == _content_fingerprint(str(a), size)
 
 
 def test_analyzer_skips_dotfiles_and_directories(tmp_path):

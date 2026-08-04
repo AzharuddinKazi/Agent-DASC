@@ -5,6 +5,9 @@ from agents.executor import execute_script
 from agents.debugger import DEBUGGER_PROMPT
 from agents.code_fences import strip_code_fences
 from agents.logger import log_event
+from agents.schemas import FinalizerOutput, validate_and_log
+from agents.error_sanitizer import summarize_script_failure
+from agents.prompt_safety import format_file_summaries
 from llm_router import LLMRouter
 from db import supabase
 
@@ -85,7 +88,10 @@ Never nest an f-string inside another f-string's expression with escaped quotes
 (e.g. f"...{{', '.join([f'{{row[\"X\"]}}' for _, row in df.iterrows()])}}...") — this
 is invalid Python syntax. Build the inner strings in a separate variable/list first
 (e.g. `parts = [f"{{row['X']}}" for _, row in df.iterrows()]`), then interpolate that
-variable into the outer string — this applies to the "raw" and "summary" text fields too."""
+variable into the outer string — this applies to the "raw" and "summary" text fields too.
+No space after the thousands-separator comma in an f-string format spec — write
+f"{{x:,.2f}}", never f"{{x:, .2f}}" (a stray space there is a ValueError at runtime, not
+a formatting choice)."""
 
 
 def finalizer(state: TaskState) -> dict:
@@ -98,10 +104,7 @@ def finalizer(state: TaskState) -> dict:
     execution_result = state["execution_result"]
     guidelines       = state.get("formatting_guidelines", "Print the answer clearly and concisely.")
 
-    summaries_text = "\n".join(
-        f"File: {fname}\n{desc}"
-        for fname, desc in summaries.items()
-    )
+    summaries_text = format_file_summaries(summaries)
 
     prompt = FINALIZER_PROMPT.format(
         summaries=summaries_text,
@@ -139,7 +142,7 @@ def finalizer(state: TaskState) -> dict:
 
         stdout, stderr, exit_code = execute_script(final_script, state["task_id"])
 
-    final_output = stdout if exit_code == 0 else f"Execution failed:\n{stderr}"
+    final_output = stdout if exit_code == 0 else f"Execution failed: {summarize_script_failure(stderr)}"
 
     # Injected server-side, not trusted to the LLM — same reasoning as writer.py's
     # sources list: the model has no reason to know or report its own retry count or
@@ -152,6 +155,7 @@ def finalizer(state: TaskState) -> dict:
         try:
             parsed = json.loads(final_output.strip())
             if isinstance(parsed, dict):
+                validate_and_log(FinalizerOutput, parsed, task_id=state["task_id"], agent="finalizer")
                 parsed["debug_attempts"] = attempt
                 parsed["files_used"] = list(summaries.keys())
                 final_output = json.dumps(parsed)
@@ -163,7 +167,7 @@ def finalizer(state: TaskState) -> dict:
     else:
         logger.error(f"exit={exit_code}: {stderr[:200]}")
     log_event(state["task_id"], "finalizer",
-              "Analysis complete ✓" if exit_code == 0 else f"Finalizer script failed: {stderr[:120]}",
+              "Analysis complete ✓" if exit_code == 0 else f"Finalizer script failed: {summarize_script_failure(stderr)}",
               "success" if exit_code == 0 else "error")
 
     return {

@@ -3,6 +3,7 @@ import logging
 from agents.state import TaskState, current_objective
 from agents.logger import log_event
 from agents.domain_knowledge import retrieve_grounded_knowledge
+from agents.prompt_safety import format_file_summaries
 from llm_router import LLMRouter
 from db import supabase
 router = LLMRouter()
@@ -82,10 +83,7 @@ def planner(state: TaskState) -> dict:
     current_round = state["current_round"]
     last_result = state.get("execution_result", "")
 
-    summaries_text = "\n".join(
-        f"File: {fname}\n{desc}"
-        for fname, desc in summaries.items()
-    )
+    summaries_text = format_file_summaries(summaries)
 
     plan_text = "\n".join(
         f"Step {i+1}: {step}"

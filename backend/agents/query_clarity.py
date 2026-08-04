@@ -17,6 +17,7 @@ import re
 from db import supabase
 from domain_pack import get_active_pack_config
 from llm_router import LLMRouter
+from agents.prompt_safety import wrap_untrusted
 
 router = LLMRouter()
 logger = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ def _cached_summaries_text() -> str:
         # every cached file's full row-sample/statistics dump.
         head = "\n".join(desc.splitlines()[:15])
         parts.append(f"File: {row['filename']}\n{head}")
-    return "\n\n".join(parts)
+    return wrap_untrusted("dataset_file_summaries", "\n\n".join(parts))
 
 
 def _strip_fences(text: str) -> str:

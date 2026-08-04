@@ -39,16 +39,21 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
     setIsResuming(false)
     setIsRerunning(false)
     setIsReviewSubmitting(false)
+    let cancelled = false
     const poll = async () => {
       try {
         const r = await getTask(activeTaskId)
+        // A slow response for a task the user has since switched away from (or a
+        // pollGeneration bump) must not overwrite the now-current selection — same
+        // stale-response guard as useHealth.js.
+        if (cancelled) return
         setTask(r.data)
         if (r.data.status !== "running") clearInterval(interval)
-      } catch (err) { console.error(err) }
+      } catch (err) { if (!cancelled) console.error(err) }
     }
     poll()
     const interval = setInterval(poll, 2000)
-    return () => clearInterval(interval)
+    return () => { cancelled = true; clearInterval(interval) }
   }, [activeTaskId, pollGeneration])
 
   const handleSelect = (id, q, type) => { setActiveTaskId(id); setActiveQuery(q); if (type) setActiveTaskType(type); setDrawerOpen(false) }

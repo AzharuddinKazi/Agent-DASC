@@ -3,6 +3,7 @@ import re
 import string
 from agents.state import TaskState
 from agents.logger import log_event
+from agents.schemas import WriterReport, validate_and_log
 from llm_router import LLMRouter
 from db import supabase
 from domain_pack import get_active_pack_config
@@ -217,6 +218,7 @@ Data rows (first 8): {json.dumps(sr.get('rows', [])[:8])}"""
             logger.warning("Writer output wasn't valid JSON — shipping it unparsed, without a sources list")
 
     if parsed is not None:
+        validate_and_log(WriterReport, parsed, task_id=state["task_id"], agent="writer")
         parsed["sources"] = sources
         report_text = json.dumps(parsed)
 

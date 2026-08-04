@@ -4,6 +4,7 @@ import logging
 from agents.state import TaskState
 from agents.code_fences import strip_code_fences
 from agents.domain_knowledge import retrieve_grounded_knowledge
+from agents.prompt_safety import format_file_summaries
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -28,6 +29,9 @@ CODER_INIT = """# Given data:
   is invalid Python syntax. Build the inner strings in a separate variable/list first
   (e.g. `parts = [f"{{row['X']}}" for _, row in df.iterrows()]`), then interpolate that
   variable into the outer string.
+- No space after the thousands-separator comma in an f-string format spec — write
+  f"{{x:,.2f}}", never f"{{x:, .2f}}" (a stray space there is a ValueError at runtime,
+  not a formatting choice).
 
 # Your task
 Implement the plan with the given data.
@@ -64,6 +68,9 @@ Your task is to implement the next plan with the given data.
   is invalid Python syntax. Build the inner strings in a separate variable/list first
   (e.g. `parts = [f"{{row['X']}}" for _, row in df.iterrows()]`), then interpolate that
   variable into the outer string.
+- No space after the thousands-separator comma in an f-string format spec — write
+  f"{{x:,.2f}}", never f"{{x:, .2f}}" (a stray space there is a ValueError at runtime,
+  not a formatting choice).
 
 # Your task
 Implement the current plan based on the base code.
@@ -89,10 +96,7 @@ def coder(state: TaskState) -> dict:
     cumulative_plan = state["cumulative_plan"]
     prior_script = state.get("current_script", "")
 
-    summaries_text = "\n".join(
-        f"File: {fname}\n{desc}"
-        for fname, desc in summaries.items()
-    )
+    summaries_text = format_file_summaries(summaries)
 
     plan_text = "\n".join(
         f"Step {i+1}: {step}"
