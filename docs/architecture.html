@@ -1,0 +1,619 @@
+<title>DS-STAR — System &amp; Agent Architecture</title>
+<style>
+  :root{
+    --bg:#0F1318;
+    --panel:#161C24;
+    --panel-2:#1B222C;
+    --line:#2A323E;
+    --line-soft:#232B36;
+    --text:#D7DEE7;
+    --text-dim:#8A94A3;
+    --text-faint:#5B6472;
+    --blue:#6FA3FF;
+    --blue-dim:#3E5B8C;
+    --amber:#E8A64A;
+    --amber-dim:#8C6A38;
+    --violet:#B78AE8;
+    --green:#57C08A;
+    --red:#E0715C;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  }
+  :root[data-theme="light"]{
+    --bg:#F3F1EC; --panel:#FFFFFF; --panel-2:#EDEAE2; --line:#D8D3C7; --line-soft:#E3DFD4;
+    --text:#23241F; --text-dim:#5C5A50; --text-faint:#918D80;
+    --blue:#2D5FCC; --blue-dim:#AEC3F0; --amber:#B9762A; --amber-dim:#E9CFA6;
+    --violet:#7A4FB0; --green:#2D8A5C; --red:#B84A34;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#F3F1EC; --panel:#FFFFFF; --panel-2:#EDEAE2; --line:#D8D3C7; --line-soft:#E3DFD4;
+      --text:#23241F; --text-dim:#5C5A50; --text-faint:#918D80;
+      --blue:#2D5FCC; --blue-dim:#AEC3F0; --amber:#B9762A; --amber-dim:#E9CFA6;
+      --violet:#7A4FB0; --green:#2D8A5C; --red:#B84A34;
+    }
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1760px;margin:0 auto;padding:56px 40px 120px;}
+
+  .masthead{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:44px;flex-wrap:wrap;}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin:0 0 10px;}
+  h1{font-family:var(--mono);font-size:clamp(28px,3.4vw,42px);font-weight:600;letter-spacing:-.01em;margin:0;text-wrap:balance;}
+  .lede{max-width:60ch;color:var(--text-dim);font-size:15px;margin:14px 0 0;}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--text-faint);text-align:right;line-height:1.8;}
+  .meta b{color:var(--text-dim);font-weight:500;}
+
+  section{margin-bottom:64px;}
+  .section-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;}
+  .section-head .num{font-family:var(--mono);font-size:13px;color:var(--text-faint);}
+  .section-head h2{font-family:var(--mono);font-size:19px;font-weight:600;margin:0;letter-spacing:-.005em;}
+  .section-head .rule{flex:1;height:1px;background:var(--line);}
+  .section-note{color:var(--text-dim);font-size:13.5px;max-width:82ch;margin:-8px 0 22px;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;}
+  .scroll-x{overflow-x:auto;}
+  svg{display:block;}
+  svg text{font-family:var(--sans);}
+  .mono{font-family:var(--mono);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:18px 28px;margin-top:20px;padding-top:18px;border-top:1px solid var(--line-soft);font-size:12.5px;color:var(--text-dim);}
+  .legend .item{display:flex;align-items:center;gap:8px;}
+  .legend .swatch{width:20px;height:2px;flex:none;}
+  .legend .swatch.dashed{background:none;border-top:2px dashed;}
+
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  .grid-2{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;}
+  @media (max-width:1000px){.grid-3{grid-template-columns:1fr;} .grid-2{grid-template-columns:1fr;}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px;}
+  .card h3{font-family:var(--mono);font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:0 0 14px;color:var(--text-dim);display:flex;align-items:center;gap:8px;}
+  .card h3 .tag{font-size:10px;padding:2px 6px;border-radius:4px;letter-spacing:.04em;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);padding:0 10px 8px 0;border-bottom:1px solid var(--line);}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid var(--line-soft);color:var(--text-dim);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  td.k{color:var(--text);font-family:var(--mono);font-size:12.5px;white-space:nowrap;}
+  .tier-high{color:var(--red);} .tier-medium{color:var(--amber);} .tier-low{color:var(--blue);}
+
+  code, .inline-code{font-family:var(--mono);font-size:.92em;background:var(--panel-2);padding:1px 6px;border-radius:4px;color:var(--text);}
+
+  ul.tight{margin:0;padding-left:18px;}
+  ul.tight li{margin-bottom:7px;font-size:13px;color:var(--text-dim);}
+  ul.tight li::marker{color:var(--text-faint);}
+  ul.tight b{color:var(--text);font-weight:500;}
+
+  .foot{margin-top:70px;padding-top:22px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--text-faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+
+  /* ---- shared SVG diagram styles ---- */
+  .node rect{fill:var(--panel-2);stroke-width:1.3;}
+  .node.qa rect{stroke:var(--blue-dim);}
+  .node.report rect{stroke:var(--amber-dim);}
+  .node.gate rect{stroke:var(--violet);stroke-dasharray:3 3;}
+  .node .name{font-family:var(--mono);font-size:13px;font-weight:600;fill:var(--text);}
+  .node .desc{font-family:var(--sans);font-size:10.5px;fill:var(--text-faint);}
+  .lane{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;fill:var(--text-faint);text-transform:uppercase;}
+  .edge-qa{stroke:var(--blue);stroke-width:1.8;fill:none;}
+  .edge-retry{stroke:var(--red);stroke-width:1.5;fill:none;stroke-dasharray:6 5;}
+  .edge-report{stroke:var(--amber);stroke-width:1.8;fill:none;}
+  .edge-review{stroke:var(--violet);stroke-width:1.5;fill:none;stroke-dasharray:6 5;}
+  .edge-end{stroke:var(--green);stroke-width:1.8;fill:none;}
+  /* halo: masks any line/box edge that happens to sit behind a label */
+  .elabel{font-family:var(--mono);font-size:10px;paint-order:stroke fill;stroke:var(--panel);stroke-width:6px;stroke-linejoin:round;}
+  .elabel.qa{fill:var(--blue);} .elabel.retry{fill:var(--red);} .elabel.report{fill:var(--amber);} .elabel.review{fill:var(--violet);}
+  .endpill{fill:var(--panel);stroke:var(--green);stroke-width:1.3;}
+  .endtext{font-family:var(--mono);font-size:11px;fill:var(--green);font-weight:600;}
+  .endcap{font-family:var(--mono);font-size:9.5px;fill:var(--text-faint);}
+</style>
+
+<div class="wrap">
+
+  <div class="masthead">
+    <div>
+      <p class="kicker">Reference diagram</p>
+      <h1>DS-STAR — System &amp; Agent Architecture</h1>
+      <p class="lede">A natural-language question about a dataset becomes an executable, self-correcting
+      analysis — planned, coded, sandboxed, verified, and iterated by a graph of specialized LLM agents.</p>
+    </div>
+    <div class="meta">
+      monorepo · FastAPI + LangGraph + React<br>
+      <b>persistence</b> Supabase Postgres, per-step checkpoints<br>
+      <b>execution</b> ephemeral Docker sandbox, no network
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 1. SYSTEM ARCHITECTURE                                        -->
+  <!-- ============================================================ -->
+  <section>
+    <div class="section-head">
+      <span class="num">01</span>
+      <h2>System Architecture</h2>
+      <span class="rule"></span>
+    </div>
+    <p class="section-note">One request's journey from browser to sandboxed code execution and back.
+    The dashed perimeter is the docker-compose trust boundary — everything inside talks to the raw
+    Docker socket only through a locked-down proxy.</p>
+
+    <div class="panel scroll-x">
+      <svg viewBox="0 0 1650 480" width="1650" height="480" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--blue)"/>
+          </marker>
+          <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--amber)"/>
+          </marker>
+          <marker id="arrow-dim" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+          </marker>
+        </defs>
+
+        <style>
+          .sysbox{fill:var(--panel-2);stroke:var(--line);stroke-width:1;}
+          .sysbox.accent{stroke:var(--blue-dim);}
+          .systitle{font-family:var(--mono);font-size:13px;fill:var(--text);font-weight:600;}
+          .syssub{font-family:var(--sans);font-size:10.5px;fill:var(--text-faint);}
+          .syssub.dim{fill:var(--text-dim);}
+          .sedgelabel{font-family:var(--mono);font-size:10px;paint-order:stroke fill;stroke:var(--panel);stroke-width:6px;stroke-linejoin:round;fill:var(--text-faint);}
+          .flow-blue{stroke:var(--blue);stroke-width:1.7;fill:none;}
+          .flow-amber{stroke:var(--amber);stroke-width:1.7;fill:none;}
+          .flow-dim{stroke:var(--text-faint);stroke-width:1.3;fill:none;stroke-dasharray:4 4;}
+          .boundary{fill:none;stroke:var(--line);stroke-width:1.4;stroke-dasharray:6 5;}
+          .boundlabel{font-family:var(--mono);font-size:10.5px;fill:var(--text-faint);letter-spacing:.04em;}
+        </style>
+
+        <!-- Trust boundary: docker-compose network (backend + proxy + sandbox only) -->
+        <rect class="boundary" x="580" y="50" width="600" height="340" rx="14"/>
+        <text class="boundlabel" x="600" y="74">DOCKER-COMPOSE NETWORK — ONLY PORTS 8000 / 5174 PUBLISHED</text>
+        <text class="boundlabel" x="1220" y="172">EXTERNAL SERVICES</text>
+
+        <!-- Browser -->
+        <rect class="sysbox" x="30" y="180" width="180" height="100" rx="10"/>
+        <text class="systitle" x="50" y="215">Browser</text>
+        <text class="syssub" x="50" y="236">React SPA (Vite)</text>
+        <text class="syssub" x="50" y="253">react-router, polling</text>
+
+        <!-- Frontend container -->
+        <rect class="sysbox accent" x="340" y="180" width="200" height="100" rx="10"/>
+        <text class="systitle" x="360" y="215">frontend</text>
+        <text class="syssub" x="360" y="236">nginx :80 → 5174</text>
+        <text class="syssub" x="360" y="253">SPA fallback, build-time env</text>
+
+        <!-- Backend container -->
+        <rect class="sysbox accent" x="600" y="70" width="240" height="320" rx="10"/>
+        <text class="systitle" x="622" y="102">backend</text>
+        <text class="syssub" x="622" y="124">FastAPI :8000, uvicorn</text>
+        <text class="syssub" x="622" y="142">Bearer JWT auth (auth.py)</text>
+        <text class="syssub" x="622" y="160">LangGraph pipeline (agents/)</text>
+        <text class="syssub" x="622" y="178">AsyncPostgresSaver</text>
+        <text class="syssub" x="622" y="196">— checkpoints every node</text>
+        <text class="syssub dim" x="622" y="222">cap: MAX_CONCURRENT_</text>
+        <text class="syssub dim" x="622" y="238">PIPELINES = 10 runs</text>
+        <text class="syssub dim" x="622" y="264">GET /health → DB + Docker</text>
+        <text class="syssub dim" x="622" y="280">+ OpenRouter, in parallel</text>
+
+        <!-- docker-socket-proxy -->
+        <rect class="sysbox" x="920" y="70" width="220" height="90" rx="10"/>
+        <text class="systitle" x="940" y="102">docker-socket-proxy</text>
+        <text class="syssub" x="940" y="122">allow: CONTAINERS, IMAGES, POST</text>
+        <text class="syssub" x="940" y="138">deny: EXEC, VOLUMES, SECRETS…</text>
+
+        <!-- host docker socket -->
+        <rect class="sysbox" x="1220" y="70" width="200" height="80" rx="10"/>
+        <text class="systitle" x="1240" y="102">/var/run/docker.sock</text>
+        <text class="syssub" x="1240" y="122">host Docker Engine</text>
+
+        <!-- sandbox container -->
+        <rect class="sysbox" x="920" y="210" width="220" height="140" rx="10"/>
+        <text class="systitle" x="940" y="242">dsstar-sandbox</text>
+        <text class="syssub" x="940" y="263">ephemeral, one per script run</text>
+        <text class="syssub" x="940" y="279">python:3.12-slim, non-root</text>
+        <text class="syssub" x="940" y="295">network: none · 2GB cap</text>
+        <text class="syssub" x="940" y="311">data/ read-only · discarded after</text>
+
+        <!-- Supabase -->
+        <rect class="sysbox" x="1220" y="190" width="220" height="110" rx="10"/>
+        <text class="systitle" x="1240" y="222">Supabase</text>
+        <text class="syssub" x="1240" y="243">Postgres — tasks, logs,</text>
+        <text class="syssub" x="1240" y="259">sub_results, app_settings</text>
+        <text class="syssub" x="1240" y="275">Auth — per-user JWT + RLS</text>
+        <text class="syssub" x="1240" y="291">pgvector — domain-pack RAG</text>
+
+        <!-- OpenRouter -->
+        <rect class="sysbox" x="1220" y="330" width="220" height="90" rx="10"/>
+        <text class="systitle" x="1240" y="362">OpenRouter</text>
+        <text class="syssub" x="1240" y="383">OpenAI-compatible proxy</text>
+        <text class="syssub" x="1240" y="399">chat completions + embeddings</text>
+
+        <!-- ============ Edges ============ -->
+        <path class="flow-blue" d="M210,230 L338,230" marker-end="url(#arrow-blue)"/>
+        <text class="sedgelabel" x="222" y="222">HTTPS</text>
+
+        <path class="flow-blue" d="M540,230 L598,230" marker-end="url(#arrow-blue)"/>
+        <text class="sedgelabel" x="546" y="222">/api/v1/* + JWT</text>
+
+        <path class="flow-amber" d="M840,110 L918,110" marker-end="url(#arrow-amber)"/>
+        <text class="sedgelabel" x="846" y="102">docker run/kill, DOCKER_HOST</text>
+
+        <path class="flow-dim" d="M1140,110 L1218,110" marker-end="url(#arrow-dim)"/>
+        <text class="sedgelabel" x="1148" y="102">proxied :2375</text>
+
+        <path class="flow-dim" d="M1320,150 L1320,180 L1030,180 L1030,208" marker-end="url(#arrow-dim)"/>
+        <text class="sedgelabel" x="1140" y="172">spawns / kills container</text>
+
+        <path class="flow-amber" d="M918,280 L842,280" marker-end="url(#arrow-amber)"/>
+        <text class="sedgelabel" x="846" y="300">stdout / exit code</text>
+
+        <path class="flow-blue" d="M840,175 L1000,175 L1000,215 L1218,225" marker-end="url(#arrow-blue)"/>
+        <text class="sedgelabel" x="1005" y="212">checkpoint + task rows</text>
+
+        <path class="flow-amber" d="M840,340 L1000,340 L1000,365 L1218,372" marker-end="url(#arrow-amber)"/>
+        <text class="sedgelabel" x="1005" y="357">LLM calls (llm_router.py)</text>
+      </svg>
+
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--blue)"></span> control &amp; data plane (HTTP, DB)</div>
+        <div class="item"><span class="swatch" style="background:var(--amber)"></span> code execution &amp; LLM calls</div>
+        <div class="item"><span class="swatch dashed" style="border-color:var(--text-faint)"></span> low-level daemon traffic</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 2. AGENT GRAPH                                                -->
+  <!-- ============================================================ -->
+  <section>
+    <div class="section-head">
+      <span class="num">02</span>
+      <h2>Agent Graph — <span class="mono" style="font-size:15px;color:var(--text-dim);font-weight:400;">agents/graph.py</span></h2>
+      <span class="rule"></span>
+    </div>
+    <p class="section-note">Every task is one <code>TaskState</code> dict threaded through a LangGraph
+    state machine — no agent calls another directly. <b style="color:var(--text)">QA mode</b> (default) runs
+    the top loop once. <b style="color:var(--text)">Report mode (DS-STAR+)</b> runs that same loop once per
+    sub-question, then drafts and self-critiques a combined report below. Every node checks for
+    stop/pause before it runs. Loop-back paths run through the margin lanes on the left and right —
+    follow a line's color, not just its position, where paths cross.</p>
+
+    <div class="panel scroll-x">
+      <svg viewBox="-20 -20 2160 1240" width="2160" height="1240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="a-qa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--blue)"/>
+          </marker>
+          <marker id="a-retry" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--red)"/>
+          </marker>
+          <marker id="a-report" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--amber)"/>
+          </marker>
+          <marker id="a-review" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--violet)"/>
+          </marker>
+          <marker id="a-end" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--green)"/>
+          </marker>
+        </defs>
+
+        <text class="lane" x="150" y="30">QA loop — always runs</text>
+        <text class="lane" x="234" y="470">Report loop — task_type: "report" only</text>
+
+        <!-- ============ NODES ============ -->
+        <!-- Row 1 — QA main, y=100..188 -->
+        <g class="node qa" transform="translate(150,100)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">analyzer</text>
+          <text class="desc" x="14" y="52">profiles each dataset</text>
+        </g>
+        <g class="node qa" transform="translate(388,100)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">planner</text>
+          <text class="desc" x="14" y="52">next step, ≤3 rounds</text>
+        </g>
+        <g class="node qa" transform="translate(626,100)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">coder</text>
+          <text class="desc" x="14" y="52">step → Python script</text>
+        </g>
+        <g class="node qa" transform="translate(864,100)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">executor</text>
+          <text class="desc" x="14" y="52">runs in dsstar-sandbox</text>
+        </g>
+        <g class="node qa" transform="translate(1102,100)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">verifier</text>
+          <text class="desc" x="14" y="52">does output answer it?</text>
+        </g>
+        <g class="node qa" transform="translate(1340,100)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">finalizer</text>
+          <text class="desc" x="14" y="52">writes final_result JSON</text>
+        </g>
+
+        <!-- Row 2 — retry row, y=280..368 -->
+        <g class="node qa" transform="translate(864,280)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">debugger</text>
+          <text class="desc" x="14" y="52">patch from traceback, ≤2×</text>
+        </g>
+        <g class="node qa" transform="translate(1102,280)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">router_agent</text>
+          <text class="desc" x="14" y="52">add step, or backtrack</text>
+        </g>
+
+        <!-- Row 4 — report main, y=520..608 -->
+        <g class="node report" transform="translate(388,520)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="10" y="28">question_</text>
+          <text class="name" x="10" y="44">generator</text>
+          <text class="desc" x="10" y="66">query → sub-questions</text>
+        </g>
+        <g class="node report" transform="translate(1340,520)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="8" y="28">sub_result_</text>
+          <text class="name" x="8" y="44">collector</text>
+          <text class="desc" x="8" y="66">store answer, advance</text>
+        </g>
+        <g class="node report" transform="translate(1816,520)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="14" y="30">writer</text>
+          <text class="desc" x="14" y="52">drafts report, cites [N]</text>
+        </g>
+
+        <!-- Row 5 — report evaluator row, y=680..768 -->
+        <g class="node report" transform="translate(1816,680)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="8" y="28">report_</text>
+          <text class="name" x="8" y="44">evaluator</text>
+          <text class="desc" x="8" y="66">critiques, lists gaps</text>
+        </g>
+        <g class="node report" transform="translate(1578,680)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="6" y="28">gap_question_</text>
+          <text class="name" x="6" y="44">generator</text>
+          <text class="desc" x="6" y="66">gaps → new sub-Qs</text>
+        </g>
+
+        <!-- Row 6 — human review, y=840..928 -->
+        <g class="node gate" transform="translate(1816,840)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="4" y="28">human_review_</text>
+          <text class="name" x="4" y="44">gate</text>
+          <text class="desc" x="4" y="66">opt-in refine/finalize</text>
+        </g>
+
+        <!-- Row 7 — report finalizer, y=1000..1088 -->
+        <g class="node report" transform="translate(1816,1000)">
+          <rect width="168" height="88" rx="10"/>
+          <text class="name" x="4" y="28">report_</text>
+          <text class="name" x="4" y="44">finalizer</text>
+          <text class="desc" x="4" y="66">stores final report</text>
+        </g>
+
+        <!-- END pills -->
+        <rect class="endpill" x="1512" y="126" width="64" height="36" rx="18"/>
+        <text class="endtext" x="1524" y="149">END</text>
+        <text class="endcap" x="1520" y="178">(qa mode)</text>
+
+        <rect class="endpill" x="1868" y="1108" width="64" height="36" rx="18"/>
+        <text class="endtext" x="1880" y="1131">END</text>
+        <text class="endcap" x="1868" y="1160">(report mode)</text>
+
+        <!-- ============ EDGES: QA main chain ============ -->
+        <path class="edge-qa" d="M318,144 L388,144" marker-end="url(#a-qa)"/>
+        <path class="edge-qa" d="M556,144 L626,144" marker-end="url(#a-qa)"/>
+        <path class="edge-qa" d="M794,144 L864,144" marker-end="url(#a-qa)"/>
+        <path class="edge-qa" d="M1032,144 L1102,144" marker-end="url(#a-qa)"/>
+        <text class="elabel qa" x="1038" y="132">exit 0</text>
+        <path class="edge-qa" d="M1270,144 L1340,144" marker-end="url(#a-qa)"/>
+        <text class="elabel qa" x="1163" y="112">sufficient / round limit</text>
+
+        <path class="edge-end" d="M1508,144 L1512,144" marker-end="url(#a-end)"/>
+
+        <!-- debugger loop -->
+        <path class="edge-retry" d="M948,188 L948,280" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="956" y="238">exit≠0, retries&lt;2</text>
+        <path class="edge-retry" d="M864,324 C 800,324 800,220 908,188" marker-end="url(#a-retry)"/>
+
+        <!-- exhausted retries bypass: executor top, arcs over verifier, into finalizer top -->
+        <path class="edge-retry" d="M948,100 C 948,20 1424,20 1424,100" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="1120" y="34">debug retries exhausted</text>
+
+        <!-- verifier -> router_agent -->
+        <path class="edge-retry" d="M1186,188 L1186,280" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="1194" y="238">insufficient, rounds left</text>
+
+        <!-- router_agent -> planner, left-margin lane x=60 -->
+        <path class="edge-retry" d="M1102,324 L1102,440 L60,440 L60,116 L388,116" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="700" y="432">add_step / backtrack → planner</text>
+
+        <!-- ============ EDGES: analyzer branch into report loop ============ -->
+        <path class="edge-report" d="M234,188 L234,460 L472,460 L472,520" marker-end="url(#a-report)"/>
+        <text class="elabel report" x="240" y="452">task_type = "report"</text>
+
+        <!-- question_generator -> planner (straight, own column) -->
+        <path class="edge-report" d="M472,520 L472,188" marker-end="url(#a-report)"/>
+        <text class="elabel report" x="480" y="360">first sub-question</text>
+
+        <!-- finalizer -> sub_result_collector (straight, own column) -->
+        <path class="edge-report" d="M1424,188 L1424,520" marker-end="url(#a-report)"/>
+        <text class="elabel report" x="1432" y="360">task_type = "report"</text>
+
+        <!-- sub_result_collector -> writer -->
+        <path class="edge-report" d="M1508,564 L1816,564" marker-end="url(#a-report)"/>
+        <text class="elabel report" x="1560" y="552">all sub-questions done</text>
+
+        <!-- sub_result_collector -> planner, left-margin lane x=90 -->
+        <path class="edge-retry" d="M1340,564 L1340,1130 L90,1130 L90,162 L388,162" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="620" y="1122">next sub-question → planner</text>
+
+        <!-- writer -> report_evaluator -->
+        <path class="edge-report" d="M1900,608 L1900,680" marker-end="url(#a-report)"/>
+
+        <!-- writer -> report_finalizer, right-margin bypass (round limit reached, skip evaluator) -->
+        <path class="edge-retry" d="M1984,564 L2040,564 L2040,1044 L1984,1044" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="1990" y="820">round limit reached — skip eval</text>
+
+        <!-- report_evaluator -> gap_question_generator -->
+        <path class="edge-retry" d="M1816,712 L1746,712" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="1748" y="702">gaps found</text>
+
+        <!-- gap_question_generator -> planner, left-margin lane x=30 -->
+        <path class="edge-retry" d="M1662,768 L1662,1160 L30,1160 L30,178 L388,178" marker-end="url(#a-retry)"/>
+        <text class="elabel retry" x="900" y="1152">gap sub-Qs → planner, labels [a][b]…</text>
+
+        <!-- report_evaluator -> human_review_gate -->
+        <path class="edge-review" d="M1900,768 L1900,840" marker-end="url(#a-review)"/>
+        <text class="elabel review" x="1908" y="808">require_human_review</text>
+
+        <!-- report_evaluator -> report_finalizer, direct (no human review) via inner gutter x=1790 -->
+        <path class="edge-report" d="M1816,750 L1790,750 L1790,1044 L1816,1044" marker-end="url(#a-report)"/>
+        <text class="elabel report" x="1706" y="900">sufficient / round limit</text>
+
+        <!-- human_review_gate -> report_finalizer -->
+        <path class="edge-review" d="M1900,928 L1900,1000" marker-end="url(#a-review)"/>
+        <text class="elabel review" x="1908" y="968">decision: finalize</text>
+
+        <!-- human_review_gate -> gap_question_generator, inner gutter x=1770 -->
+        <path class="edge-review" d="M1816,860 L1770,860 L1770,736 L1746,736" marker-end="url(#a-review)"/>
+        <text class="elabel review" x="1596" y="852">decision: refine</text>
+
+        <!-- report_finalizer -> END -->
+        <path class="edge-end" d="M1900,1088 L1900,1108" marker-end="url(#a-end)"/>
+      </svg>
+
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--blue)"></span> QA forward path</div>
+        <div class="item"><span class="swatch dashed" style="border-color:var(--red)"></span> retry / backtrack loop</div>
+        <div class="item"><span class="swatch" style="background:var(--amber)"></span> report-mode forward path</div>
+        <div class="item"><span class="swatch dashed" style="border-color:var(--violet)"></span> human-review branch (opt-in)</div>
+        <div class="item"><span class="swatch" style="background:var(--green)"></span> terminal</div>
+        <div class="item">every node wrapped in <code>_cancellable()</code> — checks stop/pause first</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 3. REFERENCE                                                  -->
+  <!-- ============================================================ -->
+  <section>
+    <div class="section-head">
+      <span class="num">03</span>
+      <h2>Reference</h2>
+      <span class="rule"></span>
+    </div>
+
+    <div class="grid-3" style="margin-bottom:20px;">
+      <div class="card">
+        <h3>LLM routing <span class="tag" style="background:var(--panel-2);color:var(--text-faint)">llm_router.py</span></h3>
+        <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 14px;">Every call goes through OpenRouter.
+        Each agent is pinned to a quality tier; a live DB toggle (<code>app_settings.llm_speed_profile</code>)
+        swaps the whole tier→model map between free and fast-paid, no restart.</p>
+        <table>
+          <tr><th>Tier</th><th>Agents</th></tr>
+          <tr><td class="k tier-high">high</td><td>planner, coder, verifier, debugger, question_generator</td></tr>
+          <tr><td class="k tier-medium">medium</td><td>router_agent, finalizer, query_clarity, report_evaluator, gap_question_generator, report_finalizer</td></tr>
+          <tr><td class="k tier-low">low</td><td>analyzer, sub_result_collector</td></tr>
+          <tr><td class="k" style="color:var(--amber)">writer</td><td>isolated tier — small fast-paid models default to terse prose, breaking the report's depth requirement</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Sandbox isolation</h3>
+        <ul class="tight">
+          <li><b>network:</b> none — generated code cannot reach the internet or the backend</li>
+          <li><b>mount:</b> <code>data/</code> read-only; script written to a bind-mounted tempdir</li>
+          <li><b>memory:</b> 2GB cap per container, discarded after each run</li>
+          <li><b>user:</b> non-root inside <code>python:3.12-slim</code></li>
+          <li><b>socket:</b> backend never touches <code>docker.sock</code> directly — only via <code>docker-socket-proxy</code>, which allow-lists container/image create-start-kill-wait and hard-blocks EXEC, VOLUMES, SECRETS, SWARM, BUILD</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Persistence &amp; auth</h3>
+        <ul class="tight">
+          <li><b>checkpointing:</b> <code>AsyncPostgresSaver</code> keyed by <code>task_id</code> — an in-flight task survives a backend restart</li>
+          <li><b>cooperative control:</b> stop/pause/resume checked at every node boundary; an in-flight sandbox run is force-killed, never waited out</li>
+          <li><b>auth:</b> Supabase JWT bearer token on every <code>/api/v1/*</code> call, per-user row-level security</li>
+          <li><b>concurrency:</b> capped at <code>MAX_CONCURRENT_PIPELINES</code> (10) — above that, submissions still 202 and queue</li>
+          <li><b>tables:</b> <code>tasks</code>, <code>app_settings</code>, <code>domain_pack_configs</code>, <code>domain_pack_documents</code>, <code>domain_pack_chunks</code> (vector + tsvector, RAG)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>API surface <span class="tag" style="background:var(--panel-2);color:var(--text-faint)">main.py</span></h3>
+        <table>
+          <tr><th>Route</th><th>Purpose</th></tr>
+          <tr><td class="k">GET /health</td><td>DB + Docker + OpenRouter checks in parallel</td></tr>
+          <tr><td class="k">POST /clarify_task</td><td>pre-submission ambiguity check</td></tr>
+          <tr><td class="k">POST /submit_task</td><td>202, kicks off graph as background task</td></tr>
+          <tr><td class="k">GET /get_task/{id}</td><td>full row incl. logs, sub_results — what the UI polls</td></tr>
+          <tr><td class="k">POST /tasks/{id}/stop, /pause, /resume</td><td>cooperative lifecycle control</td></tr>
+          <tr><td class="k">POST /tasks/{id}/review</td><td>refine / finalize at the human-review gate</td></tr>
+          <tr><td class="k">GET/POST /llm_speed_profile</td><td>live free ↔ fast_paid toggle</td></tr>
+          <tr><td class="k">/domain_packs/*</td><td>list, activate, download, upload RAG docs</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Domain packs</h3>
+        <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 14px;">A pack biases the whole
+        pipeline's persona, classification, and sub-question dimensions toward a domain — e.g.
+        <code>fraud_aml_example.py</code> — and grounds answers in uploaded reference documents via
+        a per-pack RAG knowledge base.</p>
+        <ul class="tight">
+          <li><b>catalog.py</b> — lists available packs</li>
+          <li><b>domain_pack.py</b> — reads the active pack from Supabase <code>app_settings</code>, fail-closed to generic</li>
+          <li><b>knowledge.py</b> — ingests uploaded docs into the pack's vector KB</li>
+          <li><b>domain_knowledge.py</b> — RAG retrieval shared by planner / coder / verifier</li>
+          <li>switching a pack takes effect immediately — no restart</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- 4. FRONTEND                                                   -->
+  <!-- ============================================================ -->
+  <section style="margin-bottom:0;">
+    <div class="section-head">
+      <span class="num">04</span>
+      <h2>Frontend shell</h2>
+      <span class="rule"></span>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Routing &amp; state <span class="tag" style="background:var(--panel-2);color:var(--text-faint)">App.jsx</span></h3>
+        <ul class="tight">
+          <li><b>/</b> → <code>EmptyState</code> — query box, QA/report toggle, submit</li>
+          <li><b>/task/:taskId</b> → <code>Dashboard</code> — polls <code>GET /get_task/{id}</code> every 2s while running (no websocket/SSE); <code>ReportPanel</code> switches between live-progress, review-gate, and completed views by <code>task.status</code></li>
+          <li><b>/domain-packs</b> → <code>DomainPacks</code> — browse/activate, upload KB docs</li>
+          <li><code>AppShell</code> wraps every route with the persistent sidebar / mobile drawer and its own error boundary</li>
+          <li>every task gets its own URL — refresh, back/forward, and copy-paste links all land back on the same report</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Shared context</h3>
+        <ul class="tight">
+          <li><b>useAuth</b> — Supabase session state; <code>api.js</code>'s axios interceptor attaches the JWT to every request</li>
+          <li><b>useDrawer</b> — lets any page open <code>AppShell</code>'s single mobile drawer without owning a <code>&lt;Sheet&gt;</code> itself</li>
+          <li><b>useTaskList</b> — lets a just-submitted task appear in the sidebar instantly, instead of waiting on its own 5s poll</li>
+          <li><b>useActiveDomainPack / useHealth</b> — active pack + backend health, polled independently</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>DS-STAR — FastAPI + LangGraph · React/Vite · Supabase · Docker sandbox</span>
+    <span>generated from backend/agents/graph.py, main.py, llm_router.py, docker-compose.yml, and both READMEs</span>
+  </div>
+
+</div>
