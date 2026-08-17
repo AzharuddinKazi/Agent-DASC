@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Completed Report (FIP-Research)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root{
+  --bg:#f4f4f5;--bg-card:#ffffff;--bg-hover:#f0f0f1;--bg-active:#e9e9eb;
+  --bg-table:#f9f9fa;--border:#e4e4e7;--text:#09090b;--text-muted:#71717a;
+  --text-subtle:#a1a1aa;--sidebar:#ffffff;--sidebar-border:#e4e4e7;
+  --nav-active:#f4f4f5;--nav-active-text:#09090b;--submit-bg:#09090b;--submit-text:#ffffff;
+  --card-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.dark{
+  --bg:#09090b;--bg-card:#111113;--bg-hover:#18181b;--bg-active:#27272a;
+  --bg-table:#0d0d0f;--border:#27272a;--text:#fafafa;--text-muted:#71717a;
+  --text-subtle:#52525b;--sidebar:#09090b;--sidebar-border:#27272a;
+  --nav-active:#18181b;--nav-active-text:#fafafa;--submit-bg:#fafafa;--submit-text:#09090b;
+  --card-shadow:none;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.5;transition:background .2s,color .2s}
+
+.sidebar{width:240px;min-height:100vh;background:var(--sidebar);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10;transition:background .2s}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--text);color:var(--bg-card);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text-subtle)}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:var(--text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;transition:all .15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:var(--nav-active);color:var(--nav-active-text);font-weight:600}
+.nav-item:hover:not(.active){background:var(--bg-hover);color:var(--text)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-subtle);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all .15s;margin-bottom:1px}
+.history-item.current{background:rgba(147,51,234,.07);color:#9333ea}
+.dark .history-item.current{background:rgba(168,85,247,.1);color:#c4b5fd}
+.history-item:hover:not(.current){background:var(--bg-hover);color:var(--text-muted)}
+.history-item svg{width:13px;height:13px;flex-shrink:0;opacity:.5}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(37,99,235,.1);color:#2563eb}
+.hb-purple{background:rgba(147,51,234,.1);color:#9333ea}
+.sidebar-footer{padding:12px 14px;border-top:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:var(--bg-active);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-muted);flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:var(--text)}
+.user-dept{font-size:11px;color:var(--text-subtle)}
+.settings-btn{margin-left:auto;color:var(--text-subtle);cursor:pointer;display:flex}
+.settings-btn svg{width:15px;height:15px}
+
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main-header{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);transition:background .2s}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.badge-done{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:rgba(22,163,74,.1);color:#16a34a;border:1px solid rgba(22,163,74,.2)}
+.badge-done svg{width:11px;height:11px}
+.header-right{display:flex;align-items:center;gap:6px}
+.action-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.action-btn:hover{background:var(--bg-hover);color:var(--text)}
+.action-btn svg{width:13px;height:13px}
+.icon-btn{width:32px;height:32px;background:transparent;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+.icon-btn svg{width:15px;height:15px}
+
+/* Content layout */
+.content-wrap{flex:1;display:flex}
+.doc-area{flex:1;overflow-y:auto}
+.doc-inner{max-width:820px;margin:24px auto;padding:36px 44px;background:var(--bg-card);border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.04)}
+.toc-panel{width:200px;flex-shrink:0;border-left:1px solid var(--border);padding:20px 16px;position:sticky;top:0;height:calc(100vh - 53px);overflow-y:auto;background:var(--bg-card)}
+
+/* Document */
+.doc-meta{margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+.research-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:rgba(147,51,234,.1);color:#9333ea;border:1px solid rgba(147,51,234,.2);margin-bottom:12px}
+.dark .research-badge{background:rgba(168,85,247,.15);color:#a855f7;border-color:rgba(168,85,247,.3)}
+.research-badge svg{width:11px;height:11px}
+.doc-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.3;letter-spacing:-.02em}
+.doc-subtitle{font-size:13px;color:var(--text-muted);margin-bottom:14px}
+.doc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.doc-chip{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);padding:3px 8px;border-radius:5px;background:var(--bg-hover);border:1px solid var(--border)}
+.doc-chip svg{width:11px;height:11px}
+
+/* Sections */
+.doc-section{margin-bottom:28px}
+.sec-heading{font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.sec-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:rgba(147,51,234,.1);color:#9333ea;font-size:10px;font-weight:700;flex-shrink:0}
+.dark .sec-num{color:#a855f7}
+.sec-body{font-size:13px;color:var(--text-muted);line-height:1.8}
+.sec-body strong{color:var(--text)}
+.sec-body p+p{margin-top:10px}
+.citation{display:inline-flex;align-items:center;gap:2px;padding:1px 5px;border-radius:3px;background:rgba(147,51,234,.08);border:1px solid rgba(147,51,234,.2);color:#9333ea;font-size:10px;font-weight:500;cursor:pointer;vertical-align:middle;margin-left:2px}
+.dark .citation{background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.2);color:#c084fc}
+.citation:hover{background:rgba(147,51,234,.15)}
+
+/* Findings */
+.findings-box{background:var(--bg-hover);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-top:10px}
+.finding-item{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);line-height:1.6}
+.finding-item:last-child{border-bottom:none;padding-bottom:0}
+.finding-item:first-child{padding-top:0}
+.fi-num{width:18px;height:18px;border-radius:3px;background:rgba(147,51,234,.12);color:#9333ea;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.dark .fi-num{color:#a855f7}
+
+/* Finding table */
+.finding-table{width:100%;border-collapse:collapse;margin-top:10px;border-radius:6px;overflow:hidden}
+.finding-table th{padding:8px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);background:var(--bg-hover)}
+.finding-table td{padding:8px 12px;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.finding-table tr:last-child td{border-bottom:none}
+.finding-table tr:hover td{background:var(--bg-hover)}
+.td-lfi{color:var(--text);font-weight:500}
+.flag-high{padding:1px 6px;border-radius:4px;background:rgba(220,38,38,.1);color:#dc2626;font-size:10px;font-weight:600}
+.flag-med{padding:1px 6px;border-radius:4px;background:rgba(217,119,6,.1);color:#d97706;font-size:10px;font-weight:600}
+
+/* ToC */
+.toc-title{font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.toc-item{display:flex;gap:6px;padding:5px 0;font-size:12px;color:var(--text-subtle);cursor:pointer;border-radius:4px;transition:color .1s;line-height:1.4}
+.toc-item:hover{color:var(--text-muted)}
+.toc-item.active{color:#9333ea;font-weight:500}
+.dark .toc-item.active{color:#c084fc}
+.toc-num{font-weight:600;flex-shrink:0;color:var(--text-subtle);font-size:11px}
+.toc-item.active .toc-num{color:#9333ea}
+.dark .toc-item.active .toc-num{color:#a855f7}
+
+/* Feedback */
+.feedback-bar{margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.feedback-label{font-size:12px;color:var(--text-muted)}
+.fb-actions{display:flex;align-items:center;gap:6px}
+.fb-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.fb-btn:hover{background:var(--bg-hover);color:var(--text)}
+.fb-btn svg{width:13px;height:13px}
+.fb-sep{width:1px;height:18px;background:var(--border)}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div><div class="logo-text">FIP</div><div class="logo-sub">Financial Intelligence Platform</div></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="01-chat.html"><i data-lucide="message-square"></i> New Analysis</a>
+    <a class="nav-item active" href="04-result-insight.html"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+    <div class="nav-section">Recent</div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Card fraud rate by LFI Q1…</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item current"><i data-lucide="check-circle"></i><span>APP fraud thematic report…</span><span class="history-badge hb-purple">R</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>STR filing trends by LFI</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Social engineering outliers</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>H1 2024 fraud sector report</span><span class="history-badge hb-purple">R</span></div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">AK</div>
+    <div><div class="user-name">Azharuddin Kazi</div><div class="user-dept">Fraud Prevention</div></div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="main-header">
+    <div class="header-left">
+      <div class="header-title">Research Report</div>
+      <span class="badge-done"><i data-lucide="check"></i> FIP-Research · Complete</span>
+    </div>
+    <div class="header-right">
+      <button class="action-btn"><i data-lucide="download"></i> Export Word</button>
+      <button class="action-btn"><i data-lucide="file-text"></i> Export PDF</button>
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme"><i data-lucide="moon"></i></button>
+      <button class="icon-btn"><i data-lucide="bell"></i></button>
+    </div>
+  </header>
+
+  <div class="content-wrap">
+    <div class="doc-area">
+    <div class="doc-inner">
+      <div class="doc-meta">
+        <div class="research-badge"><i data-lucide="book-open"></i> Thematic Report · FIP-Research</div>
+        <div class="doc-title">Authorised Push Payment Fraud in UAE Banks: Thematic Analysis 2024</div>
+        <div class="doc-subtitle">Financial Intelligence Platform · Fraud Prevention Supervision, CBUAE · Generated 24 Jun 2026</div>
+        <div class="doc-chips">
+          <div class="doc-chip"><i data-lucide="database"></i> 5 files · 47 LFIs</div>
+          <div class="doc-chip"><i data-lucide="layers"></i> 6 sub-questions · 1 refinement round</div>
+          <div class="doc-chip"><i data-lucide="clock"></i> 3m 42s</div>
+          <div class="doc-chip"><i data-lucide="lock"></i> Snapshot: 2025-01-15</div>
+        </div>
+      </div>
+
+      <div class="doc-section">
+        <div class="sec-heading"><span class="sec-num">1</span> Executive Summary</div>
+        <div class="sec-body">
+          <p>APP fraud losses across UAE licensed financial institutions (LFIs) increased by <strong>38.4%</strong> year-on-year in 2024, rising from AED 412M to AED 570M. Mobile banking emerged as the dominant channel, accounting for <strong>63%</strong> of APP fraud losses. <span class="citation">sq1</span></p>
+          <p>Fraud was concentrated among six LFIs, which together accounted for <strong>57% of sector-wide APP losses</strong> despite representing only 21% of total digital transaction volume. <span class="citation">sq4</span></p>
+        </div>
+      </div>
+
+      <div class="doc-section">
+        <div class="sec-heading"><span class="sec-num">2</span> APP Fraud Volume & Year-on-Year Trends</div>
+        <div class="sec-body">
+          <p>Total reported APP fraud losses increased from <strong>AED 412.3M (2023)</strong> to <strong>AED 570.7M (2024)</strong>, representing a 38.4% YoY increase. <span class="citation">sq1</span></p>
+          <div class="findings-box">
+            <div class="finding-item"><div class="fi-num">F1</div> Total 2024 APP fraud: AED 570.7M — up 38.4% from AED 412.3M in 2023 <span class="citation">sq1</span></div>
+            <div class="finding-item"><div class="fi-num">F2</div> Q4 2024 alone: AED 178M — highest single quarter on record <span class="citation">sq6</span></div>
+            <div class="finding-item"><div class="fi-num">F3</div> 6 LFIs account for 57% of sector losses despite 21% of digital transaction volume <span class="citation">sq4</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-section">
+        <div class="sec-heading"><span class="sec-num">3</span> Channel Analysis</div>
+        <div class="sec-body">
+          <p>Mobile banking is the primary APP fraud vector in 2024, accounting for <strong>63% (AED 360M)</strong> of total sector losses. Internet banking accounted for 27%, with telephone banking and branch at 10% combined. <span class="citation">sq2</span></p>
+          <p>Mobile concentration is particularly elevated at EIB (79%), ABB (74%), and RAK (71%). <span class="citation">sq2</span> <span class="citation">sq4</span></p>
+        </div>
+      </div>
+
+      <div class="doc-section">
+        <div class="sec-heading"><span class="sec-num">4</span> Typology Breakdown</div>
+        <div class="sec-body">
+          <p>Invoice fraud and impersonation scams are the leading typologies, together accounting for <strong>61%</strong> of reported losses. Investment fraud grew the fastest YoY (+72%). <span class="citation">sq3</span></p>
+          <table class="finding-table">
+            <thead><tr><th>Typology</th><th>2024 Loss (AED M)</th><th>Sector Share</th><th>YoY Change</th></tr></thead>
+            <tbody>
+              <tr><td class="td-lfi">Invoice / supplier fraud</td><td>195.2</td><td>34%</td><td>+31%</td></tr>
+              <tr><td class="td-lfi">Impersonation scams</td><td>153.9</td><td>27%</td><td>+29%</td></tr>
+              <tr><td class="td-lfi">Investment fraud</td><td>97.6</td><td>17%</td><td>+72%</td></tr>
+              <tr><td class="td-lfi">Romance scams</td><td>74.2</td><td>13%</td><td>+18%</td></tr>
+              <tr><td class="td-lfi">Other</td><td>49.8</td><td>9%</td><td>+8%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="doc-section">
+        <div class="sec-heading"><span class="sec-num">5</span> LFI Outlier Analysis</div>
+        <div class="sec-body">
+          <p>Six LFIs were identified with APP fraud rates exceeding 2× the peer median of 0.031% of digital transaction volume. <span class="citation">sq4</span></p>
+          <table class="finding-table">
+            <thead><tr><th>LFI</th><th>APP Rate</th><th>vs. Median</th><th>Detection Rate</th><th>Flag</th></tr></thead>
+            <tbody>
+              <tr><td class="td-lfi">Emirates Islamic (EIB)</td><td>0.094%</td><td>3.0×</td><td>8.2%</td><td><span class="flag-high">High</span></td></tr>
+              <tr><td class="td-lfi">Al Baraka Bank (ABB)</td><td>0.087%</td><td>2.8×</td><td>6.7%</td><td><span class="flag-high">High</span></td></tr>
+              <tr><td class="td-lfi">First National Bank (FNB)</td><td>0.079%</td><td>2.5×</td><td>11.4%</td><td><span class="flag-high">High</span></td></tr>
+              <tr><td class="td-lfi">MBZ Finance (MBZ)</td><td>0.068%</td><td>2.2×</td><td>14.9%</td><td><span class="flag-med">Medium</span></td></tr>
+              <tr><td class="td-lfi">RAK Bank (RAK)</td><td>0.065%</td><td>2.1×</td><td>13.2%</td><td><span class="flag-med">Medium</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="doc-section">
+        <div class="sec-heading"><span class="sec-num">6</span> Recovery Rates</div>
+        <div class="sec-body">
+          <p>The sector-wide APP fraud recovery rate in 2024 was <strong>11.4%</strong> — below the GCC peer benchmark of 15–18%. Recovery rates were significantly higher at institutions with dedicated fraud operations teams (avg. 19.2%) vs. shared AML-fraud units (avg. 7.8%). <span class="citation">sq5</span></p>
+        </div>
+      </div>
+
+      <div class="feedback-bar">
+        <div class="feedback-label">Was this report helpful?</div>
+        <div class="fb-actions">
+          <button class="fb-btn"><i data-lucide="thumbs-up"></i> Helpful</button>
+          <button class="fb-btn"><i data-lucide="thumbs-down"></i> Not helpful</button>
+          <div class="fb-sep"></div>
+          <button class="fb-btn"><i data-lucide="flag"></i> Flag issue</button>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="toc-panel">
+      <div class="toc-title">Contents</div>
+      <div class="toc-item active"><span class="toc-num">1</span> Executive Summary</div>
+      <div class="toc-item"><span class="toc-num">2</span> Volume & YoY Trends</div>
+      <div class="toc-item"><span class="toc-num">3</span> Channel Analysis</div>
+      <div class="toc-item"><span class="toc-num">4</span> Typology Breakdown</div>
+      <div class="toc-item"><span class="toc-num">5</span> LFI Outlier Analysis</div>
+      <div class="toc-item"><span class="toc-num">6</span> Recovery Rates</div>
+    </div>
+  </div>
+</main>
+
+<script>
+lucide.createIcons();
+function toggleTheme(){
+  const d=document.body;const btn=document.getElementById('theme-btn');
+  const dark=d.classList.toggle('dark');
+  btn.innerHTML=dark?'<i data-lucide="sun"></i>':'<i data-lucide="moon"></i>';
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>

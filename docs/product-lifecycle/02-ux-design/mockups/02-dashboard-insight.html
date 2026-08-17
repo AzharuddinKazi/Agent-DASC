@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Analysis In Progress (FIP-Insight)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root{
+  --bg:#f4f4f5;--bg-card:#ffffff;--bg-hover:#f0f0f1;--bg-active:#e9e9eb;
+  --bg-code:#f8f8f9;--border:#e4e4e7;--text:#09090b;--text-muted:#71717a;
+  --text-subtle:#a1a1aa;--sidebar:#ffffff;--sidebar-border:#e4e4e7;
+  --nav-active:#f4f4f5;--nav-active-text:#09090b;--submit-bg:#09090b;--submit-text:#ffffff;
+  --card-shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+}
+.dark{
+  --bg:#09090b;--bg-card:#111113;--bg-hover:#18181b;--bg-active:#27272a;
+  --bg-code:#0d0d0f;--border:#27272a;--text:#fafafa;--text-muted:#71717a;
+  --text-subtle:#52525b;--sidebar:#09090b;--sidebar-border:#27272a;
+  --nav-active:#18181b;--nav-active-text:#fafafa;--submit-bg:#fafafa;--submit-text:#09090b;
+  --card-shadow:none;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.5;transition:background .2s,color .2s}
+
+.sidebar{width:240px;min-height:100vh;background:var(--sidebar);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10;transition:background .2s}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--text);color:var(--bg-card);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text-subtle)}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:var(--text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;transition:all .15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:var(--nav-active);color:var(--nav-active-text);font-weight:600}
+.nav-item:hover:not(.active){background:var(--bg-hover);color:var(--text)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-subtle);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all .15s;margin-bottom:1px}
+.history-item.current{background:rgba(37,99,235,.07);color:#2563eb;border-left:2px solid #2563eb;padding-left:8px}
+.dark .history-item.current{background:rgba(59,130,246,.1);color:#93c5fd;border-color:#3b82f6}
+.history-item:hover:not(.current){background:var(--bg-hover);color:var(--text-muted)}
+.history-item svg{width:13px;height:13px;flex-shrink:0;opacity:.5}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(37,99,235,.1);color:#2563eb}
+.hb-purple{background:rgba(147,51,234,.1);color:#9333ea}
+.sidebar-footer{padding:12px 14px;border-top:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:var(--bg-active);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-muted);flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:var(--text)}
+.user-dept{font-size:11px;color:var(--text-subtle)}
+.settings-btn{margin-left:auto;color:var(--text-subtle);cursor:pointer;display:flex}
+.settings-btn svg{width:15px;height:15px}
+
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main-header{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);transition:background .2s}
+.header-left{display:flex;align-items:center;gap:10px}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.mode-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;background:rgba(37,99,235,.1);color:#2563eb;border:1px solid rgba(37,99,235,.2)}
+.dark .mode-badge{background:rgba(59,130,246,.15);color:#3b82f6;border-color:rgba(59,130,246,.3)}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:#2563eb;animation:pulse 1.5s infinite}
+.dark .pulse-dot{background:#3b82f6}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.header-right{display:flex;align-items:center;gap:6px}
+.ctrl-btn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.ctrl-btn:hover{background:var(--bg-hover);color:var(--text)}
+.ctrl-btn.stop{border-color:rgba(220,38,38,.3);color:#dc2626}
+.ctrl-btn.stop:hover{background:rgba(220,38,38,.06)}
+.ctrl-btn svg,.icon-btn svg{width:13px;height:13px}
+.icon-btn{width:32px;height:32px;background:transparent;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+
+.content{flex:1;padding:24px;display:flex;flex-direction:column;gap:16px;max-width:900px;width:100%;margin:0 auto}
+
+/* Query banner */
+.query-banner{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;box-shadow:var(--card-shadow)}
+.query-label{font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.query-text{font-size:14px;color:var(--text);line-height:1.6}
+
+/* Round tracker */
+.round-tracker{display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;box-shadow:var(--card-shadow)}
+.rt-left{display:flex;align-items:center;gap:20px}
+.rt-item{display:flex;flex-direction:column;gap:2px}
+.rt-label{font-size:11px;color:var(--text-subtle);font-weight:500}
+.rt-value{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.03em}
+.rt-sub{font-size:11px;color:var(--text-subtle)}
+.rt-divider{width:1px;height:36px;background:var(--border)}
+.budget-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.budget-bar{width:140px;height:4px;background:var(--bg-active);border-radius:9999px;overflow:hidden}
+.budget-fill{height:100%;background:#2563eb;border-radius:9999px;width:15%}
+.dark .budget-fill{background:#3b82f6}
+.budget-text{font-size:11px;color:var(--text-subtle)}
+
+/* Steps */
+.steps-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:var(--card-shadow)}
+.steps-title{font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+.step-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);position:relative}
+.step-row:last-child{border-bottom:none;padding-bottom:0}
+.step-row:first-child{padding-top:0}
+.step-connector{position:absolute;left:15px;top:30px;width:1px;height:calc(100% + 1px);background:var(--border)}
+.step-row:last-child .step-connector{display:none}
+.step-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:1}
+.si-done{background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.25);color:#16a34a}
+.si-running{background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.3);color:#2563eb}
+.si-pending{background:var(--bg-hover);border:1px solid var(--border);color:var(--text-subtle)}
+.si-done svg,.si-running svg,.si-pending svg{width:14px;height:14px}
+.step-body{flex:1;min-width:0}
+.step-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.step-name.muted{color:var(--text-subtle)}
+.step-detail{font-size:12px;color:var(--text-muted);line-height:1.5}
+.step-detail.running{color:#2563eb}
+.dark .step-detail.running{color:#93c5fd}
+.step-time{font-size:11px;color:var(--text-subtle);margin-left:auto;flex-shrink:0;padding-top:2px}
+.step-code{margin-top:8px;background:var(--bg-code);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:'SF Mono','Consolas',monospace;font-size:11px;color:var(--text-muted);line-height:1.6;max-height:80px;overflow:hidden}
+
+/* Steering */
+.steering-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;box-shadow:var(--card-shadow)}
+.steering-label{font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:5px}
+.steering-label svg{width:12px;height:12px}
+.steering-row{display:flex;gap:8px}
+.steering-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .15s}
+.steering-input::placeholder{color:var(--text-subtle)}
+.steering-input:focus{border-color:#a1a1aa}
+.steering-send{padding:8px 14px;border-radius:6px;background:var(--submit-bg);border:none;color:var(--submit-text);font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+.steering-send:hover{opacity:.85}
+
+.bottom-hint{font-size:12px;color:var(--text-subtle);text-align:center;padding-bottom:4px}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div><div class="logo-text">FIP</div><div class="logo-sub">Financial Intelligence Platform</div></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="01-chat.html"><i data-lucide="message-square"></i> New Analysis</a>
+    <a class="nav-item active" href="04-result-insight.html"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+    <div class="nav-section">Recent</div>
+    <div class="history-item current"><i data-lucide="loader"></i><span>Card fraud rate by LFI Q1…</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>APP fraud thematic report…</span><span class="history-badge hb-purple">R</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>STR filing trends by LFI</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Social engineering outliers</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>H1 2024 fraud sector report</span><span class="history-badge hb-purple">R</span></div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">AK</div>
+    <div><div class="user-name">Azharuddin Kazi</div><div class="user-dept">Fraud Prevention</div></div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="main-header">
+    <div class="header-left">
+      <div class="header-title">Analysis In Progress</div>
+      <span class="mode-badge"><span class="pulse-dot"></span> FIP-Insight · Running</span>
+    </div>
+    <div class="header-right">
+      <button class="ctrl-btn"><i data-lucide="pause"></i> Pause</button>
+      <button class="ctrl-btn stop"><i data-lucide="square"></i> Stop</button>
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme"><i data-lucide="moon"></i></button>
+      <button class="icon-btn"><i data-lucide="bell"></i></button>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="query-banner">
+      <div class="query-label">Query</div>
+      <div class="query-text">Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025, and how does each compare to the peer median?</div>
+    </div>
+
+    <div class="round-tracker">
+      <div class="rt-left">
+        <div class="rt-item">
+          <div class="rt-label">Current Round</div>
+          <div class="rt-value">3</div>
+          <div class="rt-sub">of 6 default</div>
+        </div>
+        <div class="rt-divider"></div>
+        <div class="rt-item">
+          <div class="rt-label">Budget Used</div>
+          <div class="rt-value" style="font-size:18px;color:var(--text-muted)">6 / 40</div>
+          <div class="rt-sub">round budget</div>
+        </div>
+      </div>
+      <div class="budget-wrap">
+        <div class="budget-text">Round budget</div>
+        <div class="budget-bar"><div class="budget-fill"></div></div>
+        <div class="budget-text">6 used · 34 remaining</div>
+      </div>
+    </div>
+
+    <div class="steps-card">
+      <div class="steps-title">Agent Pipeline</div>
+
+      <div class="step-row">
+        <div class="step-connector"></div>
+        <div class="step-icon si-done"><i data-lucide="check"></i></div>
+        <div class="step-body">
+          <div class="step-name">Analyzer</div>
+          <div class="step-detail">Profiled 3 files — lfi_fraud_q1_2025.csv (47 LFIs, 12 cols), txn_volume_q1.csv, lfi_master.csv</div>
+        </div>
+        <div class="step-time">0.8s</div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-connector"></div>
+        <div class="step-icon si-done"><i data-lucide="check"></i></div>
+        <div class="step-body">
+          <div class="step-name">Planner · Round 1</div>
+          <div class="step-detail">Load both datasets, join on lfi_id, compute card_fraud_loss / total_txn_volume for each LFI</div>
+        </div>
+        <div class="step-time">1.2s</div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-connector"></div>
+        <div class="step-icon si-done"><i data-lucide="check"></i></div>
+        <div class="step-body">
+          <div class="step-name">Executor · Round 1</div>
+          <div class="step-detail">Computed fraud rate for 47 LFIs. Top outlier: ABB (0.183%). Peer median: 0.056%.</div>
+          <div class="step-code">df = pd.merge(fraud_df, txn_df, on='lfi_id')
+df['fraud_rate'] = df['card_fraud_loss_aed'] / df['total_txn_volume_aed']
+peer_median = df['fraud_rate'].median()  # 0.000560</div>
+        </div>
+        <div class="step-time">3.1s</div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-connector"></div>
+        <div class="step-icon si-done"><i data-lucide="check"></i></div>
+        <div class="step-body">
+          <div class="step-name">Verifier · Round 1</div>
+          <div class="step-detail">Result incomplete — peer median computed but peer-relative ranking not yet produced. Continue.</div>
+        </div>
+        <div class="step-time">0.9s</div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-connector"></div>
+        <div class="step-icon si-done"><i data-lucide="check"></i></div>
+        <div class="step-body">
+          <div class="step-name">Planner · Round 2</div>
+          <div class="step-detail">Compute ratio vs. peer median for each LFI; flag statistical outliers (>2× median); sort descending</div>
+        </div>
+        <div class="step-time">1.1s</div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-connector"></div>
+        <div class="step-icon si-running"><i data-lucide="loader"></i></div>
+        <div class="step-body">
+          <div class="step-name">Executor · Round 3</div>
+          <div class="step-detail running">Running Python script in sandbox… computing peer ratios and outlier flags</div>
+        </div>
+        <div class="step-time">—</div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-icon si-pending"><i data-lucide="circle"></i></div>
+        <div class="step-body">
+          <div class="step-name muted">Verifier / Finalizer</div>
+          <div class="step-detail" style="color:var(--text-subtle)">Waiting…</div>
+        </div>
+        <div class="step-time">—</div>
+      </div>
+    </div>
+
+    <div class="steering-card">
+      <div class="steering-label"><i data-lucide="message-circle"></i> Steer the analysis (optional)</div>
+      <div class="steering-row">
+        <input class="steering-input" placeholder="e.g. Also break down by fraud typology (card-not-present vs. ATM)…" />
+        <button class="steering-send">Send</button>
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped</div>
+  </div>
+</main>
+
+<script>
+lucide.createIcons();
+function toggleTheme(){
+  const d=document.body;const btn=document.getElementById('theme-btn');
+  const dark=d.classList.toggle('dark');
+  btn.innerHTML=dark?'<i data-lucide="sun"></i>':'<i data-lucide="moon"></i>';
+  lucide.createIcons();
+}
+</script>
+</body>
+</html>

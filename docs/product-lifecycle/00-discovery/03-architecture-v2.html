@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CBUAE FIP — Architecture v3.3 (Production-Grade)</title>
+<style>
+  :root {
+    --bg:            #070b16;
+    --surface:       #0d1120;
+    --border-subtle: #1c2238;
+
+    --ca-present:  #4fb3f6;
+    --ca-security: #c084fc;
+    --ca-orch:     #34d399;
+    --ca-dsstar:   #60a5fa;
+    --ca-dsp:      #a78bfa;
+    --ca-sandbox:  #fbbf24;
+    --ca-output:   #fb923c;
+    --ca-llm:      #10b981;
+    --ca-persist:  #818cf8;
+    --ca-data:     #86efac;
+    --ca-obs:      #f87171;
+    --ca-hard:     #f59e0b;
+
+    --text:       #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim:   #94a3b8;
+    --radius:     10px;
+    --radius-sm:  6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 40px 32px 64px;
+    min-width: 1340px;
+  }
+
+  /* ══ HEADER ═══════════════════════════════════════════════ */
+  .hdr { text-align: center; margin-bottom: 32px; }
+  .hdr h1 { font-size: 25px; font-weight: 800; color: #fff; letter-spacing: -.3px; }
+  .hdr h2 { font-size: 14px; color: var(--text-dim); margin-top: 5px; }
+  .hdr-tags { display: flex; justify-content: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .htag {
+    font-size: 11px; font-weight: 600; padding: 3px 12px; border-radius: 20px;
+    letter-spacing: .3px;
+  }
+
+  /* ══ LAYER ════════════════════════════════════════════════ */
+  .layer {
+    border-radius: var(--radius);
+    border: 1px solid;
+    padding: 13px 16px 15px;
+    margin-bottom: 9px;
+  }
+  .ltitle {
+    font-size: 10px; font-weight: 800; letter-spacing: 1.8px;
+    text-transform: uppercase; margin-bottom: 11px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .ltitle::after {
+    content:''; flex:1; height:1px; background:currentColor; opacity:.22;
+  }
+
+  /* ══ BOX ══════════════════════════════════════════════════ */
+  .box {
+    border-radius: var(--radius-sm); border: 1px solid;
+    padding: 8px 12px; flex-shrink: 0;
+  }
+  .bname { font-weight: 700; font-size: 13px; }
+  .bsub  { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+  /* ══ BADGES ═══════════════════════════════════════════════ */
+  .bdg {
+    display: inline-block; font-size: 9px; font-weight: 800;
+    letter-spacing: .5px; padding: 1px 6px; border-radius: 20px;
+    vertical-align: middle; margin-left: 5px; text-transform: uppercase;
+  }
+  .b-new  { background:#052e16; color:#4ade80; border:1px solid #166534; }
+  .b-fix  { background:#450a0a; color:#f87171; border:1px solid #7f1d1d; }
+  .b-kept { background:#172554; color:#93c5fd; border:1px solid #1e3a8a; }
+  .b-ha   { background:#451a03; color:#fb923c; border:1px solid #7c2d12; }
+  .b-sec  { background:#2e1065; color:#c084fc; border:1px solid #4c1d95; }
+
+  /* ══ CONNECTORS ═══════════════════════════════════════════ */
+  .conn { text-align:center; color:var(--text-muted); font-size:19px; line-height:1; margin:2px 0; }
+  .clabel { display:block; font-size:10px; color:var(--text-muted); font-style:italic; }
+
+  /* ══ LAYOUT ═══════════════════════════════════════════════ */
+  .row  { display:flex; gap:9px; align-items:flex-start; flex-wrap:wrap; }
+  .col  { display:flex; flex-direction:column; gap:7px; }
+  .fill { flex:1; }
+
+  /* ══ LAYER COLOURS ════════════════════════════════════════ */
+  /* Presentation */
+  .lp { background:#050d16; border-color:#1d6fa4; }
+  .lp .ltitle { color:var(--ca-present); }
+  .lp .box    { background:#07121f; border-color:#1d6fa466; color:var(--ca-present); }
+
+  /* Security */
+  .ls { background:#0b0618; border-color:#6b21a8; }
+  .ls .ltitle { color:var(--ca-security); }
+  .ls .box    { background:#10071e; border-color:#6b21a866; color:var(--ca-security); }
+
+  /* Orchestration */
+  .lo { background:#020e08; border-color:#065f46; }
+  .lo .ltitle { color:var(--ca-orch); }
+  .lo .box    { background:#03160d; border-color:#065f4666; color:var(--ca-orch); }
+
+  /* DS-STAR */
+  .ld { background:#060d19; border-color:#60a5fa; }
+  .ld .ltitle { color:var(--ca-dsstar); }
+
+  /* DS-STAR+ */
+  .ldp { background:#0c0618; border-color:#a78bfa; }
+  .ldp .ltitle { color:var(--ca-dsp); }
+
+  /* Sandbox */
+  .lsb { background:#0d0802; border-color:#fbbf24; }
+  .lsb .ltitle { color:var(--ca-sandbox); }
+  .lsb .box    { background:#190d03; border-color:#fbbf2444; color:var(--ca-sandbox); }
+
+  /* Output */
+  .lout { background:#0e0804; border-color:#fb923c; }
+  .lout .ltitle { color:var(--ca-output); }
+  .lout .box    { background:#1a0e05; border-color:#fb923c44; color:var(--ca-output); }
+
+  /* LLM */
+  .ll { background:#01100a; border-color:#10b981; }
+  .ll .ltitle { color:var(--ca-llm); }
+  .ll .box    { background:#02190f; border-color:#10b98144; color:var(--ca-llm); }
+
+  /* Persistence */
+  .lpe { background:#04031a; border-color:#818cf8; }
+  .lpe .ltitle { color:var(--ca-persist); }
+  .lpe .box    { background:#07062e; border-color:#818cf844; color:var(--ca-persist); }
+
+  /* Data */
+  .lda { background:#011405; border-color:#86efac; }
+  .lda .ltitle { color:var(--ca-data); }
+  .lda .box    { background:#021e09; border-color:#86efac44; color:var(--ca-data); }
+
+  /* Observability */
+  .lob { background:#0f0202; border-color:#f87171; }
+  .lob .ltitle { color:var(--ca-obs); }
+  .lob .box    { background:#1c0303; border-color:#f8717144; color:var(--ca-obs); }
+
+  /* Hardening */
+  .lh { background:#0d0900; border-color:#f59e0b; }
+  .lh .ltitle { color:var(--ca-hard); }
+
+  /* ══ AGENT PILLS ══════════════════════════════════════════ */
+  .ap {
+    background:#091428; border:1px solid #60a5fa22;
+    border-radius:var(--radius-sm); padding:7px 11px;
+    font-size:12px; font-weight:700; color:var(--ca-dsstar);
+    display:flex; align-items:flex-start; gap:7px;
+  }
+  .ap .ic { font-size:15px; flex-shrink:0; padding-top:1px; }
+  .ap .as { font-size:10px; color:var(--text-muted); font-weight:400; margin-top:2px; }
+
+  .dp {
+    background:#150a28; border:1px solid #a78bfa22;
+    border-radius:var(--radius-sm); padding:7px 11px;
+    font-size:12px; font-weight:700; color:var(--ca-dsp);
+    display:flex; align-items:flex-start; gap:7px;
+  }
+  .dp .ic { font-size:15px; flex-shrink:0; padding-top:1px; }
+  .dp .as { font-size:10px; color:var(--text-muted); font-weight:400; margin-top:2px; }
+
+  /* ══ ENGINE GRID ══════════════════════════════════════════ */
+  .eng-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:9px;
+  }
+
+  /* debug branch */
+  .dbranch {
+    display:flex; align-items:center; gap:8px;
+    border-left:2px dashed #f8717144;
+    margin-left:18px; padding:4px 0 4px 10px;
+  }
+  .dbranch-lbl { font-size:10px; color:#f87171; font-style:italic; white-space:nowrap; }
+
+  /* inner engine ref box */
+  .iref {
+    background:#0f1e3866; border:1px dashed #60a5fa66;
+    border-radius:var(--radius-sm); padding:9px 12px;
+    font-size:11px; color:#60a5fa88;
+    text-align:center; font-style:italic;
+  }
+
+  /* ══ FLOW ARROW SPLIT ═════════════════════════════════════ */
+  .split {
+    display:grid; grid-template-columns:1fr 1fr; gap:9px;
+    text-align:center; font-weight:700; margin:5px 0 4px;
+  }
+
+  /* ══ CONSTRAINT TAGS ══════════════════════════════════════ */
+  .ctag {
+    display:inline-block; font-family:'Courier New',monospace;
+    font-size:10px; background:#1a100344;
+    border:1px solid #fbbf2430; border-radius:4px;
+    padding:2px 8px; margin:2px 2px 0 0; color:#fbbf24bb;
+  }
+
+  /* ══ DATA VOL PILLS ═══════════════════════════════════════ */
+  .dvol {
+    display:inline-flex; align-items:center; gap:4px;
+    background:#0e1a07; border:1px solid #86efac33;
+    border-radius:20px; padding:3px 10px;
+    font-size:10px; font-weight:600; color:var(--ca-data);
+    margin:2px; white-space:nowrap;
+  }
+
+  /* ══ BOTTOM GRID ══════════════════════════════════════════ */
+  .bot { display:grid; grid-template-columns:1.05fr 1.45fr 1.1fr 0.9fr; gap:9px; margin-top:9px; }
+
+  /* ══ HA NODES ═════════════════════════════════════════════ */
+  .ha-cluster {
+    border:1px dashed #fb923c66; border-radius:var(--radius-sm);
+    padding:7px 10px; background:#1a0e0522;
+  }
+  .ha-label {
+    font-size:9px; font-weight:800; letter-spacing:1px;
+    text-transform:uppercase; color:#fb923c; margin-bottom:5px;
+  }
+  .ha-node {
+    background:#1a0e05; border:1px solid #fb923c33;
+    border-radius:4px; padding:5px 9px;
+    font-size:11px; font-weight:600; color:#fdba74;
+    margin-bottom:4px; display:flex; align-items:center; gap:6px;
+  }
+  .ha-node:last-child { margin-bottom:0; }
+
+  /* ══ GPU NODES ════════════════════════════════════════════ */
+  .gpu-cluster {
+    border:1px dashed #10b98166; border-radius:var(--radius-sm);
+    padding:7px 10px; background:#01100a22;
+  }
+  .gpu-label {
+    font-size:9px; font-weight:800; letter-spacing:1px;
+    text-transform:uppercase; color:#10b981; margin-bottom:5px;
+  }
+  .gpu-node {
+    background:#021e09; border:1px solid #10b98133;
+    border-radius:4px; padding:5px 9px;
+    font-size:11px; font-weight:600; color:#6ee7b7;
+    margin-bottom:4px; display:flex; align-items:center; gap:6px;
+  }
+  .gpu-node:last-child { margin-bottom:0; }
+
+  /* ══ PERSIST ITEMS ════════════════════════════════════════ */
+  .pi {
+    display:flex; align-items:flex-start; gap:9px;
+    background:#07062e; border:1px solid #818cf822;
+    border-radius:var(--radius-sm); padding:8px 11px;
+  }
+  .pi-ic { font-size:18px; flex-shrink:0; }
+  .pi-n  { font-size:12px; font-weight:700; color:var(--ca-persist); }
+  .pi-d  { font-size:10px; color:var(--text-muted); margin-top:2px; }
+  .pi-w  { font-size:10px; color:#fca5a5; margin-top:3px; }
+  .pi-g  { font-size:10px; color:#4ade80; margin-top:3px; }
+
+  /* ══ OBS ITEMS ════════════════════════════════════════════ */
+  .oi {
+    background:#1c0303; border:1px solid #f8717122;
+    border-radius:var(--radius-sm); padding:7px 10px;
+    font-size:11px; font-weight:600; color:var(--ca-obs);
+  }
+  .oi .os { font-size:10px; color:var(--text-muted); font-weight:400; margin-top:2px; }
+
+  /* ══ HARDENING GRID ═══════════════════════════════════════ */
+  .hgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+  .hi {
+    background:#120b00; border:1px solid #f59e0b44;
+    border-radius:var(--radius-sm); padding:9px 12px;
+  }
+  .hi-title { font-size:11px; font-weight:700; color:#fcd34d; margin-bottom:4px; }
+  .hi-body  { font-size:10px; color:var(--text-muted); line-height:1.6; }
+  .hi-ok    { font-size:10px; color:#4ade80; margin-top:4px; }
+
+  /* ══ TASK LIFECYCLE ═══════════════════════════════════════ */
+  .tlc {
+    display:flex; align-items:center; gap:0; flex-wrap:wrap;
+    background:#050d16; border:1px solid #1d6fa444;
+    border-radius:var(--radius-sm); padding:10px 14px; margin-top:8px;
+  }
+  .tstate {
+    font-size:11px; font-weight:700; padding:3px 10px;
+    border-radius:20px; white-space:nowrap;
+  }
+  .tarrow { color:var(--text-muted); font-size:14px; margin:0 4px; }
+
+  /* ══ CORRECTIONS ══════════════════════════════════════════ */
+  .corr { margin-top:20px; border:1px solid #7f1d1d; border-radius:var(--radius); background:#0f0202; padding:16px 20px; }
+  .corr h3 { font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--ca-obs); margin-bottom:12px; }
+  .cgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+  .ci { background:#1a0303; border:1px solid #7f1d1d66; border-radius:var(--radius-sm); padding:8px 11px; }
+  .ci-t { font-size:11px; font-weight:700; color:#fca5a5; margin-bottom:2px; }
+  .ci-f { font-size:10px; color:#4ade80; margin-bottom:2px; }
+  .ci-d { font-size:10px; color:var(--text-muted); }
+
+  /* ══ NOTE CALLOUT ═════════════════════════════════════════ */
+  .note-warn { font-size:10px; background:#200505; border:1px solid #7f1d1d55; border-radius:4px; padding:6px 9px; color:#f87171; margin-bottom:9px; }
+  .note-info { font-size:10px; background:#04141055; border:1px solid #10b98144; border-radius:4px; padding:5px 8px; color:#6ee7b7; margin-top:6px; }
+  .note-gold { font-size:10px; background:#12090055; border:1px solid #f59e0b44; border-radius:4px; padding:5px 8px; color:#fcd34d; margin-top:5px; }
+
+  /* mTLS badge */
+  .mtls {
+    display:inline-block; font-size:9px; font-weight:700;
+    background:#2e1065; color:#c084fc; border:1px solid #4c1d95;
+    border-radius:4px; padding:1px 6px; vertical-align:middle; margin-left:5px;
+  }
+
+  .footnote { text-align:center; font-size:10px; color:var(--text-muted); margin-top:28px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HEADER
+     ═══════════════════════════════════════════════════════════ -->
+<div class="hdr">
+  <h1>CBUAE Financial Intelligence Platform (FIP)</h1>
+  <h2>DS-STAR + DS-STAR+ Architecture &mdash; <strong>v3.3 Production-Grade</strong></h2>
+  <div class="hdr-tags">
+    <span class="htag" style="background:#052e16;color:#4ade80;border:1px solid #166534">Financial Crime &amp; Market Conduct</span>
+    <span class="htag" style="background:#172554;color:#93c5fd;border:1px solid #1e3a8a">On-Premise · Air-Gapped</span>
+    <span class="htag" style="background:#451a03;color:#fb923c;border:1px solid #7c2d12">HA / Fault-Tolerant Design</span>
+    <span class="htag" style="background:#1e1b4b;color:#a5b4fc;border:1px solid #3730a3">arXiv:2509.21825 (DS-STAR)</span>
+    <span class="htag" style="background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d">13 v2 Corrections + 13 Prod Gaps Fixed</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAYER 1 — PRESENTATION
+     ═══════════════════════════════════════════════════════════ -->
+<div class="layer lp">
+  <div class="ltitle">🖥️ &nbsp;Presentation Layer &nbsp;(CBUAE Intranet — No External Access)</div>
+  <div class="row" style="align-items:stretch">
+
+    <div class="box lp" style="min-width:210px">
+      <div class="bname">⚛️ Next.js / React Frontend</div>
+      <div class="bsub">Natural-language query input · Query Template Library per department · Visual report rendering · Dept role views · PDF / Excel export</div>
+    </div>
+
+    <div class="box lp" style="min-width:200px">
+      <div class="bname">🔌 WebSocket Client</div>
+      <div class="bsub">Real-time step-by-step agent status · Auto-reconnect on drop · Task resumability — reattach to in-flight task by task_id · 30s ping keepalive</div>
+    </div>
+
+    <div class="box lp" style="min-width:175px">
+      <div class="bname">🔔 Notification Service <span class="bdg b-new">New</span></div>
+      <div class="bsub">In-app alerts when long-running tasks complete · Failure notification with reason · Email fallback for tasks &gt;5 min</div>
+    </div>
+
+    <div class="box lp" style="min-width:180px">
+      <div class="bname">📚 Query Template Library <span class="bdg b-new">New</span></div>
+      <div class="bsub">Pre-built query starters per department · Prevents poorly formed queries · Guided builder for non-technical analysts</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="conn">↕ <span class="clabel">HTTPS / WSS — CBUAE intranet only, no public internet. All connections via corp proxy.</span></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAYER 2 — SECURITY
+     ═══════════════════════════════════════════════════════════ -->
+<div class="layer ls">
+  <div class="ltitle">🔐 &nbsp;Security &amp; API Gateway Layer</div>
+  <div class="row" style="align-items:stretch">
+
+    <div class="box ls" style="min-width:165px">
+      <div class="bname">⚡ FastAPI Gateway</div>
+      <div class="bsub">REST + WebSocket · Task submit · Status poll · 2 replicas behind load balancer <span class="bdg b-ha">HA</span></div>
+    </div>
+
+    <div style="color:var(--ca-security);font-size:16px;align-self:center">→</div>
+
+    <div class="box ls" style="min-width:185px">
+      <div class="bname">🪪 SSO / Active Directory</div>
+      <div class="bsub">CBUAE staff identity · Dept &amp; role attribution · JWT token issuance · Token refresh &amp; revocation</div>
+    </div>
+
+    <div style="color:var(--ca-security);font-size:16px;align-self:center">→</div>
+
+    <div class="box ls" style="min-width:195px">
+      <div class="bname">🛡️ RBAC Engine</div>
+      <div class="bsub">Dept-scoped data access · Per-LFI permissions · Query scope enforcement · Prevents cross-dept data leakage</div>
+    </div>
+
+    <div style="color:var(--ca-security);font-size:16px;align-self:center">→</div>
+
+    <div class="box ls" style="min-width:155px">
+      <div class="bname">⏱️ Rate &amp; Priority Limiter</div>
+      <div class="bsub">Per-user + per-dept + global limits · Enforcement queries jump queue · LLM budget cap per analyst</div>
+    </div>
+
+    <div style="color:var(--ca-security);font-size:16px;align-self:center">→</div>
+
+    <div class="box ls" style="min-width:165px">
+      <div class="bname">🔑 Secrets Manager <span class="bdg b-new">New</span></div>
+      <div class="bsub">HashiCorp Vault (or equiv.) · DB credentials · LLM API keys · Rotated automatically · No secrets in env vars or config files</div>
+    </div>
+
+  </div>
+  <div class="note-info" style="margin-top:9px">
+    🔒 mTLS enforced on all service-to-service communication below this layer. All internal traffic encrypted in transit even within the intranet.
+  </div>
+</div>
+
+<div class="conn">↓ <span class="clabel">Authenticated, authorized, rate-checked request enqueued as async task</span></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LAYER 3 — ORCHESTRATION
+     ═══════════════════════════════════════════════════════════ -->
+<div class="layer lo">
+  <div class="ltitle">⚙️ &nbsp;Orchestration Layer</div>
+  <div class="row" style="align-items:flex-start;gap:14px">
+
+    <!-- Celery cluster -->
+    <div class="col" style="min-width:230px">
+      <div class="box lo">
+        <div class="bname">📋 Celery Worker Pool + Redis <span class="bdg b-ha">HA</span></div>
+        <div class="bsub">Priority queues: CRITICAL (Enforcement) · HIGH (Fraud/AML) · NORMAL (Research) · Configurable worker pool per priority · 30-min task timeout · DLQ for failed tasks · Task retry with exponential backoff · Redis Sentinel for broker HA</div>
+      </div>
+      <div class="note-gold">
+        🔁 DLQ: failed tasks land in dead-letter queue. Analyst notified with failure reason. Ops team alerted. No silent failures.
+      </div>
+    </div>
+
+    <div style="color:var(--ca-orch);font-size:18px;align-self:center;padding-top:4px">→</div>
+
+    <!-- LangGraph -->
+    <div class="col" style="min-width:250px">
+      <div class="box lo">
+        <div class="bname">🕸️ LangGraph Orchestrator</div>
+        <div class="bsub">State machine · Conditional edge routing · <strong>Checkpoint every round to PostgreSQL</strong> · Worker death = task recoverable from last checkpoint · Graceful shutdown: drains in-flight tasks before restart · No task lost on deploy</div>
+      </div>
+      <div class="tlc">
+        <span class="tstate" style="background:#172554;color:#93c5fd">QUEUED</span>
+        <span class="tarrow">→</span>
+        <span class="tstate" style="background:#052e16;color:#4ade80">RUNNING</span>
+        <span class="tarrow">→</span>
+        <span class="tstate" style="background:#065f46;color:#6ee7b7">DONE</span>
+        <span class="tarrow">&nbsp;|&nbsp;</span>
+        <span class="tstate" style="background:#450a0a;color:#f87171">FAILED→DLQ</span>
+        <span class="tarrow">&nbsp;|&nbsp;</span>
+        <span class="tstate" style="background:#451a03;color:#fb923c">TIMED_OUT</span>
+        <span style="font-size:10px;color:var(--text-muted);margin-left:8px">↺ CRASHED → checkpoint recovery → RUNNING</span>
+      </div>
+    </div>
+
+    <div style="color:var(--ca-orch);font-size:18px;align-self:center;padding-top:4px">→</div>
+
+    <!-- Query Clarity + Config Store -->
+    <div class="col fill">
+      <div class="box lo">
+        <div class="bname">🔍 Query Clarity Agent <span class="bdg b-new">New</span></div>
+        <div class="bsub">Validates answerability from available data · Maps business terms → data columns · Routes Mode A (DS-STAR) or Mode B (DS-STAR+) · Max 2 clarification rounds then graceful degradation · Dept context injected from Config Store</div>
+      </div>
+      <div class="box lo">
+        <div class="bname">📦 Config &amp; Prompt Store <span class="bdg b-new">New</span></div>
+        <div class="bsub">CBUAE regulatory knowledge bases · Dept-specific prompt templates · LFI taxonomy · Fraud typology library · AML red flags · Query starters · Versioned — prompt rollback on regression · Separate from code deploy</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Mode split -->
+<div class="split" style="margin:6px 0 3px">
+  <div style="color:var(--ca-dsstar)">↙ Mode A &mdash; Specific / Factoid Query</div>
+  <div style="color:var(--ca-dsp)">↘ Mode B &mdash; Open-Ended Research / Thematic Report</div>
+</div>
+<div class="split" style="font-size:10px;color:var(--text-muted);font-style:italic;margin-bottom:5px">
+  <div>"Which LFIs have the highest card fraud loss rate in Q1 2025?"</div>
+  <div>"Generate a thematic analysis of APP fraud growth across UAE banks in 2024"</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ENGINE GRID
+     ═══════════════════════════════════════════════════════════ -->
+<div class="eng-grid">
+
+  <!-- ── DS-STAR MODE A ── -->
+  <div class="layer ld" style="margin:0">
+    <div class="ltitle">🤖 DS-STAR Engine &nbsp;(Mode A · Inner Engine) <span class="bdg b-kept">Paper Core</span></div>
+
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div class="ap"><span class="ic">🔬</span><div><div>Analyzer</div><div class="as">Profiles ALL data files → D · CBUAE schema-aware (fraud loss, SAR/STR, KYC, market surveillance) · Identifies relevant tables for query scope</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
+
+      <div class="ap"><span class="ic">📐</span><div><div>Planner</div><div class="as">One step at a time · Conditioned on rₖ₋₁ (last execution result) · CBUAE regulatory knowledge injected from Config Store · Cumulative plan {p₀…pₖ}</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
+
+      <div class="ap"><span class="ic">💻</span><div><div>Coder</div><div class="as">Extends previous script sₖ₋₁ with the new plan step pₖ (incremental, not a rewrite) · Output is always a complete standalone script · Receives (q, {dᵢ}, p₀…pₖ, sₖ₋₁) · Absolute /workspace/data/ paths · Memory-safe loading · Multi-delimiter CSV handling · Listing 51 paper-confirmed</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
+
+      <div class="ap"><span class="ic">▶️</span><div><div>Executor</div><div class="as">Manages one persistent container per task (started at task begin, destroyed at task end) · Each round runs sₖ inside the existing container via docker exec · Captures stdout/stderr/exit_code → rₖ · Executor is the orchestrator, NOT inside the container · Container budget enforced (see Sandbox)</div></div></div>
+
+      <div class="dbranch">
+        <div class="ap" style="border-color:#f8717166;color:#f87171;background:#200505;min-width:0">
+          <span class="ic">🐛</span><div><div>Debugger</div><div class="as">Two-step process (paper Listings 55–57): (1) Traceback Summariser condenses raw stderr into concise diagnosis; (2) Code Fixer repairs sₖ using summarised traceback + D · Max 3 attempts · Repairs code only — NEVER modifies plan · Passes best-effort if still failing after 3 tries</div></div>
+        </div>
+        <span class="dbranch-lbl">on error only ↺ Executor</span>
+      </div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
+
+      <div class="ap"><span class="ic">✅</span><div><div>Verifier</div><div class="as">LLM-as-judge · Input: (q, p₀…pₖ, sₖ, rₖ) · Output: "Yes" | "No" (paper Listing 52) · Checks the result actually answers q, not just "did code run"</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
+
+      <div class="ap"><span class="ic">🔀</span><div><div>Router</div><div class="as">"Add Step" → extend plan with pₖ₊₁ · Index l → truncate to {p₀…pₗ₋₁} and regenerate from pₗ · Truncate-and-regenerate (not direct edit) for solution diversity · Max 20 rounds</div></div></div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0;font-size:11px;color:var(--text-muted)">↺ loops to Planner &nbsp;·&nbsp; sufficient → Finalizer</div>
+
+      <div class="ap"><span class="ic">🏁</span><div><div>Finalyzer</div><div class="as">Generates a Python formatting script and executes it in the sandbox (paper Listing 54 — not text-only reformatting) · Receives (sₖ, rₖ, formatting_guidelines) · Formatting guidelines: "round to 2dp", "output as JSON", "summarise in bullets", or a named CBUAE template · Output: final answer ready for Output Pipeline</div></div></div>
+    </div>
+  </div>
+
+  <!-- ── DS-STAR+ MODE B ── -->
+  <div class="layer ldp" style="margin:0">
+    <div class="ltitle">✨ DS-STAR+ Extension &nbsp;(Mode B · Research Reports) <span class="bdg b-fix">Corrected v2→v3</span></div>
+
+    <div class="note-warn">
+      ⚠️ DS-STAR+ is a separate orchestration layer that wraps the entire DS-STAR engine (Mode A). It is NOT a peer agent. It calls Mode A independently for each sub-question.
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div class="dp"><span class="ic">❓</span><div>
+        <div>Sub-Question Generator <span class="bdg b-new">New</span></div>
+        <div class="as">Decomposes open-ended query into {sq₁…sqₙ} focused sub-questions · Example: "APP fraud report" → 5–7 specific analysis questions · Uses Flash-tier LLM · Dept-specific decomposition templates from Config Store</div>
+      </div></div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
+
+      <div class="iref">
+        🔁 &nbsp;<strong>DS-STAR Engine (Mode A) × n</strong><br>
+        <span style="font-size:10px;line-height:1.6">Full 8-agent pipeline runs per sub-question<br>
+        Each produces answer aᵢ · code sᵢ · result rᵢ<br>
+        <strong>Execution: Sequential by default</strong> (simpler, predictable resource use)<br>
+        Parallel mode available via config (faster but 6× container load)<br>
+        Flash-tier LLM for all inner DS-STAR agents</span>
+      </div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓ evidence set {(sq₁,a₁,s₁) … (sqₙ,aₙ,sₙ)}</div>
+
+      <div class="dp"><span class="ic">📝</span><div>
+        <div>Report Writer <span class="bdg b-fix">Corrected</span></div>
+        <div class="as">Synthesizes evidence → structured report · Every claim cited to sqᵢ and code sᵢ (verifiable, audit-ready) · <strong>Uses Pro-tier LLM</strong> — highest quality reserved for final synthesis</div>
+      </div></div>
+      <div class="conn" style="text-align:left;padding-left:16px;margin:1px 0">↓</div>
+
+      <div class="dp"><span class="ic">🔄</span><div>
+        <div>Sub-Q Generator <span style="font-size:9px;color:var(--text-muted)">(refinement mode)</span> <span class="bdg b-fix">Corrected</span></div>
+        <div class="as">Receives current report R and identifies gaps · Generates supplementary sub-questions to fill missing coverage · No separate Evaluator — Generator does double duty: initial decomposition + gap-finding · <strong>Paper Algorithm 2 confirmed:</strong> Generator(q, D, R) → new sub-questions · Max K refinement rounds (default K=1 per paper) · Uses Flash-tier LLM</div>
+        <div class="as" style="margin-top:3px">↺ loops back through DS-STAR inner engine × n_new sub-questions → Report Writer updates R</div>
+      </div></div>
+    </div>
+
+    <div style="margin-top:10px;padding:8px 10px;background:#0d061a;border:1px solid #a78bfa22;border-radius:4px">
+      <div style="font-size:10px;font-weight:700;color:var(--ca-dsp);margin-bottom:5px">CBUAE DS-STAR+ USE CASES</div>
+      <div style="font-size:10px;color:var(--text-muted);line-height:1.7">
+        🔎 <strong>Fraud Prevention:</strong> Thematic reviews (APP, card, social engineering), LFI benchmarking, supervisory letter annexes<br>
+        🏦 <strong>AML/CFT:</strong> FATF evaluation prep, typology trend reports, STR sector analysis<br>
+        📊 <strong>Policy &amp; Research:</strong> Annual sector reports, GCC benchmarking, regulatory impact assessments<br>
+        ⚖️ <strong>Enforcement:</strong> Evidence packages, multi-year compliance pattern analysis
+      </div>
+    </div>
+  </div>
+
+</div><!-- /eng-grid -->
+
+<div class="conn">↓ <span class="clabel">Both modes complete → raw result enters output pipeline</span></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     OUTPUT PIPELINE — CORRECTED ORDER
+     ═══════════════════════════════════════════════════════════ -->
+<div class="layer lout">
+  <div class="ltitle">📤 &nbsp;Output Pipeline &nbsp;<span class="bdg b-fix">Order Corrected v2→v3</span></div>
+
+  <div style="font-size:10px;background:#1e070244;border:1px solid #fb923c33;border-radius:4px;padding:5px 9px;margin-bottom:10px;color:#fdba74">
+    ⚠️ v2 had wrong order (Explainer → PII Masker → Audit). Corrected: PII Masker runs FIRST so Explainer never sees raw PII. Audit Logger is a cross-cutting concern capturing raw results inside orchestration — final delivery is also logged here.
+  </div>
+
+  <div class="row" style="align-items:center">
+    <div class="box lout" style="min-width:180px">
+      <div class="bname">🔒 PII Masker <span class="bdg b-fix">Reordered</span></div>
+      <div class="bsub">Runs FIRST before Explainer sees data · Masks: account numbers · national IDs · customer names · phone numbers · Role-controlled unmasking for authorized investigators · Masking rules from Config Store</div>
+    </div>
+    <div style="color:var(--ca-output);font-size:18px">→</div>
+    <div class="box lout" style="min-width:200px">
+      <div class="bname">💬 NL Explainer <span class="bdg b-new">New</span></div>
+      <div class="bsub">Converts masked DataFrames / numbers into dept-tailored plain English narrative · Receives only masked data · Example: "127 customers with repeated transactions between AED 38–39k, consistent with structuring patterns"</div>
+    </div>
+    <div style="color:var(--ca-output);font-size:18px">→</div>
+    <div class="box lout" style="min-width:210px">
+      <div class="bname">🗂️ Audit Logger <span class="bdg b-fix">Corrected</span></div>
+      <div class="bsub">Logs DELIVERED output (post-mask, post-explain) · Note: raw pre-mask results are also logged separately within orchestration layer with restricted access · Tamper-evident hash chain · See Persistence layer</div>
+    </div>
+    <div style="color:var(--ca-output);font-size:18px">→</div>
+    <div class="box lout" style="min-width:160px">
+      <div class="bname">🌐 REST API / WebSocket</div>
+      <div class="bsub">Result + explanation to frontend · Task status streaming · API consumers receive structured JSON</div>
+    </div>
+  </div>
+</div>
+
+<div class="conn">↕ <span class="clabel">Executor spawns containers against read-only data volumes</span></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SANDBOX
+     ═══════════════════════════════════════════════════════════ -->
+<div class="layer lsb">
+  <div class="ltitle">🔒 &nbsp;Zero-Trust Execution Sandbox</div>
+  <div class="row" style="gap:14px;align-items:flex-start">
+
+    <div class="col" style="min-width:255px">
+      <div class="box lsb">
+        <div class="bname">▶️ Executor Agent <span style="font-size:10px;color:var(--text-muted);font-weight:400">(outside container)</span></div>
+        <div class="bsub">Starts container once at task creation · Runs each sₖ via docker exec (no container restart between rounds) · Captures stdout / stderr / exit_code → rₖ · Enforces per-round execution timeout (60s) · Destroys container when task completes, fails, or times out</div>
+      </div>
+      <div style="color:var(--ca-sandbox);padding-left:20px;font-size:18px">↓ one container per task — rounds share it</div>
+      <div class="box lsb">
+        <div class="bname">📦 Task-Scoped Container &nbsp;<span style="font-size:10px;color:var(--text-muted)">Docker (persistent for task lifetime)</span></div>
+        <div class="bsub">One container per task, alive for all rounds · Each round runs complete sₖ script via docker exec — script always re-imports and re-computes everything, so stale state is never an issue · Non-root user · Read-only filesystem except /tmp · DS-STAR+: one container per sub-question</div>
+      </div>
+      <div class="note-gold">
+        🔁 Container budget: max 5 concurrent containers system-wide (= max 5 tasks or sub-questions running in parallel) · Eliminates cold-start overhead (~3s) × 20 rounds × n sub-questions that per-round containers would incur · Excess tasks queued in Celery priority queue
+      </div>
+    </div>
+
+    <div class="col fill">
+      <div style="font-size:10px;font-weight:700;color:var(--ca-sandbox);letter-spacing:.5px;margin-bottom:4px">CONTAINER CONSTRAINTS</div>
+      <div>
+        <span class="ctag">--network=none</span>
+        <span class="ctag">--memory=2g</span>
+        <span class="ctag">--cpu-quota=100000</span>
+        <span class="ctag">--read-only FS</span>
+        <span class="ctag">--user=nonroot</span>
+        <span class="ctag">--no-new-privileges</span>
+        <span class="ctag">--timeout=60s</span>
+        <span class="ctag">--pids-limit=100</span>
+        <span class="ctag">--security-opt=no-new-privileges</span>
+        <span class="ctag">--cap-drop=ALL</span>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--ca-data);margin:10px 0 4px;letter-spacing:.5px">READ-ONLY LFI DATA VOLUMES &nbsp;<span style="font-size:9px;color:var(--text-muted);font-weight:400">(RBAC-scoped: mounted only if analyst is authorized for that LFI / dept)</span></div>
+      <div>
+        <span class="dvol">📊 Fraud Loss Reports</span>
+        <span class="dvol">🔔 Tx Monitoring Alerts</span>
+        <span class="dvol">👤 KYC / CDD Profiles</span>
+        <span class="dvol">📋 SAR / STR Records</span>
+        <span class="dvol">📈 Market Surveillance</span>
+        <span class="dvol">⚖️ Enforcement Case Files</span>
+        <span class="dvol">📣 Consumer Complaints</span>
+        <span class="dvol">📑 LFI Risk Assessments</span>
+      </div>
+
+      <div class="note-gold" style="margin-top:8px">
+        🔐 <strong>DLP note:</strong> containers have --network=none. No data can be exfiltrated via network. stdout is capped at 10KB before being returned to Executor — prevents bulk data extraction via print() flooding.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTTOM GRID
+     ═══════════════════════════════════════════════════════════ -->
+<div class="bot">
+
+  <!-- LLM -->
+  <div class="layer ll" style="margin:0">
+    <div class="ltitle">🧠 LLM Inference Layer <span class="bdg b-ha">HA</span> <span class="bdg b-fix">Fixed</span></div>
+
+    <div class="box ll" style="margin-bottom:9px">
+      <div class="bname">🔌 Provider-Agnostic Adapter</div>
+      <div class="bsub">Config flag: Ollama · vLLM · Azure OpenAI · Gemini API · Prompt templates versioned per provider (different models respond differently) · Health-check with fast failover</div>
+    </div>
+
+    <div class="box ll" style="margin-bottom:9px">
+      <div class="bname">⚖️ LLM Load Balancer <span class="bdg b-new">New</span></div>
+      <div class="bsub">Distributes inference requests across GPU servers · Least-connections routing · Health checks · Fails over to standby GPU on primary failure · Internal request queue — serializes concurrent agent calls</div>
+    </div>
+
+    <div class="gpu-cluster" style="margin-bottom:8px">
+      <div class="gpu-label">⚡ Flash Tier — Llama 3.2 11B</div>
+      <div class="gpu-node">🖥️ GPU Server A &nbsp;<span style="font-size:9px;color:var(--text-muted)">(primary)</span></div>
+      <div class="gpu-node">🖥️ GPU Server B &nbsp;<span style="font-size:9px;color:#f59e0b">(standby / overflow)</span></div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Agents: Analyzer · Planner · Coder · Debugger · Verifier · Router · Sub-Q Generator (initial + refinement) · Report Writer</div>
+    </div>
+
+    <div class="gpu-cluster">
+      <div class="gpu-label">🏆 Pro Tier — Llama 3.1 70B</div>
+      <div class="gpu-node">🖥️ GPU Server C &nbsp;<span style="font-size:9px;color:var(--text-muted)">(primary)</span></div>
+      <div class="gpu-node">🖥️ GPU Server D &nbsp;<span style="font-size:9px;color:#f59e0b">(standby)</span></div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">Agents: Finalizer · Report Writer (synthesis only)</div>
+    </div>
+
+    <div class="note-warn" style="margin-top:8px">
+      ✱ v2 used Llama 3.1 70B vs Llama 3.3 70B (same size, no real tier difference). Fixed to 11B vs 70B — meaningful cost/quality tradeoff.
+    </div>
+  </div>
+
+  <!-- PERSISTENCE -->
+  <div class="layer lpe" style="margin:0">
+    <div class="ltitle">🗄️ State &amp; Persistence <span class="bdg b-ha">HA</span> <span class="bdg b-fix">Fixed</span></div>
+    <div class="col" style="gap:8px">
+
+      <div class="pi">
+        <div class="pi-ic">🐘</div>
+        <div>
+          <div class="pi-n">PostgreSQL Primary + Standby <span class="bdg b-ha">HA</span></div>
+          <div class="pi-d">LangGraph state checkpointer · Task metadata · Query history · Dept-scoped row security · Streaming replication to standby · Automatic failover (&lt;30s) · Daily backups to MinIO · RPO: 0 (synchronous replication)</div>
+        </div>
+      </div>
+
+      <div class="pi" style="border-color:#fbbf2444">
+        <div class="pi-ic">📜</div>
+        <div>
+          <div class="pi-n" style="color:#fcd34d">Audit Log Store <span class="bdg b-fix">Fixed</span></div>
+          <div class="pi-d">Separate append-only PostgreSQL table with write-lock enforcement · Captures: user ID · dept · timestamp · full query · every plan step · raw pre-mask result (restricted) · delivered output · PII access events</div>
+          <div class="pi-g">✅ Tamper-evidence: SHA-256 hash chain — each row hashes previous row. Any modification detectable. Satisfies CBUAE regulatory examination requirements.</div>
+          <div class="pi-d" style="margin-top:3px">Retention: 10 years minimum · Separate backup schedule from main DB</div>
+          <div class="pi-w">⚠️ v2 used MinIO for audit — corrected: object storage is wrong for tamper-evident sequential logs</div>
+        </div>
+      </div>
+
+      <div class="pi">
+        <div class="pi-ic">🪣</div>
+        <div>
+          <div class="pi-n">MinIO (Object Storage) <span class="bdg b-ha">HA</span></div>
+          <div class="pi-d">Generated PDF / Excel reports · Chart artifacts · Large result files · DB backups · Multi-node MinIO cluster (erasure coding) · Not used for audit logs</div>
+        </div>
+      </div>
+
+      <div class="pi">
+        <div class="pi-ic">📋</div>
+        <div>
+          <div class="pi-n">Redis Sentinel Cluster <span class="bdg b-ha">HA</span> <span class="bdg b-new">New</span></div>
+          <div class="pi-d">3-node Sentinel setup: 1 master + 2 replicas · Automatic master election on failure · Task queue durability · Sub-second failover · Replaces single Redis instance from v2</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- DATA -->
+  <div class="layer lda" style="margin:0">
+    <div class="ltitle">📥 Data Ingestion &amp; LFI Volumes <span class="bdg b-new">New</span></div>
+    <div class="col" style="gap:8px">
+
+      <div class="box lda">
+        <div class="bname">🔄 Secure Ingestion Pipeline</div>
+        <div class="bsub">Scheduled LFI data uploads via SFTP / CBUAE portal · Schema validation · Format normalization (CSV, XLSX, JSON) · Quarantine on schema mismatch · Checksums verified before ingest · Dept-scoped placement</div>
+      </div>
+
+      <div class="box lda" style="border-color:#86efac66">
+        <div class="bname">📂 Data Version Manager <span class="bdg b-new">New</span></div>
+        <div class="bsub">Point-in-time snapshots on each ingest · Immutable data versions · Query result linked to exact data version used · Analysts can reproduce any finding months later · Required for regulatory evidence preservation</div>
+      </div>
+
+      <div class="box lda">
+        <div class="bname">📂 LFI Volume Registry</div>
+        <div class="bsub">Partitioned by LFI · data type · reporting period · RBAC-controlled mount — only authorized volumes mounted per query · Version tag passed to Executor per task</div>
+      </div>
+
+      <div style="margin-top:4px">
+        <span class="dvol">📊 Fraud Loss</span>
+        <span class="dvol">🔔 Tx Monitoring</span>
+        <span class="dvol">📋 SAR / STR</span>
+        <span class="dvol">👤 KYC / CDD</span>
+        <span class="dvol">📈 Market Data</span>
+        <span class="dvol">⚖️ Enforcement</span>
+        <span class="dvol">📣 Complaints</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- OBSERVABILITY -->
+  <div class="layer lob" style="margin:0">
+    <div class="ltitle">📡 Observability <span class="bdg b-new">New</span></div>
+    <div class="col" style="gap:7px">
+
+      <div class="oi">
+        📊 Prometheus
+        <div class="os">LLM token usage per agent · Inference latency P50/P95/P99 · Container spawn rate · Queue depth · Error rates per agent</div>
+      </div>
+      <div class="oi">
+        📈 Grafana
+        <div class="os">Agent perf dashboards · Dept usage patterns · Cost per query · GPU utilisation · Daily active analysts</div>
+      </div>
+      <div class="oi">
+        🚨 Alert Manager
+        <div class="os">GPU server down · Redis failover · Celery DLQ spike · LLM latency &gt;10s · Budget overrun · Sandbox failure rate &gt;5%</div>
+      </div>
+      <div class="oi">
+        🔍 Structured Logging
+        <div class="os">JSON logs per agent · Correlation ID per task · Full trace: task_id → round → agent → LLM call → result</div>
+      </div>
+      <div class="oi">
+        💰 Cost Tracker <span class="bdg b-new">New</span>
+        <div class="os">Tokens per query · GPU-hours per dept · Budget consumed vs allocated · Monthly cost report per team</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /bot -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     PRODUCTION HARDENING PANEL
+     ═══════════════════════════════════════════════════════════ -->
+<div class="layer lh" style="margin-top:12px">
+  <div class="ltitle">🏗️ &nbsp;Production Hardening — What v2 Missed (Architect Review)</div>
+  <div class="hgrid">
+
+    <div class="hi">
+      <div class="hi-title">🔄 HA at Every Critical Node</div>
+      <div class="hi-body">
+        v2 had single instances everywhere — one crash kills the whole system.<br><br>
+        Fixed in v3: FastAPI (2 replicas) · Redis Sentinel (3-node) · PostgreSQL (primary + streaming standby) · GPU servers (primary + standby per tier) · MinIO (erasure-coded multi-node).
+      </div>
+      <div class="hi-ok">✅ No single point of failure in critical path</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">💾 Task Recovery via Checkpointing</div>
+      <div class="hi-body">
+        v2 had no recovery path. A Celery worker crash on round 12 of 20 = task lost, analyst re-submits from scratch.<br><br>
+        Fixed in v3: LangGraph checkpoints state to PostgreSQL after every round. On worker death, a new worker picks up the task from last checkpoint and continues. Zero task loss on deploy or crash.
+      </div>
+      <div class="hi-ok">✅ Tasks survive worker restarts and rolling deploys</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">📋 Priority Queue + Dead Letter Queue</div>
+      <div class="hi-body">
+        v2 had a flat task queue. An Enforcement case query could wait behind 20 research queries.<br><br>
+        Fixed in v3: Three priority queues (CRITICAL · HIGH · NORMAL). Enforcement queries go to CRITICAL, jump ahead. Failed tasks land in DLQ — analyst and ops team notified with reason. No silent failures.
+      </div>
+      <div class="hi-ok">✅ Time-sensitive investigations never blocked by routine work</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">🔑 Secrets Management</div>
+      <div class="hi-body">
+        v2 had no secrets strategy — credentials would have lived in env vars or config files. In a multi-tenant system at a financial regulator, this is a critical risk.<br><br>
+        Fixed in v3: HashiCorp Vault (or equivalent on-premise secrets manager). All DB credentials, LLM API keys, and integration tokens fetched at runtime and auto-rotated. No secret touches a config file or container image.
+      </div>
+      <div class="hi-ok">✅ Zero hardcoded secrets anywhere in the stack</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">📂 Data Versioning for Reproductibility</div>
+      <div class="hi-body">
+        v2 showed data volumes with no versioning. LFI data is refreshed periodically. If an analyst finds a violation, they must be able to reproduce the exact result 6 months later (for investigation, tribunal, enforcement action).<br><br>
+        Fixed in v3: Data Version Manager creates immutable snapshots on each ingest. Every query result is linked to the exact data version used. Point-in-time replay guaranteed.
+      </div>
+      <div class="hi-ok">✅ Every finding is reproducible — legally defensible</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">🔒 mTLS + Network Isolation</div>
+      <div class="hi-body">
+        v2 had no internal transport security. Internal service traffic was plaintext. For a central bank, even intranet traffic must be encrypted.<br><br>
+        Fixed in v3: mTLS enforced on all service-to-service connections (FastAPI ↔ Celery, LangGraph ↔ LLM, Executor ↔ Container daemon). Containers have --network=none — zero network egress. Sandbox stdout capped at 10KB to prevent data exfiltration via print flooding.
+      </div>
+      <div class="hi-ok">✅ Defense in depth — no plaintext internal traffic</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">📊 LLM Inference HA + Queue</div>
+      <div class="hi-body">
+        v2 had a single LLM server. 10 concurrent DS-STAR+ tasks × 6 sub-questions = 60 simultaneous LLM requests hitting one GPU. This causes GPU OOM and cascading failures.<br><br>
+        Fixed in v3: Load balancer across 2 Flash GPU servers + 2 Pro GPU servers. Internal LLM inference queue serializes concurrent requests. Standby GPU promoted automatically if primary goes down.
+      </div>
+      <div class="hi-ok">✅ LLM layer can handle burst load without dropping requests</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">📦 Container Lifecycle: Task-Scoped, Not Round-Scoped</div>
+      <div class="hi-body">
+        v2 showed containers as ephemeral per round. With DS-STAR+ (8 sub-questions × 20 rounds), that would be 160 container cold-starts per query (~3s each = 8 minutes of pure overhead). Unacceptable for analyst UX.<br><br>
+        Fixed in v3: One container per task, alive for all rounds. Each round runs its complete sₖ script via docker exec. The Coder builds sₖ incrementally (extending sₖ₋₁) but always outputs a fully self-contained runnable script — it re-imports and re-computes from scratch each round, making stale container state a non-issue. Rounds get warm execution with zero cold-start penalty.<br><br>
+        DS-STAR+: one container per sub-question (sub-questions share no state). Max 5 containers concurrent system-wide. Sequential sub-question execution by default; parallel mode available via config flag.
+      </div>
+      <div class="hi-ok">✅ Container sprawl eliminated · Cold-start overhead eliminated · Predictable resource usage</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">🎯 Tamper-Evident Audit Log</div>
+      <div class="hi-body">
+        v2 used MinIO for audit logs ("append-only by convention"). For a financial regulator, audit logs must be legally defensible — any tampering must be detectable.<br><br>
+        Fixed in v3: Append-only PostgreSQL table with write-lock enforcement. SHA-256 hash chain — each row hashes the previous row. Any row modification or deletion is immediately detectable. 10-year retention with separate backup schedule.
+      </div>
+      <div class="hi-ok">✅ Audit log satisfies regulatory examination requirements</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">🛑 Graceful Shutdown</div>
+      <div class="hi-body">
+        v2 had no shutdown strategy. A rolling deploy or restart would kill in-flight agent tasks mid-round, corrupting LangGraph state and losing results.<br><br>
+        Fixed in v3: LangGraph checkpoints before shutdown signal. Celery workers drain existing tasks before accepting SIGTERM. New version starts only after all in-flight tasks complete or are checkpointed. Zero downtime deploys possible.
+      </div>
+      <div class="hi-ok">✅ Deploys are safe — no analyst query is ever lost</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">⚡ PII Masking Order</div>
+      <div class="hi-body">
+        v2 ran Explainer before PII Masker. This meant the LLM generating the plain English narrative could see raw PII (account numbers, national IDs, names) and might include them in the explanation — then masking would need to parse free text, which is unreliable.<br><br>
+        Fixed in v3: PII Masker always runs FIRST on structured data (DataFrames, JSON), then the Explainer receives only masked data. Structural masking on structured output is deterministic and complete.
+      </div>
+      <div class="hi-ok">✅ PII never reaches the Explainer LLM — deterministic protection</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">📬 Config / Prompt Versioning</div>
+      <div class="hi-body">
+        v2 had no config or prompt management. CBUAE regulatory knowledge bases, prompt templates, and fraud typology libraries had no home — they would have been hardcoded in agent code, making updates require a full code deploy.<br><br>
+        Fixed in v3: Dedicated Config &amp; Prompt Store, version-controlled and separate from code. Prompt updates (e.g., adding a new CBUAE regulation or fraud typology) are configuration changes, not deployments. Rollback on regression.
+      </div>
+      <div class="hi-ok">✅ Regulatory updates don't require code deployments</div>
+    </div>
+
+    <div class="hi">
+      <div class="hi-title">🔔 Async Notification + WebSocket Resilience</div>
+      <div class="hi-body">
+        v2 assumed WebSocket stays alive for 10–30 minute tasks. In practice, browser tabs are closed, sessions time out, and proxies drop long-lived connections.<br><br>
+        Fixed in v3: Notification Service sends in-app alerts when tasks complete. WebSocket client auto-reconnects and reattaches to in-flight task by task_id. 30s ping keepalive prevents proxy timeout. Analysts don't need to stay on the page.
+      </div>
+      <div class="hi-ok">✅ Task completion never missed even if browser closes</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ORIGINAL v2 CORRECTIONS (kept for record)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="corr">
+  <h3>📋 Original 12 Corrections from Gemini Architecture v1 (preserved from v2)</h3>
+  <div class="cgrid">
+    <div class="ci"><div class="ci-t">❌ DS-STAR+ misrepresented</div><div class="ci-f">✅ DS-STAR+ is wrapper, not peer agent</div><div class="ci-d">Report Writer was a peer to Analyzer/Planner. DS-STAR+ wraps DS-STAR — calls it n times as inner engine.</div></div>
+    <div class="ci"><div class="ci-t">❌ Sub-Q Generator missing</div><div class="ci-f">✅ Added: Core DS-STAR+ component</div><div class="ci-d">Decomposes open-ended queries into sub-questions. DS-STAR+ cannot function without it.</div></div>
+    <div class="ci"><div class="ci-t">❌ Separate Evaluator agent</div><div class="ci-f">✅ Generator handles refinement (paper confirmed)</div><div class="ci-d">Paper Algorithm 2 shows no separate Evaluator. The Sub-Q Generator receives the current report R and identifies gaps itself — Generator(q, D, R) → supplementary sub-questions. Generator does double duty: initial decomposition and gap-finding for refinement. Removed Evaluator box; Generator now shown in both initial and refinement modes.</div></div>
+    <div class="ci"><div class="ci-t">❌ LLM tiering: same model size</div><div class="ci-f">✅ 11B (Flash) vs 70B (Pro)</div><div class="ci-d">Llama 3.1 70B vs 3.3 70B is the same parameter count — no real cost/quality tradeoff.</div></div>
+    <div class="ci"><div class="ci-t">❌ Executor shown twice</div><div class="ci-f">✅ Executor is orchestrator, not inside sandbox</div><div class="ci-d">Executor is the DS-STAR agent that spawns containers. It does not run inside the sandbox.</div></div>
+    <div class="ci"><div class="ci-t">❌ Temporal + Celery both listed</div><div class="ci-f">✅ Celery + Redis only</div><div class="ci-d">Competing solutions. Celery+Redis is simpler and sufficient. Temporal adds unneeded on-premise complexity.</div></div>
+    <div class="ci"><div class="ci-t">❌ Query Clarity Agent missing</div><div class="ci-f">✅ Added: Pre-Planner validation node</div><div class="ci-d">Validates answerability, maps domain terms, routes Mode A vs B.</div></div>
+    <div class="ci"><div class="ci-t">❌ Auth / RBAC absent</div><div class="ci-f">✅ Added: Security &amp; API Gateway Layer</div><div class="ci-d">Multi-dept regulator system requires SSO, dept-scoped data access, per-LFI permissions.</div></div>
+    <div class="ci"><div class="ci-t">❌ Audit log in MinIO</div><div class="ci-f">✅ Append-only PostgreSQL table</div><div class="ci-d">Object storage is wrong for tamper-evident sequential audit logs.</div></div>
+    <div class="ci"><div class="ci-t">❌ NL Explainer missing</div><div class="ci-f">✅ Added: Output Pipeline layer</div><div class="ci-d">Non-technical analysts need plain English, not raw DataFrames.</div></div>
+    <div class="ci"><div class="ci-t">❌ PII Masker missing</div><div class="ci-f">✅ Added &amp; placed before Explainer</div><div class="ci-d">Central bank must mask PII before delivery. Masker runs first on structured data.</div></div>
+    <div class="ci"><div class="ci-t">❌ Observability &amp; data ingestion missing</div><div class="ci-f">✅ Added: both layers</div><div class="ci-d">Production system needs monitoring + an answer for how LFI data reaches volumes.</div></div>
+  </div>
+</div>
+
+<div class="footnote">
+  Based on DS-STAR paper: <em>"Data Science Agent for Solving Diverse Tasks across Heterogeneous Formats and Open-Ended Queries"</em>
+  &nbsp;·&nbsp; arXiv:2509.21825 &nbsp;·&nbsp; Jaehyun Nam, Jinsung Yoon, Jiefeng Chen, Raj Sinha, Tomas Pfister (Google Cloud) &nbsp;·&nbsp; v4, Feb 2026
+  <br><br>
+  CBUAE Financial Crime &amp; Market Conduct &nbsp;&middot;&nbsp; Architecture v3.3 — Production-Grade &nbsp;&middot;&nbsp; Paper-audited June 2026 (Coder incremental, Debugger two-step, Finalyzer runs sandbox code, Verifier Yes/No)
+</div>
+
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIP — Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+
+/* ─── Design tokens ─── */
+:root{
+  --bg:#f4f4f5;
+  --bg-card:#ffffff;
+  --bg-hover:#f0f0f1;
+  --bg-active:#e9e9eb;
+  --border:#e4e4e7;
+  --text:#09090b;
+  --text-muted:#71717a;
+  --text-subtle:#a1a1aa;
+  --sidebar:#ffffff;
+  --sidebar-border:#e4e4e7;
+  --nav-active:#f4f4f5;
+  --nav-active-text:#09090b;
+  --input-bg:#ffffff;
+  --submit-bg:#09090b;
+  --submit-text:#ffffff;
+  --card-shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --focus-ring:0 0 0 3px rgba(0,0,0,0.07);
+}
+.dark{
+  --bg:#09090b;
+  --bg-card:#111113;
+  --bg-hover:#18181b;
+  --bg-active:#27272a;
+  --border:#27272a;
+  --text:#fafafa;
+  --text-muted:#71717a;
+  --text-subtle:#52525b;
+  --sidebar:#09090b;
+  --sidebar-border:#27272a;
+  --nav-active:#18181b;
+  --nav-active-text:#fafafa;
+  --input-bg:#18181b;
+  --submit-bg:#fafafa;
+  --submit-text:#09090b;
+  --card-shadow:none;
+  --focus-ring:0 0 0 3px rgba(255,255,255,0.06);
+}
+
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.5;transition:background .2s,color .2s}
+
+/* Sidebar */
+.sidebar{width:240px;min-height:100vh;background:var(--sidebar);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:10;transition:background .2s,border-color .2s}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--text);color:var(--bg-card);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text-subtle);font-weight:400}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-section{padding:16px 10px 6px;font-size:10px;color:var(--text-subtle);font-weight:600;text-transform:uppercase;letter-spacing:0.06em}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500;transition:all .15s;text-decoration:none;margin-bottom:1px}
+.nav-item.active{background:var(--nav-active);color:var(--nav-active-text);font-weight:600}
+.nav-item:hover:not(.active){background:var(--bg-hover);color:var(--text)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.history-item{padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-subtle);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px;transition:all .15s;margin-bottom:1px}
+.history-item:hover{background:var(--bg-hover);color:var(--text-muted)}
+.history-item svg{width:13px;height:13px;flex-shrink:0;opacity:.5}
+.history-badge{margin-left:auto;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;flex-shrink:0}
+.hb-blue{background:rgba(37,99,235,0.1);color:#2563eb}
+.hb-purple{background:rgba(147,51,234,0.1);color:#9333ea}
+.sidebar-footer{padding:12px 14px;border-top:1px solid var(--sidebar-border);display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;background:var(--bg-active);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-muted);flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:var(--text)}
+.user-dept{font-size:11px;color:var(--text-subtle)}
+.settings-btn{margin-left:auto;color:var(--text-subtle);cursor:pointer;display:flex;padding:4px;border-radius:4px;transition:color .15s}
+.settings-btn:hover{color:var(--text-muted)}
+.settings-btn svg{width:15px;height:15px}
+
+/* Main */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main-header{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);transition:background .2s,border-color .2s}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.header-right{display:flex;align-items:center;gap:6px}
+.icon-btn{width:32px;height:32px;background:transparent;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.icon-btn:hover{background:var(--bg-hover);color:var(--text)}
+.icon-btn svg{width:15px;height:15px}
+
+/* Chat area */
+.chat-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px 24px}
+.chat-intro{text-align:center;margin-bottom:40px}
+.chat-intro h2{font-size:26px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-.02em}
+.chat-intro p{font-size:14px;color:var(--text-muted);max-width:480px;margin:0 auto}
+
+/* Input */
+.input-container{width:100%;max-width:720px;margin-bottom:28px}
+.input-wrap{background:var(--input-bg);border:1px solid var(--border);border-radius:10px;transition:border-color .15s;box-shadow:var(--card-shadow)}
+.input-wrap:focus-within{border-color:#a1a1aa;box-shadow:var(--focus-ring)}
+.dark .input-wrap:focus-within{border-color:#52525b}
+.query-textarea{width:100%;background:transparent;border:none;outline:none;color:var(--text);font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;padding:16px;resize:none;min-height:96px;max-height:200px}
+.query-textarea::placeholder{color:var(--text-subtle)}
+.input-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border)}
+.input-actions-left{display:flex;align-items:center;gap:6px}
+.input-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.input-btn:hover{background:var(--bg-hover);color:var(--text)}
+.input-btn svg{width:13px;height:13px}
+.submit-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;background:var(--submit-bg);border:none;color:var(--submit-text);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+.submit-btn:hover{opacity:.85}
+.submit-btn svg{width:14px;height:14px}
+
+/* Templates */
+.templates-section{width:100%;max-width:720px}
+.templates-label{font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em}
+.templates-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.template-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .15s;text-align:left;box-shadow:var(--card-shadow)}
+.template-card:hover{border-color:#c0c0c4;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.dark .template-card:hover{border-color:#52525b;box-shadow:none}
+.template-icon{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.ti-blue{background:rgba(37,99,235,.1)}
+.ti-purple{background:rgba(147,51,234,.1)}
+.ti-amber{background:rgba(217,119,6,.1)}
+.template-icon svg{width:13px;height:13px}
+.tc-blue{color:#2563eb}
+.tc-purple{color:#9333ea}
+.tc-amber{color:#d97706}
+.template-text{font-size:12px;color:var(--text-muted);line-height:1.4}
+
+.bottom-hint{margin-top:32px;font-size:12px;color:var(--text-subtle);text-align:center}
+.analyse-hint{font-size:11px;color:var(--text-subtle);text-align:right;margin-top:5px;display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.analyse-hint svg{width:11px;height:11px}
+
+/* Expandable panels */
+.panel{border-top:1px solid var(--border);display:none;padding:12px 14px;background:var(--bg);animation:fadeIn .12s ease}
+.panel.open{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.panel-title{font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+
+/* Attach panel */
+.attach-drop{border:2px dashed var(--border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg-card)}
+.attach-drop:hover{border-color:#a1a1aa;background:var(--bg-hover)}
+.attach-drop svg{width:20px;height:20px;color:var(--text-subtle);margin-bottom:6px}
+.attach-drop-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px}
+.attach-drop-sub{font-size:11px;color:var(--text-muted)}
+.attach-link{color:#2563eb}
+.attach-formats{font-size:10px;color:var(--text-subtle);margin-top:6px}
+.file-list{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.file-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border);font-size:12px;color:var(--text-muted)}
+.file-item svg{width:13px;height:13px;color:#2563eb;flex-shrink:0}
+.file-remove{margin-left:auto;cursor:pointer;color:var(--text-subtle);display:flex;padding:2px;border-radius:3px;transition:color .1s}
+.file-remove:hover{color:#dc2626}
+.file-remove svg{width:12px;height:12px}
+
+/* Formatting panel */
+.fmt-row{display:flex;flex-direction:column;gap:10px}
+.fmt-group{display:flex;flex-direction:column;gap:6px}
+.fmt-label{font-size:11px;font-weight:600;color:var(--text-muted)}
+.fmt-options{display:flex;gap:6px;flex-wrap:wrap}
+.fmt-opt{padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+.fmt-opt:hover{border-color:#a1a1aa;color:var(--text)}
+.fmt-opt.active{border-color:#2563eb;background:rgba(37,99,235,.06);color:#2563eb}
+.dark .fmt-opt.active{background:rgba(59,130,246,.1);color:#3b82f6;border-color:#3b82f6}
+
+/* Button active state */
+.input-btn.active{background:rgba(37,99,235,.06);border-color:#2563eb;color:#2563eb}
+.dark .input-btn.active{background:rgba(59,130,246,.1);color:#3b82f6;border-color:#3b82f6}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">FIP</div>
+    <div>
+      <div class="logo-text">FIP</div>
+      <div class="logo-sub">Financial Intelligence Platform</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" href="#"><i data-lucide="message-square"></i> New Analysis</a>
+    <a class="nav-item" href="04-result-insight.html"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+    <div class="nav-section">Recent</div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Card fraud rate by LFI Q1...</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>APP fraud thematic report...</span><span class="history-badge hb-purple">R</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>STR filing trends by LFI</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>Social engineering outliers</span><span class="history-badge hb-blue">I</span></div>
+    <div class="history-item"><i data-lucide="clock"></i><span>H1 2024 fraud sector report</span><span class="history-badge hb-purple">R</span></div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">AK</div>
+    <div><div class="user-name">Azharuddin Kazi</div><div class="user-dept">Fraud Prevention</div></div>
+    <div class="settings-btn"><i data-lucide="settings"></i></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="main-header">
+    <div class="header-title">New Analysis</div>
+    <div class="header-right">
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme"><i data-lucide="moon"></i></button>
+      <button class="icon-btn"><i data-lucide="bell"></i></button>
+      <button class="icon-btn"><i data-lucide="help-circle"></i></button>
+    </div>
+  </header>
+
+  <div class="chat-area">
+    <div class="chat-intro">
+      <h2>What would you like to analyse?</h2>
+      <p>Ask a question about LFI data in plain English. FIP will plan, code, and verify the answer automatically.</p>
+    </div>
+
+    <div class="input-container">
+      <div class="input-wrap">
+        <textarea class="query-textarea" placeholder="e.g. Which LFIs have the highest card fraud loss rate relative to transaction volume in Q1 2025?"></textarea>
+
+        <!-- Attach files panel -->
+        <div class="panel" id="attach-panel">
+          <div class="panel-title">Attach files</div>
+          <div class="attach-drop" onclick="document.getElementById('file-input').click()">
+            <i data-lucide="upload-cloud"></i>
+            <div class="attach-drop-title">Drop files here or <span class="attach-link">browse</span></div>
+            <div class="attach-drop-sub">CSV, Excel, JSON, PDF · up to 500 MB per file</div>
+            <div class="attach-formats">Files are stored in your workspace and never leave CBUAE infrastructure</div>
+          </div>
+          <input type="file" id="file-input" style="display:none" multiple accept=".csv,.xlsx,.json,.pdf" onchange="addFiles(this.files)">
+          <div class="file-list" id="file-list"></div>
+        </div>
+
+        <!-- Formatting panel -->
+        <div class="panel" id="fmt-panel">
+          <div class="panel-title">Output formatting</div>
+          <div class="fmt-row">
+            <div class="fmt-group">
+              <div class="fmt-label">Output style</div>
+              <div class="fmt-options">
+                <button class="fmt-opt active" onclick="selectFmt(this,'style')">Auto</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'style')">Table</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'style')">Bullet summary</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'style')">Narrative</button>
+              </div>
+            </div>
+            <div class="fmt-group">
+              <div class="fmt-label">Number format</div>
+              <div class="fmt-options">
+                <button class="fmt-opt active" onclick="selectFmt(this,'num')">Auto</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'num')">AED</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'num')">Percentage</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'num')">Index</button>
+              </div>
+            </div>
+            <div class="fmt-group">
+              <div class="fmt-label">Include charts</div>
+              <div class="fmt-options">
+                <button class="fmt-opt active" onclick="selectFmt(this,'chart')">Auto</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'chart')">Always</button>
+                <button class="fmt-opt" onclick="selectFmt(this,'chart')">Never</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-footer">
+          <div class="input-actions-left">
+            <button class="input-btn" id="attach-btn" onclick="togglePanel('attach')"><i data-lucide="paperclip"></i> Attach files</button>
+            <button class="input-btn" id="fmt-btn" onclick="togglePanel('fmt')"><i data-lucide="sliders-horizontal"></i> Formatting</button>
+          </div>
+          <button class="submit-btn" onclick="window.location='06-dataset-selection.html'"><i data-lucide="arrow-up"></i> Analyse</button>
+        </div>
+      </div>
+      <div class="analyse-hint"><i data-lucide="info"></i> Analyse will ask you to confirm your datasets before the analysis begins.</div>
+    </div>
+
+    <div class="templates-section">
+      <div class="templates-label">Start with a template</div>
+      <div class="templates-grid">
+        <div class="template-card"><div class="template-icon ti-blue"><i data-lucide="bar-chart-2" class="tc-blue"></i></div><div class="template-text">Which LFIs have the highest card fraud loss rate vs. the peer median this quarter?</div></div>
+        <div class="template-card"><div class="template-icon ti-blue"><i data-lucide="trending-up" class="tc-blue"></i></div><div class="template-text">Show me fraud typology trends by channel across UAE banks over the past 12 months.</div></div>
+        <div class="template-card"><div class="template-icon ti-blue"><i data-lucide="alert-triangle" class="tc-blue"></i></div><div class="template-text">Which LFIs are statistical outliers in their social engineering fraud detection rate?</div></div>
+        <div class="template-card"><div class="template-icon ti-purple"><i data-lucide="file-text" class="tc-purple"></i></div><div class="template-text">Generate a thematic analysis of APP fraud growth across UAE banks in 2024.</div></div>
+        <div class="template-card"><div class="template-icon ti-purple"><i data-lucide="book-open" class="tc-purple"></i></div><div class="template-text">Produce a sector-wide fraud trend report for H1 2025 suitable for a supervisory letter annex.</div></div>
+        <div class="template-card"><div class="template-icon ti-amber"><i data-lucide="search" class="tc-amber"></i></div><div class="template-text">Which LFIs have declining STR filing rates compared to the prior quarter?</div></div>
+      </div>
+    </div>
+
+    <div class="bottom-hint">FIP · Financial Intelligence Platform · CBUAE Internal · Air-gapped</div>
+  </div>
+</main>
+
+<script>
+lucide.createIcons();
+function toggleTheme(){
+  const d=document.body;const btn=document.getElementById('theme-btn');
+  const dark=d.classList.toggle('dark');
+  btn.innerHTML=dark?'<i data-lucide="sun"></i>':'<i data-lucide="moon"></i>';
+  lucide.createIcons();
+}
+function togglePanel(name){
+  const panel=document.getElementById(name+'-panel');
+  const btn=document.getElementById(name+'-btn');
+  const isOpen=panel.classList.toggle('open');
+  btn.classList.toggle('active',isOpen);
+  // Close the other panel
+  const other=name==='attach'?'fmt':'attach';
+  document.getElementById(other+'-panel').classList.remove('open');
+  document.getElementById(other+'-btn').classList.remove('active');
+  lucide.createIcons();
+}
+function selectFmt(el,group){
+  el.closest('.fmt-options').querySelectorAll('.fmt-opt').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+const attachedFiles=[];
+function addFiles(files){
+  Array.from(files).forEach(f=>{
+    if(!attachedFiles.find(x=>x.name===f.name)){
+      attachedFiles.push(f);
+      const list=document.getElementById('file-list');
+      const item=document.createElement('div');
+      item.className='file-item';
+      item.innerHTML=`<i data-lucide="file"></i><span>${f.name}</span><span style="margin-left:4px;color:var(--text-subtle)">(${(f.size/1024).toFixed(0)} KB)</span><span class="file-remove" onclick="removeFile('${f.name}',this.parentElement)"><i data-lucide="x"></i></span>`;
+      list.appendChild(item);
+    }
+  });
+  lucide.createIcons();
+}
+function removeFile(name,el){
+  const idx=attachedFiles.findIndex(f=>f.name===name);
+  if(idx>-1)attachedFiles.splice(idx,1);
+  el.remove();
+}
+</script>
+</body>
+</html>
