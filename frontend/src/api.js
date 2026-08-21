@@ -37,6 +37,32 @@ export const domainPackDownloadUrl = (id) => `${API_BASE}/api/v1/domain_packs/${
 export const activateDomainPack   = (id) => API.post(`/api/v1/domain_packs/${id}/activate`)
 export const deactivateDomainPack = () => API.post(`/api/v1/domain_packs/deactivate`)
 
+// Any signed-in user can read which features are on — needed to correctly hide/show
+// their own UI (Sidebar's Domain Packs link, EmptyState's status bar, etc.). Distinct
+// from getFeatureFlags below, which useAdminAccess.js relies on 403ing for non-admins.
+export const listFeatures = () => API.get("/api/v1/features")
+
+export const getFeatureFlags = () => API.get("/api/v1/admin/features")
+export const setFeatureFlag  = (feature, enabled) => API.post(`/api/v1/admin/features/${feature}`, { enabled })
+
+export const getAdminTasks   = (params = {}) => API.get("/api/v1/admin/tasks", { params })
+export const getAdminTask    = (id) => API.get(`/api/v1/admin/tasks/${id}`)
+export const stopAdminTask   = (id) => API.post(`/api/v1/admin/tasks/${id}/stop`)
+export const rerunAdminTask  = (id) => API.post(`/api/v1/admin/tasks/${id}/rerun`)
+export const deleteAdminTask = (id) => API.delete(`/api/v1/admin/tasks/${id}`)
+
+export const getAdminDomainPacks = () => API.get("/api/v1/admin/domain_packs")
+export const createDomainPack = (data) => API.post("/api/v1/admin/domain_packs", data)
+export const updateDomainPack = (id, data) => API.put(`/api/v1/admin/domain_packs/${id}`, data)
+export const deleteDomainPack = (id) => API.delete(`/api/v1/admin/domain_packs/${id}`)
+
+export const getAdminUsers = () => API.get("/api/v1/admin/users")
+export const banUser       = (id) => API.post(`/api/v1/admin/users/${id}/ban`)
+export const unbanUser     = (id) => API.post(`/api/v1/admin/users/${id}/unban`)
+export const getAdminList  = () => API.get("/api/v1/admin/admins")
+
+export const getAdminSystem = () => API.get("/api/v1/admin/system")
+
 export const getPackDocuments = (packId) => API.get(`/api/v1/domain_packs/${packId}/documents`)
 export const uploadPackDocument = (packId, file) => {
   const form = new FormData()

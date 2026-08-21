@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from main import app, _reconcile_orphaned_tasks
-from auth import get_current_user
+from auth import get_current_user, get_current_admin
 
 client = TestClient(app)
 
@@ -10,9 +10,11 @@ client = TestClient(app)
 @dataclass
 class FakeUser:
     id: str = "00000000-0000-0000-0000-000000000001"
+    email: str = "fake-user@example.com"
 
 
 app.dependency_overrides[get_current_user] = lambda: FakeUser()
+app.dependency_overrides[get_current_admin] = lambda: FakeUser()
 
 
 def test_health_check():
@@ -411,12 +413,91 @@ def test_get_task_not_found():
 
 
 def test_get_domain_pack_config_returns_404_for_unknown_pack():
-    response = client.get("/api/v1/domain_packs/not-a-real-pack/config")
+    mock_result = MagicMock()
+    mock_result.data = []
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.feature_flags.is_enabled", return_value=True):
+        mock_sb.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.get("/api/v1/domain_packs/not-a-real-pack/config")
+
     assert response.status_code == 404
 
 
+def test_list_features_is_reachable_by_any_signed_in_user_not_just_admins():
+    """The regression this guards: Sidebar/EmptyState's UI-gating hook must not depend on
+    the admin-only /api/v1/admin/features, or a non-admin's flag fetch 403s, defaults to
+    {}, and every `flags.domain_packs !== false` check fails open (shows a feature that's
+    supposed to be off)."""
+    with patch("main.feature_flags.all_flags", return_value={"domain_packs": False}):
+        response = client.get("/api/v1/features")
+
+    assert response.status_code == 200
+    assert response.json() == {"domain_packs": False}
+
+
+def test_list_features_requires_auth():
+    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        response = client.get("/api/v1/features")
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: FakeUser()
+
+
+def test_list_feature_flags_returns_known_flags():
+    with patch("main.feature_flags.all_flags", return_value={"domain_packs": True}):
+        response = client.get("/api/v1/admin/features")
+
+    assert response.status_code == 200
+    assert response.json() == {"domain_packs": True}
+
+
+def test_set_feature_flag_updates_and_returns_new_state():
+    with patch("main.feature_flags.KNOWN_FEATURES", {"domain_packs": True}), \
+         patch("main.feature_flags.set_enabled") as mock_set:
+        response = client.post("/api/v1/admin/features/domain_packs", json={"enabled": False})
+
+    assert response.status_code == 200
+    assert response.json() == {"feature": "domain_packs", "enabled": False}
+    mock_set.assert_called_once_with("domain_packs", False)
+
+
+def test_set_feature_flag_rejects_unknown_feature():
+    with patch("main.feature_flags.KNOWN_FEATURES", {"domain_packs": True}):
+        response = client.post("/api/v1/admin/features/not_a_real_feature", json={"enabled": False})
+
+    assert response.status_code == 404
+
+
+def test_admin_features_stays_admin_only():
+    """Pins the invariant useAdminAccess.js's authorization probe depends on: a non-admin
+    hitting /api/v1/admin/features must 403, not 200 — that's how the admin panel tells
+    "signed in" apart from "signed in and authorized". Do not loosen this route's auth to
+    fix a non-admin UI-gating need; use /api/v1/features (list_features) for that instead."""
+    app.dependency_overrides.pop(get_current_admin, None)
+    try:
+        response = client.get("/api/v1/admin/features")
+        assert response.status_code == 403
+    finally:
+        app.dependency_overrides[get_current_admin] = lambda: FakeUser()
+
+
+def test_get_domain_pack_config_returns_403_when_domain_packs_disabled():
+    with patch("main.feature_flags.is_enabled", return_value=False):
+        response = client.get("/api/v1/domain_packs/fraud-aml/config")
+
+    assert response.status_code == 403
+
+
 def test_get_domain_pack_config_returns_prompt_config_fields():
-    with patch("main.domain_pack.get_active_pack_config") as mock_get_config:
+    mock_row = MagicMock()
+    mock_row.data = [{"pack_id": "fraud-aml"}]
+
+    with patch("main.supabase") as mock_sb, \
+         patch("main.feature_flags.is_enabled", return_value=True), \
+         patch("main.domain_pack.get_active_pack_config") as mock_get_config:
+        mock_sb.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_row
         mock_get_config.return_value = {
             "pack_id": "fraud-aml",
             "report_persona": "You are a senior AML investigator.",
@@ -465,13 +546,16 @@ def test_set_llm_speed_profile_rejects_an_invalid_profile():
     assert response.status_code == 422
 
 
-def test_set_llm_speed_profile_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
+def test_set_llm_speed_profile_requires_admin():
+    """Popping only the get_current_admin override (get_current_user's stays in place)
+    exercises the real get_current_admin body against the still-fake, non-allowlisted
+    user — same shape as test_x_requires_admin in test_feature_flags-style tests."""
+    app.dependency_overrides.pop(get_current_admin, None)
     try:
         response = client.post("/api/v1/llm_speed_profile", json={"profile": "free"})
-        assert response.status_code == 401
+        assert response.status_code == 403
     finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
+        app.dependency_overrides[get_current_admin] = lambda: FakeUser()
 
 
 def test_reconcile_orphaned_tasks_marks_running_tasks_as_failed():

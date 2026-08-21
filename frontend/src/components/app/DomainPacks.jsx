@@ -303,7 +303,13 @@ export default function DomainPacks({ onNew, onSelect }) {
 
   const loadPacks = useCallback(async () => {
     try { const r = await getDomainPacks(); setPacks(r.data) }
-    catch (err) { setError(err?.message || "Failed to load domain packs — is the backend running?") }
+    catch (err) {
+      if (err?.response?.status === 403) {
+        setError("Domain packs are currently disabled by an admin.")
+      } else {
+        setError(err?.message || "Failed to load domain packs — is the backend running?")
+      }
+    }
     finally { setLoading(false) }
   }, [])
 
