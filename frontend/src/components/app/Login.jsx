@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { ShieldCheck } from "lucide-react"
 
 export default function Login() {
   const { signIn, signUp } = useAuth()
@@ -88,6 +89,19 @@ export default function Login() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Points at the standalone admin app (admin.html — a separate bundle, separate
+            login, see src/admin/) rather than a mode toggle on this form. Signing in
+            there still only succeeds if the account is on the backend's ADMIN_EMAILS
+            allowlist (auth.py:get_current_admin) — this link is discoverability only,
+            not a privilege grant. */}
+        <a
+          href="/admin.html"
+          className="flex items-center justify-center gap-1.5 text-caption text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          Sign in as admin
+        </a>
       </div>
     </div>
   )

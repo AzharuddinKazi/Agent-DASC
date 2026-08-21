@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { getTask, submitTask, clarifyTask, stopTask, pauseTask, resumeTask, submitReviewDecision } from "../../api"
 import { brand } from "../../config/brand"
 import { appendClarificationContext } from "../../lib/clarification"
+import { statusMeta } from "../../lib/taskStatus"
 import Sidebar from "./Sidebar"
 import ReportPanel from "./ReportPanel"
 import ClarifyingQuestionsModal from "./ClarifyingQuestionsModal"
@@ -185,15 +186,11 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
     : (isReport ? "Report Mode" : "Analysis In Progress")
 
   const modeLabel = isReport ? brand.modeLabels.report : brand.modeLabels.qa
-  const statusLabel = isFailed ? "Failed" : isStopped ? "Stopped" : isPaused ? "Paused"
-    : isAwaitingReview ? "Awaiting Review" : isComplete ? "Complete" : "Running"
-  const badgeColor = isFailed ? "bg-danger/10 text-danger border-danger/30"
-    : isStopped ? "bg-muted text-muted-foreground border-border"
-    : isPaused ? "bg-amber-50 text-amber-600 border-amber-200"
-    : isAwaitingReview ? "bg-indigo-50 text-indigo-600 border-indigo-200"
-    : isComplete ? "bg-success/10 text-success border-success/30"
-    : isReport ? "bg-purple-50 text-purple-600 border-purple-200"
-    : "bg-blue-50 text-blue-600 border-blue-200"
+  const meta = statusMeta(task?.status)
+  const statusLabel = meta.label
+  // "Running" gets one extra distinction STATUS_META doesn't carry (it's task_type-, not
+  // status-, driven): report mode shows purple while it runs, qa mode shows the shared blue.
+  const badgeColor = isRunning && isReport ? "bg-purple-50 text-purple-600 border-purple-200" : meta.badge
 
   return (
     <div className="h-screen flex bg-background overflow-hidden font-sans">

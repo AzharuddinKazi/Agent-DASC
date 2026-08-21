@@ -3,6 +3,8 @@ import { getTasks } from "../../api"
 import { brand } from "../../config/brand"
 import { useAuth } from "../../hooks/useAuth"
 import { useHealth } from "../../hooks/useHealth"
+import { useFeatureFlags } from "../../hooks/useFeatureFlags"
+import { statusMeta } from "../../lib/taskStatus"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -23,6 +25,10 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
   const [tasks, setTasks] = useState([])
   const { user, signOut } = useAuth()
   const { health, loading: healthLoading } = useHealth()
+  // Defaults true while the first poll is in flight so the link doesn't flash in/out on
+  // load — matches domain_packs' own backend default of "enabled until told otherwise".
+  const { flags: featureFlags } = useFeatureFlags()
+  const domainPacksEnabled = featureFlags.domain_packs !== false
   const email = user?.email || ""
   const initials = email.slice(0, 2).toUpperCase()
 
@@ -72,7 +78,7 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
           <LayoutGrid className="w-4 h-4 shrink-0" />
           Dashboard
         </button>
-        {onDomainPacks && (
+        {onDomainPacks && domainPacksEnabled && (
           <button
             onClick={onDomainPacks}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-body cursor-pointer transition-colors ${
@@ -121,11 +127,7 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-label text-muted-foreground tabular-nums">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    task.status === "completed" ? "bg-success" :
-                    task.status === "running"   ? "bg-info animate-pulse" :
-                    task.status === "failed"    ? "bg-danger" : "bg-neutral-400"
-                  }`} />
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusMeta(task.status).dot}`} />
                   <span>{elapsed(task.created_at)}</span>
                 </div>
               </button>

@@ -1,9 +1,17 @@
-"""Registry of browsable domain packs.
+"""Historical reference: the original hardcoded pack catalog, kept for its data — not
+imported by any code path.
 
-Metadata only (what a pack is, for browsing/activating) — the pack's actual prompt
-config (persona, classification, dimensions) lives in the domain_pack_configs table,
-switchable at runtime via the Domain Packs page. Adding a new pack means adding a new
-dict here plus a row in domain_pack_configs — no other backend code changes.
+Until 2026-08-20 this was the live source of truth for GET /api/v1/domain_packs (a pack's
+browsing metadata — name, description, tags, dataset generator, example question — lived
+here in code, while its prompt config lived in the domain_pack_configs table). That split
+meant wiping domain_pack_configs never actually emptied the Domain Packs page, since the
+list still came from this file regardless of DB state. See
+migrations/2026-08-20_domain_pack_catalog_columns.sql and main.py: GET /api/v1/domain_packs
+now reads everything from domain_pack_configs — the catalog is entirely DB-backed.
+
+Kept here as a template for seeding a new pack's row (INSERT INTO domain_pack_configs
+with these same field values) — the equivalent role fraud_aml_example.py already plays
+for a pack's persona/classification/dimensions.
 """
 
 DOMAIN_PACKS = [
@@ -34,17 +42,3 @@ DOMAIN_PACKS = [
         "example_question": "Which HCPCS codes show the highest improper-payment risk this quarter?",
     },
 ]
-
-
-def get_pack(pack_id: str):
-    return next((p for p in DOMAIN_PACKS if p["id"] == pack_id), None)
-
-
-def public_catalog():
-    return [
-        {
-            **{k: v for k, v in p.items() if k not in ("dataset_generator",)},
-            "has_dataset_generator": "dataset_generator" in p,
-        }
-        for p in DOMAIN_PACKS
-    ]

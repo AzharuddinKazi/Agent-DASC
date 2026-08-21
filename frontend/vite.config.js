@@ -14,4 +14,16 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
   },
+  build: {
+    rollupOptions: {
+      // Two separate bundles from two separate HTML entries — the admin panel
+      // (admin.html -> src/admin/) is a standalone app, not a view inside App.jsx's
+      // SPA. Same repo/build tool, same design system, but its own login and its own
+      // output chunk; it doesn't ship inside the main app's JS at all.
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        admin: path.resolve(__dirname, "admin.html"),
+      },
+    },
+  },
 })

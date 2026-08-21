@@ -15,8 +15,16 @@ built for (its values were used once, to seed the generic/fraud-aml rows in the 
 """
 
 from db import supabase
+from feature_flags import is_enabled as _feature_enabled
 
 _GENERIC_ID = "generic"
+
+_GENERIC_DEFAULTS = {
+    "pack_id":                None,
+    "report_persona":         "You are a senior data analyst writing a report for a business stakeholder.",
+    "report_classification":  None,
+    "subquestion_dimensions": [],
+}
 
 
 def get_active_pack_config(override_pack_id: str | None = None) -> dict:
@@ -34,7 +42,15 @@ def get_active_pack_config(override_pack_id: str | None = None) -> dict:
         semantics). Falls back to hardcoded generic defaults if the database is
         unreachable or the active row is somehow missing, so a config issue degrades to
         "no domain pack" rather than crashing the pipeline.
+
+    This is every agent's single entry point for domain-pack grounding (writer.py,
+    question_generator.py, query_clarity.py, agents/domain_knowledge.py all call it
+    instead of reading app_settings/domain_pack_configs themselves) — which makes it the
+    one place the "domain_packs" feature flag needs to be checked to disable domain-pack
+    grounding pipeline-wide, whatever any individual task or the global setting asks for.
     """
+    if not _feature_enabled("domain_packs"):
+        return {**_GENERIC_DEFAULTS, "subquestion_dimensions": []}
     try:
         if override_pack_id:
             pack_id = override_pack_id
@@ -54,9 +70,4 @@ def get_active_pack_config(override_pack_id: str | None = None) -> dict:
             "subquestion_dimensions":  cfg["subquestion_dimensions"] or [],
         }
     except Exception:
-        return {
-            "pack_id":                None,
-            "report_persona":         "You are a senior data analyst writing a report for a business stakeholder.",
-            "report_classification":  None,
-            "subquestion_dimensions": [],
-        }
+        return {**_GENERIC_DEFAULTS, "subquestion_dimensions": []}

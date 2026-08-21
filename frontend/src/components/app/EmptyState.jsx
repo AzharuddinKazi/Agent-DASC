@@ -3,6 +3,7 @@ import { submitTask, clarifyTask } from "../../api"
 import { brand } from "../../config/brand"
 import { appendClarificationContext } from "../../lib/clarification"
 import { useActiveDomainPack } from "../../hooks/useActiveDomainPack"
+import { useFeatureFlags } from "../../hooks/useFeatureFlags"
 import Sidebar from "./Sidebar"
 import ClarifyingQuestionsModal from "./ClarifyingQuestionsModal"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,12 @@ import { ArrowUp, Menu, Package } from "lucide-react"
 
 export default function EmptyState({ onSubmit, onDomainPacks }) {
   const { pack: activePack } = useActiveDomainPack()
+  // Same gate Sidebar.jsx uses for its nav link — this query-box status bar is a second,
+  // independent entry point into the Domain Packs page (the "activate one"/"manage here"
+  // links below), so it needs the same check or a non-admin can reach a page that's
+  // supposed to be fully hidden while the feature is off.
+  const { flags: featureFlags } = useFeatureFlags()
+  const domainPacksEnabled = featureFlags.domain_packs !== false
   const [query, setQuery]               = useState("")
   const [mode, setMode]                 = useState("qa")   // "qa" | "report"
   const [requireHumanReview, setRequireHumanReview] = useState(false)   // report mode only
@@ -177,7 +184,9 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
                 <Separator />
                 {error && <p className="text-caption text-destructive px-5 pb-2 pt-2">{error}</p>}
                 <div className="flex items-center justify-between px-4 py-3.5 bg-muted/30 rounded-b-lg">
-                  {activePack ? (
+                  {!domainPacksEnabled ? (
+                    <span />
+                  ) : activePack ? (
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-brand/30 bg-brand-tint text-brand-ink text-caption min-w-0">
                         <Package className="w-3 h-3 shrink-0" />

@@ -13,11 +13,12 @@ from agents.cancellation import (
     request_stop, request_pause, clear as clear_cancellation,
     record_review_decision, TaskCancelled, TaskPaused, AwaitingReview,
 )
-from auth import get_current_user
+from auth import get_current_user, get_current_admin, _admin_emails
 from db import supabase
 from observability import configure_logging, configure_error_tracking
 import domain_pack
-from domain_packs.catalog import get_pack, public_catalog
+import domain_pack_admin
+import feature_flags
 from llm_router import LLMRouter, get_speed_profile, VALID_SPEED_PROFILES
 from knowledge import ingest_document
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -180,6 +181,29 @@ class LLMSpeedProfileUpdate(BaseModel):
     profile: str   # "free" | "fast_paid"
 
 
+class DomainPackCreate(BaseModel):
+    pack_id: str
+    name: str
+    description: str = ""
+    tags: list[str] = []
+    dataset_generator: str | None = None
+    example_question: str | None = None
+    report_persona: str = ""
+    report_classification: str | None = None
+    subquestion_dimensions: list[str] = []
+
+
+class DomainPackUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    dataset_generator: str | None = None
+    example_question: str | None = None
+    report_persona: str | None = None
+    report_classification: str | None = None
+    subquestion_dimensions: list[str] | None = None
+
+
 async def run_graph(task_id: str, initial_state: dict | None):
     """`initial_state=None` is how a paused task resumes — see agents/cancellation.py's
     module docstring for why passing None with the same thread_id makes LangGraph's
@@ -299,21 +323,20 @@ async def clarify_task(task: TaskClarification, user=Depends(get_current_user)):
     return {"questions": questions}
 
 
-@app.post("/api/v1/submit_task", summary="Submit Task", tags=["Tasks"], status_code=202)
-async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
-    task_id   = str(uuid.uuid4())
-    task_type = task.task_type if task.task_type in ("qa", "report") else "qa"
-
-    domain_pack_id = task.domain_pack_id
-    if domain_pack_id and domain_pack_id != "generic" and not get_pack(domain_pack_id):
-        raise HTTPException(status_code=404, detail="Domain pack not found")
-
-    initial_state = {
+def _build_initial_state(
+    task_id: str, query: str, formatting_guidelines: str, task_type: str,
+    use_domain_knowledge: bool = True, domain_pack_id: str | None = None,
+    max_rounds: int = 3, max_report_rounds: int = 2, require_human_review: bool = False,
+) -> dict:
+    """The graph's starting state for a fresh run — shared by submit_task (a brand-new
+    task) and the admin rerun endpoint (replaying an existing task's query under a new
+    task_id), so the two don't drift out of sync on what fields the graph expects."""
+    return {
         "task_id":               task_id,
-        "query":                 task.query,
-        "formatting_guidelines": task.formatting_guidelines,
+        "query":                 query,
+        "formatting_guidelines": formatting_guidelines,
         "task_type":             task_type,
-        "use_domain_knowledge":  task.use_domain_knowledge,
+        "use_domain_knowledge":  use_domain_knowledge,
         "domain_pack_id":        domain_pack_id,
         # QA pipeline
         "data_descriptions":     {},
@@ -323,7 +346,7 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
         "exit_code":             0,
         "debug_attempts":        0,
         "current_round":         0,
-        "max_rounds":            task.max_rounds,   # paper §3 default: max 3 sequential planning steps
+        "max_rounds":            max_rounds,   # paper §3 default: max 3 sequential planning steps
         "verifier_verdict":      "",
         "router_decision":       "",
         "status":                "running",
@@ -336,10 +359,27 @@ async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, u
         "report_verdict":        "",
         "report_gaps":           [],
         "report_rounds":         0,
-        "max_report_rounds":     task.max_report_rounds,   # writer→evaluator passes before forcing finalizer
-        "require_human_review":  task.require_human_review,
+        "max_report_rounds":     max_report_rounds,   # writer→evaluator passes before forcing finalizer
+        "require_human_review":  require_human_review,
         "human_review_decision": "",
     }
+
+
+@app.post("/api/v1/submit_task", summary="Submit Task", tags=["Tasks"], status_code=202)
+async def submit_task(task: TaskSubmission, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+    task_id   = str(uuid.uuid4())
+    task_type = task.task_type if task.task_type in ("qa", "report") else "qa"
+
+    domain_pack_id = task.domain_pack_id
+    if domain_pack_id and domain_pack_id != "generic" and not _get_domain_pack_row(domain_pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+
+    initial_state = _build_initial_state(
+        task_id, task.query, task.formatting_guidelines, task_type,
+        use_domain_knowledge=task.use_domain_knowledge, domain_pack_id=domain_pack_id,
+        max_rounds=task.max_rounds, max_report_rounds=task.max_report_rounds,
+        require_human_review=task.require_human_review,
+    )
 
     supabase.table("tasks").insert({
         "task_id":               task_id,
@@ -487,7 +527,7 @@ async def get_llm_speed_profile():
 
 
 @app.post("/api/v1/llm_speed_profile", summary="Set LLM Speed Profile", tags=["Admin"])
-async def set_llm_speed_profile(body: LLMSpeedProfileUpdate, user=Depends(get_current_user)):
+async def set_llm_speed_profile(body: LLMSpeedProfileUpdate, user=Depends(get_current_admin)):
     if body.profile not in VALID_SPEED_PROFILES:
         raise HTTPException(status_code=422, detail=f"profile must be one of {sorted(VALID_SPEED_PROFILES)}")
     supabase.table("app_settings").upsert({"key": "llm_speed_profile", "value": body.profile}).execute()
@@ -498,21 +538,85 @@ async def set_llm_speed_profile(body: LLMSpeedProfileUpdate, user=Depends(get_cu
     return {"profile": body.profile, "models": LLMRouter.models_for_profile(body.profile)}
 
 
+class FeatureFlagUpdate(BaseModel):
+    enabled: bool
+
+
+@app.get("/api/v1/features", summary="List Feature Flags", tags=["Tasks"])
+async def list_features(user=Depends(get_current_user)):
+    """Every signed-in user needs to know which features are on to correctly hide/show
+    their own UI (Sidebar's Domain Packs link, EmptyState's domain-pack status bar, etc.)
+    — this is the read side any authenticated user can hit. Deliberately a *different*
+    route from /api/v1/admin/features below, not just a looser auth on the same one:
+    useAdminAccess.js's "am I an admin" probe depends on that route 403ing for a
+    non-admin, so loosening it here would silently let any signed-in user into the real
+    admin panel."""
+    return feature_flags.all_flags()
+
+
+@app.get("/api/v1/admin/features", summary="List Feature Flags (Admin)", tags=["Admin"])
+async def list_feature_flags(user=Depends(get_current_admin)):
+    return feature_flags.all_flags()
+
+
+@app.post("/api/v1/admin/features/{feature}", summary="Set Feature Flag", tags=["Admin"])
+async def set_feature_flag(feature: str, body: FeatureFlagUpdate, user=Depends(get_current_admin)):
+    """Gated by get_current_admin (ADMIN_EMAILS allowlist), not just get_current_user —
+    unlike llm_speed_profile/active_domain_pack (any authenticated user), this actually
+    changes what the whole deployment's users see. Flipping to `false` takes effect on
+    the very next request everywhere domain_pack.get_active_pack_config() is called —
+    see that function's docstring for why that one choke point is enough to disable
+    domain-pack grounding pipeline-wide."""
+    if feature not in feature_flags.KNOWN_FEATURES:
+        raise HTTPException(status_code=404, detail="Unknown feature")
+    feature_flags.set_enabled(feature, body.enabled)
+    logger.info(f"Feature '{feature}' set to {body.enabled} by user {user.id}")
+    return {"feature": feature, "enabled": body.enabled}
+
+
+def _require_domain_packs_enabled():
+    if not feature_flags.is_enabled("domain_packs"):
+        raise HTTPException(status_code=403, detail="Domain packs are currently disabled")
+
+
+def _get_domain_pack_row(pack_id: str) -> dict | None:
+    """Fetches a domain pack's full row (catalog metadata + prompt config, both live in
+    domain_pack_configs now) or None if it doesn't exist. "generic" is a special
+    always-valid id with no catalog row of its own (domain_pack.py falls back to
+    hardcoded defaults for it), so it never has a row to return here — callers that need
+    to treat "generic" as valid check for it explicitly before calling this."""
+    row = supabase.table("domain_pack_configs").select("*").eq("pack_id", pack_id).execute()
+    return row.data[0] if row.data else None
+
+
+def _serialize_pack_row(row: dict, active_id: str | None) -> dict:
+    return {
+        "id":                    row["pack_id"],
+        "name":                  row["name"],
+        "description":           row["description"],
+        "tags":                  row["tags"] or [],
+        "has_dataset_generator": bool(row["dataset_generator"]),
+        "example_question":      row["example_question"],
+        "active":                row["pack_id"] == active_id,
+    }
+
+
 @app.get("/api/v1/domain_packs", summary="List Domain Packs", tags=["Domain Packs"])
-async def list_domain_packs():
+async def list_domain_packs(_gate=Depends(_require_domain_packs_enabled)):
+    """Fully DB-backed — domain_pack_configs is the only source of truth for which packs
+    exist. "generic" is never listed here (it's the implicit no-pack-active default, not
+    a browsable pack), matching the old hardcoded catalog's behaviour."""
     active_id = domain_pack.get_active_pack_config()["pack_id"]
-    return [
-        {**pack, "active": pack["id"] == active_id}
-        for pack in public_catalog()
-    ]
+    rows = supabase.table("domain_pack_configs").select("*").neq("pack_id", "generic").order("name").execute()
+    return [_serialize_pack_row(row, active_id) for row in rows.data]
 
 
 @app.get("/api/v1/domain_packs/{pack_id}/config", summary="Get Domain Pack Config", tags=["Domain Packs"])
-async def get_domain_pack_config(pack_id: str):
+async def get_domain_pack_config(pack_id: str, _gate=Depends(_require_domain_packs_enabled)):
     """The prompt-config side of a pack (persona/classification/dimensions) — same
     non-sensitive data already exposed via the .zip download, surfaced here as JSON so
     the frontend's pack-detail modal can show what a pack actually customizes."""
-    if pack_id != "generic" and not get_pack(pack_id):
+    if pack_id != "generic" and not _get_domain_pack_row(pack_id):
         raise HTTPException(status_code=404, detail="Domain pack not found")
     cfg = domain_pack.get_active_pack_config(override_pack_id=pack_id)
     return {
@@ -523,15 +627,15 @@ async def get_domain_pack_config(pack_id: str):
 
 
 @app.post("/api/v1/domain_packs/{pack_id}/activate", summary="Activate Domain Pack", tags=["Domain Packs"])
-async def activate_domain_pack(pack_id: str, user=Depends(get_current_user)):
-    if pack_id != "generic" and not get_pack(pack_id):
+async def activate_domain_pack(pack_id: str, user=Depends(get_current_admin), _gate=Depends(_require_domain_packs_enabled)):
+    if pack_id != "generic" and not _get_domain_pack_row(pack_id):
         raise HTTPException(status_code=404, detail="Domain pack not found")
     supabase.table("app_settings").upsert({"key": "active_domain_pack", "value": pack_id}).execute()
     return {"active": pack_id}
 
 
 @app.post("/api/v1/domain_packs/deactivate", summary="Deactivate Domain Pack", tags=["Domain Packs"])
-async def deactivate_domain_pack(user=Depends(get_current_user)):
+async def deactivate_domain_pack(user=Depends(get_current_admin)):
     """Reverts the globally active pack to "generic". Equivalent to activating "generic"
     directly — exists as its own route so "turn domain knowledge off" doesn't require a
     caller to know the magic id "generic" is what that means."""
@@ -540,24 +644,19 @@ async def deactivate_domain_pack(user=Depends(get_current_user)):
 
 
 @app.get("/api/v1/domain_packs/{pack_id}/download", summary="Download Domain Pack", tags=["Domain Packs"])
-async def download_domain_pack(pack_id: str):
-    pack = get_pack(pack_id)
+async def download_domain_pack(pack_id: str, _gate=Depends(_require_domain_packs_enabled)):
+    pack = _get_domain_pack_row(pack_id)
     if not pack:
         raise HTTPException(status_code=404, detail="Domain pack not found")
-
-    config_row = supabase.table("domain_pack_configs").select("*").eq("pack_id", pack_id).execute()
-    if not config_row.data:
-        raise HTTPException(status_code=404, detail="Domain pack config not found")
-    cfg = config_row.data[0]
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("domain_pack_config.py", _DOMAIN_PACK_CONFIG_TEMPLATE.format(
             name=pack["name"],
             pack_id=pack_id,
-            report_persona=cfg["report_persona"],
-            report_classification=cfg["report_classification"],
-            subquestion_dimensions=cfg["subquestion_dimensions"] or [],
+            report_persona=pack["report_persona"],
+            report_classification=pack["report_classification"],
+            subquestion_dimensions=pack["subquestion_dimensions"] or [],
         ))
         if pack.get("dataset_generator"):
             zf.write(BACKEND_DIR / pack["dataset_generator"], "generate_synthetic_data.py")
@@ -572,8 +671,8 @@ async def download_domain_pack(pack_id: str):
 
 
 @app.post("/api/v1/domain_packs/{pack_id}/documents", summary="Upload Knowledge Document", tags=["Domain Packs"])
-async def upload_domain_pack_document(pack_id: str, file: UploadFile, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
-    if not get_pack(pack_id):
+async def upload_domain_pack_document(pack_id: str, file: UploadFile, background_tasks: BackgroundTasks, user=Depends(get_current_user), _gate=Depends(_require_domain_packs_enabled)):
+    if not _get_domain_pack_row(pack_id):
         raise HTTPException(status_code=404, detail="Domain pack not found")
 
     raw_bytes = await file.read()
@@ -592,8 +691,8 @@ async def upload_domain_pack_document(pack_id: str, file: UploadFile, background
 
 
 @app.get("/api/v1/domain_packs/{pack_id}/documents", summary="List Knowledge Documents", tags=["Domain Packs"])
-async def list_domain_pack_documents(pack_id: str, user=Depends(get_current_user)):
-    if not get_pack(pack_id):
+async def list_domain_pack_documents(pack_id: str, user=Depends(get_current_user), _gate=Depends(_require_domain_packs_enabled)):
+    if not _get_domain_pack_row(pack_id):
         raise HTTPException(status_code=404, detail="Domain pack not found")
     response = (
         supabase.table("domain_pack_documents")
@@ -606,6 +705,245 @@ async def list_domain_pack_documents(pack_id: str, user=Depends(get_current_user
 
 
 @app.delete("/api/v1/domain_packs/{pack_id}/documents/{doc_id}", summary="Delete Knowledge Document", tags=["Domain Packs"])
-async def delete_domain_pack_document(pack_id: str, doc_id: str, user=Depends(get_current_user)):
+async def delete_domain_pack_document(pack_id: str, doc_id: str, user=Depends(get_current_user), _gate=Depends(_require_domain_packs_enabled)):
     supabase.table("domain_pack_documents").delete().eq("id", doc_id).eq("pack_id", pack_id).execute()
     return {"status": "deleted"}
+
+
+# ---------------------------------------------------------------------------------------
+# Admin: domain pack catalog CRUD
+#
+# The routes above (list/get/activate/download/documents) are all any authenticated user
+# can reach — this is the create/update/delete surface that was previously "edit
+# domain_pack_configs by hand in Supabase," now exposed to the admin panel.
+# ---------------------------------------------------------------------------------------
+
+@app.get("/api/v1/admin/domain_packs", summary="List Domain Packs (Admin)", tags=["Admin"])
+async def admin_list_domain_packs(user=Depends(get_current_admin)):
+    """Same shape as the public list_domain_packs, deliberately *not* behind
+    _require_domain_packs_enabled — an admin managing the catalog (creating packs ahead of
+    turning the feature on, or cleaning it up while it's off) shouldn't be locked out of
+    their own CRUD panel by the same flag that hides the feature from everyone else."""
+    active_id = domain_pack.get_active_pack_config()["pack_id"]
+    rows = supabase.table("domain_pack_configs").select("*").neq("pack_id", "generic").order("name").execute()
+    return [_serialize_pack_row(row, active_id) for row in rows.data]
+
+
+@app.post("/api/v1/admin/domain_packs", summary="Create Domain Pack", tags=["Admin"])
+async def create_domain_pack(body: DomainPackCreate, user=Depends(get_current_admin)):
+    if body.pack_id == "generic":
+        raise HTTPException(status_code=422, detail='"generic" is reserved and has no catalog row')
+    if _get_domain_pack_row(body.pack_id):
+        raise HTTPException(status_code=409, detail="Domain pack already exists")
+    row = domain_pack_admin.create_pack(body.pack_id, body.model_dump(exclude={"pack_id"}))
+    logger.info(f"Domain pack '{body.pack_id}' created by user {user.id}")
+    return row
+
+
+@app.put("/api/v1/admin/domain_packs/{pack_id}", summary="Update Domain Pack", tags=["Admin"])
+async def update_domain_pack(pack_id: str, body: DomainPackUpdate, user=Depends(get_current_admin)):
+    if not _get_domain_pack_row(pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+    row = domain_pack_admin.update_pack(pack_id, body.model_dump(exclude_unset=True))
+    logger.info(f"Domain pack '{pack_id}' updated by user {user.id}")
+    return row
+
+
+@app.delete("/api/v1/admin/domain_packs/{pack_id}", summary="Delete Domain Pack", tags=["Admin"])
+async def delete_domain_pack(pack_id: str, user=Depends(get_current_admin)):
+    if pack_id == "generic":
+        raise HTTPException(status_code=422, detail='"generic" cannot be deleted')
+    if not _get_domain_pack_row(pack_id):
+        raise HTTPException(status_code=404, detail="Domain pack not found")
+    domain_pack_admin.delete_pack(pack_id)
+    logger.info(f"Domain pack '{pack_id}' deleted by user {user.id}")
+    return {"status": "deleted"}
+
+
+# ---------------------------------------------------------------------------------------
+# Admin: task/job management
+#
+# Same table, same status vocabulary, same stop mechanism as the user-facing task routes
+# above (see agents/cancellation.py) — these differ only in not filtering by user_id, so
+# an admin can see and act on every user's tasks, plus rerun/delete which no user-facing
+# route offers at all.
+# ---------------------------------------------------------------------------------------
+
+@app.get("/api/v1/admin/tasks", summary="List All Tasks", tags=["Admin"])
+async def admin_list_tasks(
+    status: str | None = None, user_id: str | None = None,
+    limit: int = 50, offset: int = 0, admin=Depends(get_current_admin),
+):
+    query = supabase.table("tasks").select("*").order("created_at", desc=True)
+    if status:
+        query = query.eq("status", status)
+    if user_id:
+        query = query.eq("user_id", user_id)
+    response = query.range(offset, offset + limit - 1).execute()
+    return response.data
+
+
+@app.get("/api/v1/admin/tasks/{task_id}", summary="Get Any Task", tags=["Admin"])
+async def admin_get_task(task_id: str, admin=Depends(get_current_admin)):
+    import json as _json
+    response = supabase.table("tasks").select("*").eq("task_id", task_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    row = response.data[0]
+    if isinstance(row.get("sub_results"), str):
+        try:
+            row["sub_results"] = _json.loads(row["sub_results"])
+        except Exception:
+            row["sub_results"] = {}
+    if isinstance(row.get("logs"), str):
+        try:
+            row["logs"] = _json.loads(row["logs"])
+        except Exception:
+            row["logs"] = []
+    return row
+
+
+@app.post("/api/v1/admin/tasks/{task_id}/stop", summary="Force Stop Any Task", tags=["Admin"])
+async def admin_stop_task(task_id: str, admin=Depends(get_current_admin)):
+    """Same cooperative-interrupt mechanism as the user-facing stop_task (see its
+    docstring above) minus the user_id ownership check — an admin can stop any task."""
+    response = supabase.table("tasks").select("status").eq("task_id", task_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    status = response.data[0]["status"]
+
+    if status == "awaiting_review":
+        clear_cancellation(task_id)
+        supabase.table("tasks").update({
+            "status": "stopped", "final_result": "Stopped by admin"
+        }).eq("task_id", task_id).execute()
+        log_event(task_id, "system", "Stopped by admin while awaiting review", "info")
+        return {"task_id": task_id, "status": "stopped"}
+
+    if status != "running":
+        raise HTTPException(status_code=409, detail="Task is not running")
+
+    request_stop(task_id)
+    log_event(task_id, "system", "Stop requested by admin — halting at the next safe point", "info")
+    return {"task_id": task_id, "status": "stopping"}
+
+
+@app.post("/api/v1/admin/tasks/{task_id}/rerun", summary="Rerun Task", tags=["Admin"], status_code=202)
+async def admin_rerun_task(task_id: str, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)):
+    """Resubmits a task's query as a brand-new run under a fresh task_id — there's no
+    "replay the exact original run" beyond that (advanced options like max_rounds or a
+    pinned domain pack aren't stored on the row), so this reruns with default settings,
+    same as a fresh submit_task with only query/formatting_guidelines/task_type carried
+    over. Kept as the original task's owner, not the admin, so it still shows up in that
+    user's own task list."""
+    response = supabase.table("tasks").select("*").eq("task_id", task_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    original = response.data[0]
+
+    new_task_id = str(uuid.uuid4())
+    task_type = original.get("task_type") if original.get("task_type") in ("qa", "report") else "qa"
+    query = original["query"]
+    formatting_guidelines = original.get("formatting_guidelines", "")
+
+    initial_state = _build_initial_state(new_task_id, query, formatting_guidelines, task_type)
+
+    supabase.table("tasks").insert({
+        "task_id":               new_task_id,
+        "query":                 query,
+        "formatting_guidelines": formatting_guidelines,
+        "task_type":             task_type,
+        "status":                "running",
+        "user_id":               original.get("user_id"),
+    }).execute()
+
+    background_tasks.add_task(run_graph, new_task_id, initial_state)
+    logger.info(f"Task {task_id} rerun as {new_task_id} by admin {admin.id}")
+    return {"task_id": new_task_id, "status": "running", "rerun_of": task_id}
+
+
+@app.delete("/api/v1/admin/tasks/{task_id}", summary="Delete Task", tags=["Admin"])
+async def admin_delete_task(task_id: str, admin=Depends(get_current_admin)):
+    response = supabase.table("tasks").select("task_id").eq("task_id", task_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    supabase.table("tasks").delete().eq("task_id", task_id).execute()
+    logger.info(f"Task {task_id} deleted by admin {admin.id}")
+    return {"status": "deleted"}
+
+
+# ---------------------------------------------------------------------------------------
+# Admin: user management
+#
+# Backed by the Supabase Auth Admin API (supabase.auth.admin.*), reachable only because
+# db.py's `supabase` client is built with SUPABASE_SERVICE_KEY, not the anon key auth.py
+# uses for token verification. There's no "disable" primitive in Supabase Auth — ban/unban
+# (a long/zero ban_duration) is the closest equivalent and is what these wrap.
+# ---------------------------------------------------------------------------------------
+
+@app.get("/api/v1/admin/users", summary="List Users", tags=["Admin"])
+async def admin_list_users(admin=Depends(get_current_admin)):
+    users = supabase.auth.admin.list_users()
+    return [
+        {
+            "id":               u.id,
+            "email":            u.email,
+            "created_at":       u.created_at,
+            "last_sign_in_at":  u.last_sign_in_at,
+            "banned_until":     getattr(u, "banned_until", None),
+        }
+        for u in users
+    ]
+
+
+@app.post("/api/v1/admin/users/{user_id}/ban", summary="Ban User", tags=["Admin"])
+async def admin_ban_user(user_id: str, admin=Depends(get_current_admin)):
+    # gotrue has no permanent-ban duration — 100000 hours (~11 years) is the same
+    # effectively-permanent convention Supabase's own dashboard uses.
+    supabase.auth.admin.update_user_by_id(user_id, {"ban_duration": "876000h"})
+    logger.info(f"User {user_id} banned by admin {admin.id}")
+    return {"user_id": user_id, "banned": True}
+
+
+@app.post("/api/v1/admin/users/{user_id}/unban", summary="Unban User", tags=["Admin"])
+async def admin_unban_user(user_id: str, admin=Depends(get_current_admin)):
+    supabase.auth.admin.update_user_by_id(user_id, {"ban_duration": "none"})
+    logger.info(f"User {user_id} unbanned by admin {admin.id}")
+    return {"user_id": user_id, "banned": False}
+
+
+@app.get("/api/v1/admin/admins", summary="List Admin Allowlist", tags=["Admin"])
+async def admin_list_admins(admin=Depends(get_current_admin)):
+    """Read-only — ADMIN_EMAILS is an env var (see auth.py's module docstring for why),
+    not a DB table, so there's nothing for an admin panel to write here. Surfaced so the
+    Users panel can at least show who's currently an admin."""
+    return {
+        "emails": sorted(_admin_emails()),
+        "note": "Read-only — set via the ADMIN_EMAILS environment variable and restart the backend to change this list.",
+    }
+
+
+# ---------------------------------------------------------------------------------------
+# Admin: system overview
+# ---------------------------------------------------------------------------------------
+
+@app.get("/api/v1/admin/system", summary="System Overview", tags=["Admin"])
+async def admin_system_overview(admin=Depends(get_current_admin)):
+    """A superset of /health for the admin panel — same three checks (reusing
+    _timed_check/_ping_database/_ping_docker/_ping_llm so the two never drift apart) plus
+    the runtime settings /health doesn't report. /health itself stays unauthenticated and
+    unchanged since infra probes hit it, not admins."""
+    database, docker, llm = await asyncio.gather(
+        _timed_check(_ping_database),
+        _timed_check(_ping_docker),
+        _timed_check(_ping_llm),
+    )
+    checks = {"database": database, "docker": docker, "llm": llm}
+    active = MAX_CONCURRENT_PIPELINES - _pipeline_semaphore._value
+    return {
+        "status": "ok" if all(c["status"] == "ok" for c in checks.values()) else "degraded",
+        "checks": checks,
+        "concurrency": {"active": active, "max": MAX_CONCURRENT_PIPELINES},
+        "llm_speed_profile": get_speed_profile(),
+        "feature_flags": feature_flags.all_flags(),
+    }
