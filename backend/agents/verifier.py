@@ -1,6 +1,7 @@
 from agents.state import TaskState, current_objective
 from agents.domain_knowledge import retrieve_grounded_knowledge
 from agents.logger import log_event
+from agents.prompt_store import get_prompt
 from llm_router import LLMRouter
 from db import supabase
 import logging
@@ -74,7 +75,7 @@ def verifier(state: TaskState) -> dict:
     # a miscoded/un-recoded column being used. See domain_knowledge.py.
     domain_knowledge = retrieve_grounded_knowledge(f"{current_step}\n{current_script}", state)
 
-    prompt = VERIFIER_PROMPT.format(
+    prompt = get_prompt("verifier", VERIFIER_PROMPT).format(
         question=question,
         summaries=summaries_text,
         domain_knowledge=domain_knowledge,

@@ -6,23 +6,21 @@ import { getFeatureFlags } from "../api"
 // distinction with the one authenticated call every admin screen needs anyway, rather
 // than adding a dedicated "am I an admin" endpoint just to ask the same question twice.
 export function useAdminAccess() {
-  const [status, setStatus] = useState("checking")   // "checking" | "authorized" | "forbidden" | "error"
+  // "checking" | "authorized" | "forbidden" | "signed_out" | "error"
+  const [status, setStatus] = useState("checking")
   const [flags, setFlags]   = useState({})
 
-  useEffect(() => {
-    let cancelled = false
+  const recheck = () => {
+    setStatus("checking")
     getFeatureFlags()
-      .then(r => {
-        if (cancelled) return
-        setFlags(r.data)
-        setStatus("authorized")
-      })
+      .then(r => { setFlags(r.data); setStatus("authorized") })
       .catch(err => {
-        if (cancelled) return
-        setStatus(err?.response?.status === 403 ? "forbidden" : "error")
+        const code = err?.response?.status
+        setStatus(code === 403 ? "forbidden" : code === 401 ? "signed_out" : "error")
       })
-    return () => { cancelled = true }
-  }, [])
+  }
 
-  return { status, flags }
+  useEffect(() => { recheck() }, [])
+
+  return { status, flags, recheck }
 }

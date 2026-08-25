@@ -163,6 +163,102 @@ def test_finalizer_records_nonzero_debug_attempts_after_a_retry():
     assert parsed["debug_attempts"] == 1
 
 
+def test_finalizer_retries_when_script_exits_clean_but_prints_nothing():
+    """Regression test for a real bug hit live 2026-08-23 (see TASKS.md): exit_code 0
+    with empty stdout was previously reported as a "completed" task with an empty
+    final_result and no indication anything went wrong."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.side_effect = [
+            make_mock_llm_result("df.describe()"),        # no print — real script, no error
+            make_mock_llm_result("print('fixed')"),        # debugger's fix
+        ]
+        mock_execute.side_effect = [
+            ("", "", 0),          # clean exit, nothing printed
+            ("fixed\n", "", 0),
+        ]
+
+        result = finalizer(base_state())
+
+    assert result["status"] == "completed"
+    assert result["final_result"] == "fixed\n"
+    assert mock_execute.call_count == 2
+    assert mock_router.complete.call_args_list[1].kwargs["agent"] == "debugger"
+    # The debugger prompt needs something more useful than an empty stderr string.
+    debug_prompt_kwargs = mock_router.complete.call_args_list[1].kwargs
+    assert "no output" in debug_prompt_kwargs["prompt"] or "print" in debug_prompt_kwargs["prompt"].lower()
+
+
+def test_finalizer_marks_status_failed_when_still_blank_after_all_retries():
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_router.complete.return_value = make_mock_llm_result("df.describe()")
+        mock_execute.side_effect = [("", "", 0)] * 3   # clean exit, blank stdout, every time
+
+        result = finalizer(base_state())
+
+    assert result["status"] == "failed"
+    assert "Execution failed" in result["final_result"]
+    assert result["final_result"] != ""
+    assert mock_execute.call_count == 3
+
+
+def test_finalizer_repairs_python_repr_output_into_json():
+    """Regression test for a real bug hit live: the prompt asks the generated script to
+    print JSON, but a model sometimes does the more natural-feeling `print(result_dict)`
+    instead — a Python repr (single-quoted keys) that json.loads outright rejects. Before
+    this fix the frontend fell back to raw text ("Could not parse structured output")
+    instead of the formatted card/chart even though the underlying answer was correct."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        python_repr = "{'summary': 'Abu Dhabi has the most.', 'rows': [['Abu Dhabi', 273]]}"
+        mock_router.complete.return_value = make_mock_llm_result(f"print({python_repr})")
+        mock_execute.return_value = (python_repr, "", 0)
+
+        result = finalizer(base_state())
+
+    parsed = json.loads(result["final_result"])
+    assert parsed["summary"] == "Abu Dhabi has the most."
+    assert parsed["rows"] == [["Abu Dhabi", 273]]
+    assert parsed["debug_attempts"] == 0
+
+
+def test_finalizer_extracts_trailing_object_when_script_prints_debug_output_first():
+    """Regression test for a real bug hit live, one step past the plain-Python-repr case
+    above: the model's script left in its exploratory prints (column listing, df.head(),
+    a row-count summary) with the actual answer dict only as the very last print. Neither
+    json.loads nor _repair_python_repr can parse "some text\\n{...}" as a single literal —
+    this must find and parse just the trailing object."""
+    with patch("agents.finalizer.supabase") as mock_supabase, \
+         patch("agents.finalizer.log_event"), \
+         patch("agents.finalizer.router") as mock_router, \
+         patch("agents.finalizer.execute_script") as mock_execute:
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        noisy_output = (
+            "Columns in transactions_data.csv:\n"
+            "['transaction_id', 'lfi_id', 'amount_aed']\n\n"
+            "[5 rows x 17 columns]\n"
+            "{'summary': 'LFI_015 leads.', 'rows': [['LFI_015', 29277108.18]]}"
+        )
+        mock_router.complete.return_value = make_mock_llm_result(f"print({noisy_output!r})")
+        mock_execute.return_value = (noisy_output, "", 0)
+
+        result = finalizer(base_state())
+
+    parsed = json.loads(result["final_result"])
+    assert parsed["summary"] == "LFI_015 leads."
+    assert parsed["rows"] == [["LFI_015", 29277108.18]]
+
+
 def test_finalizer_leaves_non_json_output_untouched():
     """No dict to attach provenance to — must not crash or mangle plain-text output."""
     with patch("agents.finalizer.supabase") as mock_supabase, \

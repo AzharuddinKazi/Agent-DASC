@@ -2,6 +2,7 @@ import logging
 from db import supabase
 from agents.state import TaskState, current_objective
 from agents.logger import log_event
+from agents.prompt_store import get_prompt
 from llm_router import LLMRouter
 
 router = LLMRouter()
@@ -52,7 +53,7 @@ def router_agent(state: TaskState) -> dict:
 
     current_step = cumulative_plan[-1] if cumulative_plan else ""
 
-    prompt = ROUTER_PROMPT.format(
+    prompt = get_prompt("router", ROUTER_PROMPT).format(
         question=question,
         summaries=summaries_text,
         plan=plan_text,

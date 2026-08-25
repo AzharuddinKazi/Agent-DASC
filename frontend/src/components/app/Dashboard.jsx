@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Menu, Pause, Play, Square, RotateCcw } from "lucide-react"
 
-export default function Dashboard({ query, taskId, taskType: initialTaskType, requireHumanReview = false, onNew, onDomainPacks }) {
+export default function Dashboard({ query, taskId, taskType: initialTaskType, requireHumanReview = false, onNew, onDomainPacks, onData }) {
   const [task, setTask]                 = useState(null)
   const [activeQuery, setActiveQuery]   = useState(query)
   const [activeTaskId, setActiveTaskId] = useState(taskId)
@@ -197,7 +197,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
 
       {/* Permanent sidebar (desktop) */}
       <div className="hidden md:flex w-64 shrink-0 border-r border-border flex-col bg-sidebar">
-        <Sidebar onNew={onNew} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={onDomainPacks} />
+        <Sidebar onNew={onNew} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={onDomainPacks} onData={onData} />
       </div>
 
       {/* Main column */}
@@ -214,7 +214,7 @@ export default function Dashboard({ query, taskId, taskType: initialTaskType, re
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} />
+                <Sidebar onNew={() => { onNew(); setDrawerOpen(false) }} currentTaskId={activeTaskId} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} onData={() => { onData(); setDrawerOpen(false) }} />
               </SheetContent>
             </Sheet>
 

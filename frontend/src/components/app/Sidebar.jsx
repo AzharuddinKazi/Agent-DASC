@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { MessageSquare, LayoutGrid, Package, LogOut } from "lucide-react"
+import { MessageSquare, Package, Database, ShieldCheck, LogOut } from "lucide-react"
 
 const CHECK_LABELS = { database: "Database", docker: "Sandbox", llm: "Model" }
 
@@ -21,7 +21,7 @@ function elapsed(created_at) {
   return `${Math.floor(s / 3600)}h ago`
 }
 
-export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks, activeView }) {
+export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks, onData, activeView }) {
   const [tasks, setTasks] = useState([])
   const { user, signOut } = useAuth()
   const { health, loading: healthLoading } = useHealth()
@@ -29,7 +29,13 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
   // load — matches domain_packs' own backend default of "enabled until told otherwise".
   const { flags: featureFlags } = useFeatureFlags()
   const domainPacksEnabled = featureFlags.domain_packs !== false
-  const email = user?.email || ""
+  // demo_mode defaults to *off* (unlike domain_packs above) — it's an operator-toggled
+  // showcase mode, not a normally-on feature, so an in-flight first poll should hide this
+  // link rather than flash it on for everyone by default.
+  const demoModeEnabled = featureFlags.demo_mode === true
+  // Guests (name-only login, no Google email — see backend/main.py's auth_guest) have no
+  // email; fall back to their name so the sidebar isn't left blank for them.
+  const email = user?.email || user?.name || ""
   const initials = email.slice(0, 2).toUpperCase()
 
   useEffect(() => {
@@ -70,14 +76,6 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
           <MessageSquare className="w-4 h-4 shrink-0" />
           New Analysis
         </button>
-        <button
-          disabled
-          className="flex items-center gap-2.5 px-3 py-2 rounded-md text-muted-foreground/60 font-medium text-body cursor-not-allowed"
-          title="Coming soon"
-        >
-          <LayoutGrid className="w-4 h-4 shrink-0" />
-          Dashboard
-        </button>
         {onDomainPacks && domainPacksEnabled && (
           <button
             onClick={onDomainPacks}
@@ -90,6 +88,34 @@ export default function Sidebar({ onNew, currentTaskId, onSelect, onDomainPacks,
             <Package className="w-4 h-4 shrink-0" />
             Domain Packs
           </button>
+        )}
+        {onData && demoModeEnabled && (
+          <button
+            onClick={onData}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-body cursor-pointer transition-colors ${
+              activeView === "data"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+            }`}
+          >
+            <Database className="w-4 h-4 shrink-0" />
+            Available Data
+          </button>
+        )}
+        {user?.is_admin && (
+          // admin.html is a separate app entirely (its own build entry, own login/session
+          // check — see AdminApp.jsx), not a client-side route of this SPA, so this is a
+          // plain link rather than one of the onX callbacks the buttons above use. Opens
+          // in a new tab so switching to it doesn't lose whatever's in progress here.
+          <a
+            href="/admin.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-md font-medium text-body cursor-pointer transition-colors text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            Admin Panel
+          </a>
         )}
       </div>
 

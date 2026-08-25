@@ -16,6 +16,7 @@ const AGENT_LABELS = {
   gap_question_generator: "Gap Question Generator",
   report_finalizer:       "Report Finalizer",
   finalizer:              "Finalizer",
+  system:                 "Queued",
 }
 
 function agentLabel(entry) {

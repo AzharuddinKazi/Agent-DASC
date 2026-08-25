@@ -52,8 +52,11 @@ def test_analyze_file_returns_failure_message_on_nonzero_exit(tmp_path):
 
 def test_analyze_file_uses_row_limit_for_large_files(tmp_path):
     filepath = tmp_path / "big.csv"
-    filepath.write_bytes(b"0" * (60 * 1024 * 1024))  # 60MB, over the 50MB threshold
-    with patch("agents.analyzer.router") as mock_router, \
+    filepath.write_text("a,b\n1,2\n")
+    # Mocked rather than an actual 300MB+ file on disk — analyze_file only reads the
+    # size via os.path.getsize, never the file's own content, for this decision.
+    with patch("agents.analyzer.os.path.getsize", return_value=301 * 1024 * 1024), \
+         patch("agents.analyzer.router") as mock_router, \
          patch("agents.analyzer.subprocess.run") as mock_run:
         mock_router.complete.return_value = make_mock_llm_result("print('ok')")
         mock_run.return_value = make_completed_process(stdout="ok", returncode=0)
@@ -63,6 +66,49 @@ def test_analyze_file_uses_row_limit_for_large_files(tmp_path):
         prompt = mock_router.complete.call_args.kwargs["prompt"]
 
     assert "nrows=10000" in prompt
+
+
+def test_analyze_file_uses_no_row_limit_under_the_threshold(tmp_path):
+    filepath = tmp_path / "medium.csv"
+    filepath.write_text("a,b\n1,2\n")
+    # 60MB — well under the 300MB threshold (raised 2026-08-23 alongside
+    # SANDBOX_MEMORY_LIMIT, see executor.py); used to trigger the row cap at the old
+    # 50MB threshold, shouldn't anymore.
+    with patch("agents.analyzer.os.path.getsize", return_value=60 * 1024 * 1024), \
+         patch("agents.analyzer.router") as mock_router, \
+         patch("agents.analyzer.subprocess.run") as mock_run:
+        mock_router.complete.return_value = make_mock_llm_result("print('ok')")
+        mock_run.return_value = make_completed_process(stdout="ok", returncode=0)
+
+        analyze_file("medium.csv", str(filepath), "task-123")
+
+        prompt = mock_router.complete.call_args.kwargs["prompt"]
+
+    assert "nrows=10000" not in prompt
+    assert "nrows=all" in prompt
+
+
+def test_analyze_file_makes_temp_script_world_readable(tmp_path):
+    """Same real bug as agents/executor.py's execute_script (see that test's docstring):
+    NamedTemporaryFile always creates mode 0600, which the sandbox's non-root UID 1000
+    can't read through the :ro mount when this process runs containerized as root."""
+    filepath = tmp_path / "test.csv"
+    filepath.write_text("a,b\n1,2\n")
+    with patch("agents.analyzer.router") as mock_router, \
+         patch("agents.analyzer.subprocess.run") as mock_run, \
+         patch("agents.analyzer.os.unlink") as mock_unlink:
+        mock_router.complete.return_value = make_mock_llm_result("print('ok')")
+        mock_run.return_value = make_completed_process(stdout="ok", returncode=0)
+
+        analyze_file("test.csv", str(filepath), "task-123")
+
+        args = mock_run.call_args[0][0]
+        script_mount = args[args.index("-v") + 3]  # 2nd -v: "<path>:/workspace/scripts/analyze.py:ro"
+        script_path = script_mount.split(":")[0]
+        mode = os.stat(script_path).st_mode & 0o777
+
+    os.unlink(script_path)
+    assert mode == 0o644, f"expected 0644, got {oct(mode)}"
 
 
 def test_analyze_file_cleans_up_temp_file_even_on_exception(tmp_path):

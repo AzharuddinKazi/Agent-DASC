@@ -5,6 +5,10 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <!-- Google Identity Services — renders the Sign In With Google button (see
+         src/components/app/Login.jsx). Loaded here, not as an npm package: this is the
+         officially recommended integration, no OAuth redirect dance needed. -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div id="root"></div>

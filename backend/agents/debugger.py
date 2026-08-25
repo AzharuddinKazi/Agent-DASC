@@ -1,6 +1,7 @@
 from agents.state import TaskState
 from agents.code_fences import strip_code_fences
 from agents.logger import log_event
+from agents.prompt_store import get_prompt
 from llm_router import LLMRouter
 from db import supabase
 import logging
@@ -31,8 +32,8 @@ Fix the error in the code above.
   by building the inner strings in a separate variable/list first, then interpolating
   that plain variable into the outer f-string instead of nesting.
 - No error output at all (empty error message, non-zero exit): the process was almost
-  certainly killed for exceeding the sandbox's 2GB memory limit — always add
-  nrows=10000 to any pd.read_csv call, especially before an operation that multiplies
+  certainly killed for exceeding the sandbox's memory limit — add nrows=100000 to any
+  pd.read_csv call reading a large file, especially before an operation that multiplies
   row count (pd.melt, wide-to-long reshapes, merges/joins).
 
 Provide the complete fixed Python script.
@@ -58,7 +59,7 @@ def debugger(state: TaskState) -> dict:
 
     filenames = "\n".join(summaries.keys())
 
-    prompt = DEBUGGER_PROMPT.format(
+    prompt = get_prompt("debugger", DEBUGGER_PROMPT).format(
         filenames=filenames,
         code=current_script,
         bug=error

@@ -2,7 +2,7 @@ import os
 import subprocess
 import pytest
 from unittest.mock import patch, MagicMock
-from agents.executor import execute_script, executor
+from agents.executor import execute_script, executor, SANDBOX_MEMORY_LIMIT
 from agents.cancellation import TaskCancelled, TaskPaused
 
 
@@ -38,12 +38,37 @@ def test_execute_script_invokes_docker_with_expected_flags():
 
     assert args[0:2] == ["docker", "run"]
     assert "--network=none" in args
-    assert "--memory=2g" in args
+    assert f"--memory={SANDBOX_MEMORY_LIMIT}" in args
     assert "/repo/data:/workspace/data:ro" in "".join(args)
     assert "dsstar-sandbox:latest" in args
     assert "--name" in args
     container_name = args[args.index("--name") + 1]
     assert container_name.startswith("dsstar-exec-")
+
+
+def test_execute_script_makes_temp_script_world_readable():
+    """Regression test for a real bug hit live: NamedTemporaryFile always creates the file
+    mode 0600, owned by whatever UID this process runs as. When the backend runs
+    containerized (root, no USER in backend/Dockerfile) but dsstar-sandbox runs as UID 1000
+    (`app`, sandbox/Dockerfile's USER app), the sibling container couldn't read its own
+    read-only-mounted script at all — "python3: can't open file ...: [Errno 13] Permission
+    denied", exit code 2, on every single script execution. Checks the real file's mode on
+    disk (not mocked) since this is exactly the kind of bug a mocked os.chmod call would
+    hide. execute_script unlinks the file in its `finally` block, so os.unlink is patched
+    here to inspect the mode before that happens, then unlink for real once done.
+    """
+    with patch("agents.executor.subprocess.Popen") as mock_popen, \
+         patch("agents.executor.os.unlink") as mock_unlink:
+        mock_popen.return_value = make_mock_proc()
+        execute_script("print(1)")
+
+        args = mock_popen.call_args[0][0]
+        script_mount = args[args.index("-v") + 3]  # 2nd -v: "<path>:/workspace/scripts/step.py:ro"
+        script_path = script_mount.split(":")[0]
+        mode = os.stat(script_path).st_mode & 0o777
+
+    os.unlink(script_path)
+    assert mode == 0o644, f"expected 0644, got {oct(mode)}"
 
 
 def test_execute_script_cleans_up_temp_file_even_on_exception():

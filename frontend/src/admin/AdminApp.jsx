@@ -1,21 +1,30 @@
 import { useState } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { useAdminAccess } from "./useAdminAccess"
-import AdminLogin from "./AdminLogin"
+import Login from "../components/app/Login"
 import FeatureFlagsPanel from "./FeatureFlagsPanel"
 import AdminTasksPanel from "./AdminTasksPanel"
 import AdminDomainPacksPanel from "./AdminDomainPacksPanel"
 import AdminUsersPanel from "./AdminUsersPanel"
 import AdminSystemPanel from "./AdminSystemPanel"
+import AdminPromptsPanel from "./AdminPromptsPanel"
+import AdminModelsPanel from "./AdminModelsPanel"
+import AdminDataPanel from "./AdminDataPanel"
 import { Button } from "@/components/ui/button"
-import { ShieldCheck, LogOut, ShieldAlert, ToggleLeft, ListChecks, Package, Users, Activity } from "lucide-react"
+import {
+  ShieldCheck, LogOut, ShieldAlert, ToggleLeft, ListChecks, Package, Users, Activity,
+  MessageSquareCode, Cpu, Database,
+} from "lucide-react"
 
 const SECTIONS = [
-  { id: "flags",  label: "Flags",        icon: ToggleLeft,  Component: FeatureFlagsPanel },
-  { id: "tasks",  label: "Tasks",        icon: ListChecks,  Component: AdminTasksPanel },
-  { id: "packs",  label: "Domain Packs", icon: Package,     Component: AdminDomainPacksPanel },
-  { id: "users",  label: "Users",        icon: Users,       Component: AdminUsersPanel },
-  { id: "system", label: "System",       icon: Activity,    Component: AdminSystemPanel },
+  { id: "flags",   label: "Flags",        icon: ToggleLeft,       Component: FeatureFlagsPanel },
+  { id: "tasks",   label: "Tasks",        icon: ListChecks,       Component: AdminTasksPanel },
+  { id: "packs",   label: "Domain Packs", icon: Package,          Component: AdminDomainPacksPanel },
+  { id: "prompts", label: "Prompts",      icon: MessageSquareCode, Component: AdminPromptsPanel },
+  { id: "models",  label: "Models",       icon: Cpu,              Component: AdminModelsPanel },
+  { id: "data",    label: "Data",         icon: Database,         Component: AdminDataPanel },
+  { id: "users",   label: "Users",        icon: Users,            Component: AdminUsersPanel },
+  { id: "system",  label: "System",       icon: Activity,         Component: AdminSystemPanel },
 ]
 
 function Spinner() {
@@ -67,17 +76,19 @@ function Shell({ email, onSignOut, section, onSectionChange, children }) {
 }
 
 // Standalone entry point (admin.html / src/admin/main.jsx) — deliberately not a view
-// inside App.jsx's SPA. It shares the design system and the Supabase auth backend, but
+// inside App.jsx's SPA. It shares the design system and the real Google-login backend, but
 // has its own login screen, its own layout, and isn't reachable through the main app's
 // navigation. Being logged in here still isn't the same as being authorized here — see
 // useAdminAccess (the server-side ADMIN_EMAILS allowlist decides that, not this file).
 export default function AdminApp() {
-  const { user, loading, signOut } = useAuth()
-  const { status, flags } = useAdminAccess()
+  const { user, loading, refresh, signOut } = useAuth()
+  const { status, flags, recheck } = useAdminAccess()
   const [section, setSection] = useState("flags")
 
   if (loading) return <Spinner />
-  if (!user) return <AdminLogin />
+  if (!user || status === "signed_out") {
+    return <Login onSignedIn={() => { refresh(); recheck() }} />
+  }
 
   if (status === "checking") return <Spinner />
 

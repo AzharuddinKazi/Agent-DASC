@@ -1,0 +1,28 @@
+-- Switches domain_pack_chunks.embedding from vector(2048) (OpenRouter's
+-- nvidia/nemotron-3-embed-1b:free) to vector(768) (local Ollama nomic-embed-text),
+-- as part of moving the whole LLM/embedding stack off OpenRouter onto a fully local
+-- Ollama server — see backend/llm_router.py and knowledge.py for the corresponding
+-- code-side switch (OPENROUTER_BASE_URL -> http://localhost:11434/v1,
+-- OPENROUTER_EMBED_MODEL -> nomic-embed-text).
+--
+-- match_domain_pack_chunks/match_domain_pack_chunks_fts take an untyped `vector`
+-- parameter (no fixed dimension in the function signature), so neither needs a
+-- change — only the column's stored dimension.
+--
+-- Safe as a plain ALTER only because domain_pack_chunks was empty (0 rows) at
+-- migration time (verified via `select count(*)`) — an ALTER COLUMN ... TYPE on a
+-- vector column with existing rows of the old dimension would fail (pgvector
+-- enforces the declared dimension), and would otherwise need every existing chunk
+-- re-embedded with the new model first. If this ever needs to run against a
+-- populated table: TRUNCATE domain_pack_chunks first (chunks are re-derived from
+-- their source documents, not the value stored in domain_pack_documents.raw_content,
+-- via knowledge.py's ingest_document — so a clean re-ingest reproduces them) rather
+-- than trying to convert 2048-dim vectors into 768-dim ones in place, which isn't a
+-- meaningful operation (they're different models' embedding spaces, not the same
+-- space at different precision).
+--
+-- Applied directly against the live Supabase Postgres instance via SUPABASE_DB_URL
+-- (this repo has no migration runner/tracked history yet — this file exists for
+-- documentation and reproducibility, not automated application).
+
+ALTER TABLE domain_pack_chunks ALTER COLUMN embedding TYPE vector(768);

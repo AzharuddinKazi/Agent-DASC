@@ -3,15 +3,17 @@ chunks for the Planner/Coder/Verifier. Two retrieval paths: dense embedding simi
 (this module's original design) and Postgres full-text search (added alongside it, not
 replacing it) — see agents/domain_knowledge.py for why both exist and how they're fused.
 
-Embeddings go through OpenRouter (same provider as llm_router.py's chat completions),
-using nvidia/nemotron-3-embed-1b:free — genuinely free (verified: usage.cost == 0 on a
-live call), unlike most of OpenRouter's other embedding-capable models which proxy to
-paid providers. Its native output is 2048 dimensions, which is why
-domain_pack_chunks.embedding is vector(2048) (migrated from vector(768) when this
-model replaced Gemini) with no HNSW index — pgvector's HNSW caps at 2000 dims for the
-plain vector type, and at this corpus size (hundreds to low thousands of chunks) exact
-brute-force cosine search (see match_domain_pack_chunks) is plenty fast without an ANN
-index anyway.
+Embeddings go through the same OpenAI-compatible endpoint as llm_router.py's chat
+completions (OPENROUTER_BASE_URL) — as of 2026-08, a local Ollama server, using
+nomic-embed-text (768 dims, ~274MB, no GPU contention worth worrying about — it runs
+alongside whatever chat model is loaded without evicting it in practice). Previously
+OpenRouter's nvidia/nemotron-3-embed-1b:free (2048 dims); before that, Gemini (768
+dims). domain_pack_chunks.embedding is vector(768) as of
+migrations/2026-08-22_domain_pack_chunks_local_embeddings.sql — see that file if this
+ever needs to change again, including why an in-place dimension change only works on
+an empty table. No HNSW index regardless of model — at this corpus size (hundreds to
+low thousands of chunks) exact brute-force cosine search (see
+match_domain_pack_chunks) is plenty fast without an ANN index.
 
 Full-text search runs off a generated `content_tsv` tsvector column + GIN index (see
 migrations/2026-07-29_domain_pack_chunks_fts.sql) and match_domain_pack_chunks_fts —

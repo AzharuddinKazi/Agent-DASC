@@ -4,10 +4,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { ChevronRight, ChevronDown, Send, FileText, Database, CheckCircle2, Download, AlertTriangle, ShieldAlert } from "lucide-react"
+import { ChevronRight, ChevronDown, Send, FileText, Database, CheckCircle2, Download, FileDown, AlertTriangle, ShieldAlert } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
+import { exportReportDocx } from "../../api"
 
 const CHART_COLORS = [
   "var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)",
@@ -138,8 +139,34 @@ export default function ReportView({ task, query, onFollowUp, isFollowUpBusy = f
   const [openSections, setOpenSections] = useState({ 0: true })
   const [followUpText, setFollowUpText] = useState("")
   const [followUpMode, setFollowUpMode] = useState("report")
+  const [exportingDocx, setExportingDocx] = useState(false)
+  const [exportError, setExportError] = useState("")
 
   const toggleSection = key => setOpenSections(s => ({ ...s, [key]: !s[key] }))
+
+  // A real generated .docx from the backend (report_export.py) — unlike "Export PDF"
+  // below (window.print(), the browser's own print dialog), this is an actual file.
+  // Needs the auth cookie, so it's fetched as a blob (api.js's exportReportDocx sets
+  // withCredentials) rather than a plain <a href> straight at the API origin.
+  const handleExportDocx = async () => {
+    setExportingDocx(true)
+    setExportError("")
+    try {
+      const res = await exportReportDocx(task.task_id)
+      const disposition = res.headers["content-disposition"] || ""
+      const match = disposition.match(/filename="([^"]+)"/)
+      const filename = match ? match[1] : `${(report?.title || query || "report").slice(0, 60)}.docx`
+      const a = Object.assign(document.createElement("a"), {
+        href: URL.createObjectURL(res.data), download: filename, style: "visibility:hidden",
+      })
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(a.href)
+    } catch (err) {
+      setExportError(err?.response?.data?.detail || err?.message || "Export failed")
+    } finally {
+      setExportingDocx(false)
+    }
+  }
 
   // Citation links (#source-N) point into the "Underlying Sub-analysis Data" section,
   // which may be collapsed — the target id doesn't exist in the DOM until it's open, so a
@@ -230,12 +257,22 @@ export default function ReportView({ task, query, onFollowUp, isFollowUpBusy = f
               </div>
             </div>
           )}
+          <Button
+            variant="outline" size="sm" onClick={handleExportDocx} disabled={exportingDocx}
+            className="gap-1.5 h-8 text-caption"
+          >
+            <FileDown className="w-3 h-3" />
+            {exportingDocx ? "Exporting…" : "Export DOCX"}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 h-8 text-caption">
             <Download className="w-3 h-3" />
             Export PDF
           </Button>
         </div>
       </div>
+      {exportError && (
+        <p className="text-caption text-destructive print:hidden -mt-3">{exportError}</p>
+      )}
 
       {/* ── Executive summary ── */}
       <Card className="border-foreground/10 bg-foreground text-background">

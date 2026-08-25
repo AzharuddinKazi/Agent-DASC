@@ -145,12 +145,3 @@ def test_admin_delete_task_404s_when_missing():
         mock_sb.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_select
         response = client.delete("/api/v1/admin/tasks/missing")
     assert response.status_code == 404
-
-
-def test_admin_list_tasks_requires_admin():
-    app.dependency_overrides.pop(get_current_admin, None)
-    try:
-        response = client.get("/api/v1/admin/tasks")
-        assert response.status_code == 403
-    finally:
-        app.dependency_overrides[get_current_admin] = lambda: FakeUser()

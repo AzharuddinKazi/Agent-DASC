@@ -12,9 +12,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { Label } from "@/components/ui/label"
-import { ArrowUp, Menu, Package } from "lucide-react"
+import { ArrowUp, ArrowRight, Menu, Package } from "lucide-react"
 
-export default function EmptyState({ onSubmit, onDomainPacks }) {
+export default function EmptyState({ onSubmit, onDomainPacks, onData }) {
   const { pack: activePack } = useActiveDomainPack()
   // Same gate Sidebar.jsx uses for its nav link — this query-box status bar is a second,
   // independent entry point into the Domain Packs page (the "activate one"/"manage here"
@@ -86,6 +86,10 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
     doSubmit(q, type, domainPackId)
   }
 
+  // Example queries for the active mode tab — Insight (qa) and Research (report) each
+  // get their own set so switching tabs shows prompts that actually match what will run.
+  const suggestions = brand.templates.filter(t => t.type === mode)
+
   const handleSelect = async (id, q, type) => {
     onSubmit(q, id, type || "qa")
   }
@@ -95,7 +99,7 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
 
       {/* Permanent sidebar (desktop) */}
       <div className="hidden md:flex w-64 shrink-0 border-r border-border flex-col bg-sidebar">
-        <Sidebar onNew={() => {}} currentTaskId={null} onSelect={handleSelect} onDomainPacks={onDomainPacks} />
+        <Sidebar onNew={() => {}} currentTaskId={null} onSelect={handleSelect} onDomainPacks={onDomainPacks} onData={onData} />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -111,7 +115,7 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} />
+                <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={handleSelect} onDomainPacks={() => { onDomainPacks(); setDrawerOpen(false) }} onData={() => { onData(); setDrawerOpen(false) }} />
               </SheetContent>
             </Sheet>
             <h1 className="text-heading text-foreground leading-none">New Analysis</h1>
@@ -211,6 +215,28 @@ export default function EmptyState({ onSubmit, onDomainPacks }) {
                 </div>
               </CardContent>
             </Card>
+
+            {suggestions.length > 0 && (
+              <div className="w-full">
+                <p className="text-label font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                  Try these
+                </p>
+                <div className="flex flex-col gap-1">
+                  {suggestions.map((t, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleRun(t.text, t.type)}
+                      disabled={isSubmitting || isCheckingClarity}
+                      className="group flex items-start gap-3 px-3 py-2.5 rounded-lg text-left text-caption text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <t.icon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-brand" />
+                      <span className="leading-snug">{t.text}</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0 ml-auto mt-0.5 opacity-0 group-hover:opacity-100" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <p className="text-label text-muted-foreground/70 text-center pt-2">
               {brand.footerText}

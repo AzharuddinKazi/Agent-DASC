@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import requests
 import sentry_sdk
+from postgrest.exceptions import APIError
 from agents.graph import build_graph
 from agents.logger import log_event
 from agents.query_clarity import generate_clarifying_questions
@@ -13,19 +14,24 @@ from agents.cancellation import (
     request_stop, request_pause, clear as clear_cancellation,
     record_review_decision, TaskCancelled, TaskPaused, AwaitingReview,
 )
-from auth import get_current_user, get_current_admin, _admin_emails
+from auth import (
+    get_current_user, get_current_admin, verify_google_id_token,
+    issue_session_cookie, SESSION_COOKIE_NAME, SESSION_TTL_DAYS, ADMIN_EMAILS,
+)
 from db import supabase
 from observability import configure_logging, configure_error_tracking
 import domain_pack
 import domain_pack_admin
 import feature_flags
-from llm_router import LLMRouter, get_speed_profile, VALID_SPEED_PROFILES
+from llm_router import LLMRouter, get_speed_profile, VALID_SPEED_PROFILES, get_model_override
+from agents.prompt_defaults import AGENT_PROMPT_DEFAULTS
 from knowledge import ingest_document
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 from psycopg.rows import dict_row
 from dotenv import load_dotenv
-import logging, os, uuid, asyncio, io, zipfile, subprocess, time
+import logging, os, uuid, asyncio, io, zipfile, subprocess, time, re
+from datetime import datetime, timezone
 
 load_dotenv()
 configure_logging()
@@ -154,6 +160,11 @@ app.add_middleware(
     ).split(","),
     allow_methods=["*"],
     allow_headers=["*"],
+    # Needed for the `session` cookie (real Google login) to actually be sent/accepted on
+    # cross-origin requests (frontend :5174 -> backend :8000) — and per the fetch/XHR spec,
+    # allow_origins can no longer be "*" once credentials are involved, which it already
+    # isn't here.
+    allow_credentials=True,
 )
 
 class TaskSubmission(BaseModel):
@@ -202,6 +213,31 @@ class DomainPackUpdate(BaseModel):
     report_persona: str | None = None
     report_classification: str | None = None
     subquestion_dimensions: list[str] | None = None
+
+
+class GoogleLogin(BaseModel):
+    credential: str   # the Google Identity Services id_token JWT
+
+
+class GuestLogin(BaseModel):
+    name: str   # no verification — see auth_guest below
+
+
+# Defined here (ahead of _require_domain_packs_enabled and its own other users below) so
+# auth_guest, which comes right after it, can depend on it — a decorator evaluates its
+# Depends(...) argument at definition time, so this has to exist before that point in the
+# file, not merely before the app starts.
+def _require_demo_mode():
+    if not feature_flags.is_enabled("demo_mode"):
+        raise HTTPException(status_code=403, detail="Demo mode is currently disabled")
+
+
+class PromptUpdate(BaseModel):
+    prompt_text: str
+
+
+class ModelOverrideUpdate(BaseModel):
+    model_id: str | None = None   # None clears the override, back to the tier default
 
 
 async def run_graph(task_id: str, initial_state: dict | None):
@@ -272,8 +308,13 @@ def _ping_docker():
 
 
 def _ping_llm():
+    # /models is standard OpenAI-compatible API surface (both OpenRouter and a local
+    # Ollama server implement it) — unlike OpenRouter's proprietary /key endpoint
+    # (which validates account balance/limits but doesn't exist on Ollama or any other
+    # generic OpenAI-compatible backend), so this check works regardless of which
+    # OPENROUTER_BASE_URL is configured.
     resp = requests.get(
-        f"{os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')}/key",
+        f"{os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')}/models",
         headers={"Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}"},
         timeout=5,
     )
@@ -298,6 +339,150 @@ async def health(response: Response):
         "status": "ok" if healthy else "degraded",
         "checks": checks,
         "concurrency": {"active": active, "max": MAX_CONCURRENT_PIPELINES},
+    }
+
+
+def _serialize_auth_user(row: dict) -> dict:
+    return {
+        "id": row["id"], "email": row["email"], "name": row.get("name"),
+        "picture_url": row.get("picture_url"), "is_admin": row["is_admin"],
+        "auth_provider": row.get("auth_provider", "google"),
+    }
+
+
+@app.get("/api/v1/auth/login_options", summary="Login Options", tags=["Auth"])
+async def auth_login_options():
+    """Unauthenticated on purpose — the login screen needs this before anyone has a
+    session, so it can't go through /api/v1/features (which requires being signed in
+    already). Exposes only the one bit the login screen needs, not the full flag set."""
+    return {"guest_login_enabled": feature_flags.is_enabled("demo_mode")}
+
+
+@app.post("/api/v1/auth/google", summary="Sign In With Google", tags=["Auth"])
+async def auth_google(body: GoogleLogin, response: Response):
+    """Verifies the Google Identity Services credential (no OAuth redirect dance — the
+    frontend gets this JWT directly from Google's own Sign In With Google button), then
+    upserts a `users` row keyed on Google's stable `sub` claim and issues our own session
+    cookie. Open sign-up: any verified Google account gets an account here — `is_admin` is
+    the only thing actually gated, recomputed from ADMIN_EMAILS on every login so changing
+    that env var takes effect on the next sign-in with no manual DB edit."""
+    try:
+        claims = await asyncio.get_event_loop().run_in_executor(
+            None, verify_google_id_token, body.credential
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google credential: {e}")
+
+    email = claims["email"]
+    is_admin = email.lower() in ADMIN_EMAILS
+    now = datetime.now(timezone.utc).isoformat()
+
+    existing = supabase.table("users").select("id").eq("google_sub", claims["sub"]).execute()
+    if existing.data:
+        user_id = existing.data[0]["id"]
+        supabase.table("users").update({
+            "email": email, "name": claims.get("name"), "picture_url": claims.get("picture"),
+            "is_admin": is_admin, "last_sign_in_at": now,
+        }).eq("id", user_id).execute()
+    else:
+        inserted = supabase.table("users").insert({
+            "google_sub": claims["sub"], "email": email, "name": claims.get("name"),
+            "picture_url": claims.get("picture"), "is_admin": is_admin, "last_sign_in_at": now,
+        }).execute()
+        user_id = inserted.data[0]["id"]
+
+    row = supabase.table("users").select("*").eq("id", user_id).execute().data[0]
+    if row["is_banned"]:
+        raise HTTPException(status_code=403, detail="This account has been banned")
+
+    token = issue_session_cookie(user_id)
+    response.set_cookie(
+        SESSION_COOKIE_NAME, token, httponly=True, samesite="lax",
+        max_age=SESSION_TTL_DAYS * 24 * 3600,
+        # Not `secure=True` — this deployment runs over plain http on localhost (see
+        # TASKS.md's local-Postgres migration). Flip this on if it's ever served over https.
+        secure=False,
+    )
+    logger.info(f"User {email} signed in ({'admin' if is_admin else 'user'})")
+    return _serialize_auth_user(row)
+
+
+@app.post("/api/v1/auth/guest", summary="Continue As Guest (name only)", tags=["Auth"])
+async def auth_guest(body: GuestLogin, response: Response, _gate=Depends(_require_demo_mode)):
+    """Name-only login, no verification — for colleagues on office laptops where Gmail
+    (and so Google sign-in) is unavailable. Deliberately weak: anyone can type any name and
+    nothing confirms it's really them. This exists to let people actually use/test the app
+    and give the operator a rough headcount, not to establish real identity — a guest is
+    never eligible for admin (ADMIN_EMAILS only ever matches a verified Google email, and
+    guest rows never have one).
+
+    Gated behind demo_mode — the operator turns this on only while actively demoing, so
+    the weaker login path isn't sitting open the rest of the time. 403s while off, same as
+    the Available Data page's endpoints (see demo_list_data_files below).
+
+    Re-registering the same name (case-insensitive) reuses the existing account rather than
+    creating a new one each time, so the headcount reflects distinct people, not sessions."""
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Name is required")
+    if len(name) > 100:
+        raise HTTPException(status_code=422, detail="Name is too long")
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # No case-insensitive equality filter in the client we use here, so match in Python —
+    # the guest list is a handful of colleagues, not a scale concern. The unique index on
+    # lower(name) WHERE auth_provider='guest' is still the source of truth against races.
+    existing = supabase.table("users").select("id, name").eq("auth_provider", "guest").execute()
+    match = next((r for r in existing.data if r["name"].lower() == name.lower()), None)
+
+    if match:
+        user_id = match["id"]
+        supabase.table("users").update({"last_sign_in_at": now}).eq("id", user_id).execute()
+    else:
+        try:
+            inserted = supabase.table("users").insert({
+                "name": name, "auth_provider": "guest", "is_admin": False,
+                "last_sign_in_at": now,
+            }).execute()
+        except APIError as e:
+            # Lost the race against a concurrent registration of the same name — the unique
+            # index rejected the insert. Fall back to the row that won.
+            if e.code != "23505" or "users_guest_name_unique" not in (e.message or ""):
+                raise
+            existing = supabase.table("users").select("id").eq("auth_provider", "guest").execute()
+            match = next((r for r in existing.data if r.get("name", "").lower() == name.lower()), None)
+            if not match:
+                raise
+            user_id = match["id"]
+        else:
+            user_id = inserted.data[0]["id"]
+
+    row = supabase.table("users").select("*").eq("id", user_id).execute().data[0]
+    if row["is_banned"]:
+        raise HTTPException(status_code=403, detail="This account has been banned")
+
+    token = issue_session_cookie(user_id)
+    response.set_cookie(
+        SESSION_COOKIE_NAME, token, httponly=True, samesite="lax",
+        max_age=SESSION_TTL_DAYS * 24 * 3600,
+        secure=False,  # see auth_google's identical note
+    )
+    logger.info(f"Guest '{name}' signed in")
+    return _serialize_auth_user(row)
+
+
+@app.post("/api/v1/auth/logout", summary="Sign Out", tags=["Auth"])
+async def auth_logout(response: Response):
+    response.delete_cookie(SESSION_COOKIE_NAME)
+    return {"status": "signed_out"}
+
+
+@app.get("/api/v1/auth/me", summary="Current User", tags=["Auth"])
+async def auth_me(user=Depends(get_current_user)):
+    return {
+        "id": user.id, "email": user.email, "name": user.name,
+        "picture_url": user.picture_url, "is_admin": user.is_admin,
     }
 
 
@@ -429,6 +614,44 @@ async def get_task(task_id: str, user=Depends(get_current_user)):
         except Exception:
             row["logs"] = []
     return row
+
+
+@app.get("/api/v1/get_task/{task_id}/export.docx", summary="Export Report As DOCX", tags=["Tasks"])
+async def export_task_docx(task_id: str, user=Depends(get_current_user)):
+    """Report mode (DS-STAR+) only — a real generated .docx, not the client-side
+    `window.print()` ReportView.jsx's "Export PDF" button uses (that's the browser's own
+    print dialog, not a file this endpoint or any other caller could produce). See
+    report_export.py for the actual document-building logic; this endpoint is just the
+    same ownership check as get_task above plus validating the task is a completed
+    report before handing it to that module."""
+    import json as _json
+
+    response = supabase.table("tasks").select("*").eq("task_id", task_id).eq("user_id", user.id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    row = response.data[0]
+
+    if row["task_type"] != "report":
+        raise HTTPException(status_code=422, detail="DOCX export is only available for Research mode reports")
+    if row["status"] != "completed":
+        raise HTTPException(status_code=409, detail="Report isn't finished yet")
+    if not row.get("final_result"):
+        raise HTTPException(status_code=422, detail="Report has no result to export")
+
+    try:
+        report = _json.loads(row["final_result"])
+    except (_json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=422, detail="Report output couldn't be parsed — nothing to export")
+
+    from report_export import build_report_docx
+    docx_bytes = build_report_docx(report, row["query"])
+
+    filename = re.sub(r"[^A-Za-z0-9._-]+", "_", (report.get("title") or row["query"])[:60]).strip("_") or "report"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.docx"'},
+    )
 
 
 @app.post("/api/v1/tasks/{task_id}/stop", summary="Stop Task", tags=["Tasks"])
@@ -875,51 +1098,56 @@ async def admin_delete_task(task_id: str, admin=Depends(get_current_admin)):
 # ---------------------------------------------------------------------------------------
 # Admin: user management
 #
-# Backed by the Supabase Auth Admin API (supabase.auth.admin.*), reachable only because
-# db.py's `supabase` client is built with SUPABASE_SERVICE_KEY, not the anon key auth.py
-# uses for token verification. There's no "disable" primitive in Supabase Auth — ban/unban
-# (a long/zero ban_duration) is the closest equivalent and is what these wrap.
+# Real Google-account users again (see TASKS.md "Google OAuth login + Admin Control
+# Panel") — `users` is the source of truth, `is_admin` is recomputed from ADMIN_EMAILS on
+# every login (auth.py's auth_google), not editable here. Ban/unban actually take effect
+# on the banned user's very next request, not just their next login — get_current_user
+# re-checks `is_banned` from the DB on every call.
 # ---------------------------------------------------------------------------------------
 
 @app.get("/api/v1/admin/users", summary="List Users", tags=["Admin"])
 async def admin_list_users(admin=Depends(get_current_admin)):
-    users = supabase.auth.admin.list_users()
-    return [
-        {
-            "id":               u.id,
-            "email":            u.email,
-            "created_at":       u.created_at,
-            "last_sign_in_at":  u.last_sign_in_at,
-            "banned_until":     getattr(u, "banned_until", None),
-        }
-        for u in users
-    ]
+    response = supabase.table("users").select("*").order("created_at", desc=True).execute()
+    return [{
+        "id":              row["id"],
+        "email":           row["email"],
+        "name":            row.get("name"),
+        "auth_provider":   row.get("auth_provider", "google"),
+        "is_admin":        row["is_admin"],
+        "is_banned":       row["is_banned"],
+        "created_at":      row.get("created_at"),
+        "last_sign_in_at": row.get("last_sign_in_at"),
+    } for row in response.data]
 
 
 @app.post("/api/v1/admin/users/{user_id}/ban", summary="Ban User", tags=["Admin"])
 async def admin_ban_user(user_id: str, admin=Depends(get_current_admin)):
-    # gotrue has no permanent-ban duration — 100000 hours (~11 years) is the same
-    # effectively-permanent convention Supabase's own dashboard uses.
-    supabase.auth.admin.update_user_by_id(user_id, {"ban_duration": "876000h"})
-    logger.info(f"User {user_id} banned by admin {admin.id}")
-    return {"user_id": user_id, "banned": True}
+    response = supabase.table("users").select("id").eq("id", user_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user_id == admin.id:
+        raise HTTPException(status_code=422, detail="Cannot ban your own account")
+    supabase.table("users").update({"is_banned": True}).eq("id", user_id).execute()
+    logger.info(f"User {user_id} banned by admin {admin.email}")
+    return {"status": "banned"}
 
 
 @app.post("/api/v1/admin/users/{user_id}/unban", summary="Unban User", tags=["Admin"])
 async def admin_unban_user(user_id: str, admin=Depends(get_current_admin)):
-    supabase.auth.admin.update_user_by_id(user_id, {"ban_duration": "none"})
-    logger.info(f"User {user_id} unbanned by admin {admin.id}")
-    return {"user_id": user_id, "banned": False}
+    response = supabase.table("users").select("id").eq("id", user_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    supabase.table("users").update({"is_banned": False}).eq("id", user_id).execute()
+    logger.info(f"User {user_id} unbanned by admin {admin.email}")
+    return {"status": "unbanned"}
 
 
 @app.get("/api/v1/admin/admins", summary="List Admin Allowlist", tags=["Admin"])
 async def admin_list_admins(admin=Depends(get_current_admin)):
-    """Read-only — ADMIN_EMAILS is an env var (see auth.py's module docstring for why),
-    not a DB table, so there's nothing for an admin panel to write here. Surfaced so the
-    Users panel can at least show who's currently an admin."""
     return {
-        "emails": sorted(_admin_emails()),
-        "note": "Read-only — set via the ADMIN_EMAILS environment variable and restart the backend to change this list.",
+        "emails": sorted(ADMIN_EMAILS),
+        "note": "Set via the ADMIN_EMAILS env var — recomputed for each user on their next "
+                "sign-in, not editable here.",
     }
 
 
@@ -947,3 +1175,177 @@ async def admin_system_overview(admin=Depends(get_current_admin)):
         "llm_speed_profile": get_speed_profile(),
         "feature_flags": feature_flags.all_flags(),
     }
+
+
+# ---------------------------------------------------------------------------------------
+# Admin: per-agent prompt editor
+#
+# See agents/prompt_store.py — an empty agent_prompts table changes nothing, each agent
+# reads its DB row first and falls back to its hardcoded default. planner/writer are
+# deliberately not editable here (see that module's docstring for why).
+# ---------------------------------------------------------------------------------------
+
+@app.get("/api/v1/admin/prompts", summary="List Agent Prompts", tags=["Admin"])
+async def admin_list_prompts(admin=Depends(get_current_admin)):
+    overrides = {
+        row["agent_name"]: row
+        for row in supabase.table("agent_prompts").select("*").execute().data
+    }
+    return [
+        {
+            "agent_name":    agent,
+            "default_text":  default_text,
+            "prompt_text":   overrides.get(agent, {}).get("prompt_text", default_text),
+            "is_customized": agent in overrides,
+            "updated_at":    overrides.get(agent, {}).get("updated_at"),
+            "updated_by":    overrides.get(agent, {}).get("updated_by"),
+        }
+        for agent, default_text in AGENT_PROMPT_DEFAULTS.items()
+    ]
+
+
+@app.put("/api/v1/admin/prompts/{agent}", summary="Set Agent Prompt", tags=["Admin"])
+async def admin_set_prompt(agent: str, body: PromptUpdate, admin=Depends(get_current_admin)):
+    if agent not in AGENT_PROMPT_DEFAULTS:
+        raise HTTPException(status_code=404, detail="Unknown or non-editable agent")
+    supabase.table("agent_prompts").upsert({
+        "agent_name": agent, "prompt_text": body.prompt_text,
+        "updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": admin.email,
+    }).execute()
+    logger.info(f"Prompt for agent '{agent}' edited by admin {admin.email}")
+    return {"agent_name": agent, "prompt_text": body.prompt_text, "is_customized": True}
+
+
+@app.post("/api/v1/admin/prompts/{agent}/reset", summary="Reset Agent Prompt To Default", tags=["Admin"])
+async def admin_reset_prompt(agent: str, admin=Depends(get_current_admin)):
+    if agent not in AGENT_PROMPT_DEFAULTS:
+        raise HTTPException(status_code=404, detail="Unknown or non-editable agent")
+    supabase.table("agent_prompts").delete().eq("agent_name", agent).execute()
+    logger.info(f"Prompt for agent '{agent}' reset to default by admin {admin.email}")
+    return {"agent_name": agent, "prompt_text": AGENT_PROMPT_DEFAULTS[agent], "is_customized": False}
+
+
+# ---------------------------------------------------------------------------------------
+# Admin: per-agent model/tier override
+#
+# Extends llm_router.py's existing OPENROUTER_MODEL_CODER-style override pattern with a
+# DB-backed one, checked first (see LLMRouter.complete) — see get_model_override().
+# ---------------------------------------------------------------------------------------
+
+def _local_ollama_tags() -> list[str]:
+    """Best-effort live model list from the configured OpenAI-compatible endpoint's Ollama
+    host, for the admin UI's override dropdown. Returns [] (not an error) if the endpoint
+    isn't actually Ollama or isn't reachable — the panel still works with free-text-less
+    dropdowns empty rather than failing the whole page."""
+    base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    tags_url = base.rsplit("/v1", 1)[0] + "/api/tags"
+    try:
+        resp = requests.get(tags_url, timeout=3)
+        resp.raise_for_status()
+        return [m["name"] for m in resp.json().get("models", [])]
+    except Exception:
+        return []
+
+
+@app.get("/api/v1/admin/models", summary="List Agent Model Overrides", tags=["Admin"])
+async def admin_list_models(admin=Depends(get_current_admin)):
+    overrides = {
+        row["agent_name"]: row["model_id"]
+        for row in supabase.table("agent_model_overrides").select("*").execute().data
+    }
+    profile = get_speed_profile()
+    tier_models = LLMRouter.models_for_profile(profile)
+    available = await asyncio.get_event_loop().run_in_executor(None, _local_ollama_tags)
+
+    agents = []
+    for agent, tier in LLMRouter.AGENT_TIERS.items():
+        # coder/debugger/finalizer run on the profile's "coder" pick regardless of
+        # their nominal tier — mirrors LLMRouter.complete()'s own lookup, so this
+        # column shows the model that will actually be called, not the tier label.
+        lookup_tier = "coder" if agent in LLMRouter._CODE_AGENTS else tier
+        override = overrides.get(agent)
+        code_override = LLMRouter._AGENT_OVERRIDES.get(agent)
+        effective = override or code_override or tier_models.get(lookup_tier)
+        agents.append({
+            "agent_name": agent, "tier": tier, "effective_model": effective,
+            "db_override": override, "env_override": code_override,
+        })
+    return {"agents": agents, "available_models": available, "llm_speed_profile": profile}
+
+
+@app.put("/api/v1/admin/models/{agent}", summary="Set Agent Model Override", tags=["Admin"])
+async def admin_set_model_override(agent: str, body: ModelOverrideUpdate, admin=Depends(get_current_admin)):
+    if agent not in LLMRouter.AGENT_TIERS:
+        raise HTTPException(status_code=404, detail="Unknown agent")
+    if body.model_id:
+        supabase.table("agent_model_overrides").upsert({
+            "agent_name": agent, "model_id": body.model_id,
+            "updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": admin.email,
+        }).execute()
+        logger.info(f"Model override for agent '{agent}' set to '{body.model_id}' by admin {admin.email}")
+    else:
+        supabase.table("agent_model_overrides").delete().eq("agent_name", agent).execute()
+        logger.info(f"Model override for agent '{agent}' cleared by admin {admin.email}")
+    return {"agent_name": agent, "model_id": body.model_id}
+
+
+# ---------------------------------------------------------------------------------------
+# Admin: data visibility
+#
+# Read-only for this pass — a cross-pack document browser plus a listing of the raw data/
+# directory the sandbox/analyzer read directly. No upload/delete for the raw data/ dir yet
+# (that already exists per-pack for domain knowledge documents above).
+# ---------------------------------------------------------------------------------------
+
+def _list_all_domain_pack_documents() -> list[dict]:
+    packs = {
+        row["pack_id"]: row["name"]
+        for row in supabase.table("domain_pack_configs").select("pack_id, name").execute().data
+    }
+    docs = (
+        supabase.table("domain_pack_documents")
+        .select("id, pack_id, filename, status, error, chunk_count, created_at")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return [{**doc, "pack_name": packs.get(doc["pack_id"], doc["pack_id"])} for doc in docs.data]
+
+
+def _list_raw_data_files() -> list[dict]:
+    data_dir = Path(os.getenv("DSSTAR", ".")) / "data"
+    if not data_dir.is_dir():
+        return []
+    files = []
+    for path in sorted(data_dir.iterdir()):
+        if path.is_file():
+            stat = path.stat()
+            files.append({
+                "name": path.name,
+                "size_bytes": stat.st_size,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            })
+    return files
+
+
+@app.get("/api/v1/admin/documents", summary="List All Domain Pack Documents", tags=["Admin"])
+async def admin_list_documents(admin=Depends(get_current_admin)):
+    return _list_all_domain_pack_documents()
+
+
+@app.get("/api/v1/admin/data-files", summary="List Raw Data Files", tags=["Admin"])
+async def admin_list_data_files(admin=Depends(get_current_admin)):
+    return _list_raw_data_files()
+
+
+@app.get("/api/v1/demo/data-files", summary="List Raw Data Files (Demo Mode)", tags=["Tasks"])
+async def demo_list_data_files(user=Depends(get_current_user), _gate=Depends(_require_demo_mode)):
+    """Same listing as the admin-only version above, opened up to every signed-in user
+    while demo_mode is on — lets people trying the app see what's already loaded without
+    the operator explaining it by hand each time. 403s the instant demo_mode flips off,
+    same as domain-pack endpoints do for that flag."""
+    return _list_raw_data_files()
+
+
+@app.get("/api/v1/demo/documents", summary="List Domain Pack Documents (Demo Mode)", tags=["Tasks"])
+async def demo_list_documents(user=Depends(get_current_user), _gate=Depends(_require_demo_mode)):
+    return _list_all_domain_pack_documents()
