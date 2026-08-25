@@ -33,6 +33,14 @@ def test_is_enabled_falls_back_to_default_on_db_error():
         assert feature_flags.is_enabled("domain_packs") is True
 
 
+def test_demo_mode_defaults_to_false_when_never_toggled():
+    mock_result = MagicMock()
+    mock_result.data = []
+    with patch("feature_flags.supabase") as mock_sb:
+        mock_sb.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
+        assert feature_flags.is_enabled("demo_mode") is False
+
+
 def test_is_enabled_unknown_feature_defaults_true():
     mock_result = MagicMock()
     mock_result.data = []

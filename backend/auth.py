@@ -1,39 +1,110 @@
+"""Real Google OAuth login (see TASKS.md "Google OAuth login + Admin Control Panel").
+
+Replaces the single-fixed-local-user stub this file held during the auth-removal pass.
+No GoTrue/Supabase Auth re-introduced — the frontend gets Google's identity token directly
+via Google Identity Services (no OAuth redirect dance), this module verifies it server-side
+and issues its own signed session cookie. No `sessions` table: the cookie itself carries
+`user_id`/`exp`, and every request re-reads the `users` row by that id anyway (needed to
+catch a ban applied mid-session and to compute `is_admin` freshly), so a separate session
+store would just be a second source of truth for state already re-fetched every request.
+"""
 import os
-from fastapi import Depends, Header, HTTPException
-from supabase import create_client
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
-_anon_client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_ANON_KEY"))
+import jwt
+from fastapi import Depends, HTTPException, Request
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 
-# Admin allowlist — a comma-separated list of emails in ADMIN_EMAILS, not a role or claim
-# on the Supabase user record. This app has no broader RBAC system; an allowlist is the
-# simplest thing that's actually correct for "who can reach the admin API/UI" without
-# inventing a whole roles table for one use. Re-read from the environment on every call
-# rather than cached at import time, so updating it (e.g. via docker-compose env, or an
-# .env reload in dev) doesn't need a process restart to take effect... except uvicorn
-# itself still needs a restart to pick up a changed .env either way (load_dotenv() only
-# runs once at startup) — this just avoids adding a *second* reason a restart would be
-# needed on top of that.
-def _admin_emails() -> set[str]:
-    return {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
+from db import supabase
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-only-insecure-secret-change-me")
+SESSION_COOKIE_NAME = "session"
+SESSION_TTL_DAYS = 30
+
+# Open sign-up (any Google account) per the user's explicit choice — admin status is what's
+# gated, not login itself. Comma-separated, matches the old ADMIN_EMAILS convention.
+ADMIN_EMAILS = {
+    e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()
+}
 
 
-async def get_current_user(authorization: str = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-    token = authorization.removeprefix("Bearer ")
+@dataclass(frozen=True)
+class AuthUser:
+    id: str
+    # None for a guest (name-only) account — see auth_guest in main.py. Never None for a
+    # Google account (verified at sign-in time).
+    email: str | None
+    name: str | None = None
+    picture_url: str | None = None
+    is_admin: bool = False
+
+
+def verify_google_id_token(credential: str) -> dict:
+    """Verifies a Google Identity Services credential JWT against Google's own public keys
+    — no secret round-trip needed for verification itself, just the Client ID this token
+    was issued for. Raises ValueError (via the underlying library) on an invalid/expired/
+    wrong-audience token; callers turn that into a 401."""
+    if not GOOGLE_CLIENT_ID:
+        raise RuntimeError(
+            "GOOGLE_CLIENT_ID is not set — see backend/.env.example. Create one at "
+            "https://console.cloud.google.com/apis/credentials (OAuth client ID, Web "
+            "application, authorized JS origin matching the frontend's URL)."
+        )
+    return google_id_token.verify_oauth2_token(
+        credential, google_requests.Request(), GOOGLE_CLIENT_ID
+    )
+
+
+def issue_session_cookie(user_id: str) -> str:
+    payload = {
+        "sub": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS),
+    }
+    return jwt.encode(payload, SESSION_SECRET_KEY, algorithm="HS256")
+
+
+def _read_session_cookie(token: str) -> str | None:
+    """Returns the user_id encoded in a valid, unexpired session cookie, or None — never
+    raises, so callers can treat "bad cookie" and "no cookie" identically (both mean
+    "not logged in")."""
     try:
-        resp = _anon_client.auth.get_user(token)
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    if not resp or not resp.user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return resp.user
+        payload = jwt.decode(token, SESSION_SECRET_KEY, algorithms=["HS256"])
+        return payload.get("sub")
+    except jwt.PyJWTError:
+        return None
 
 
-async def get_current_admin(user=Depends(get_current_user)):
-    """Same bearer-token validation as get_current_user, plus an ADMIN_EMAILS allowlist
-    check. An unset/empty ADMIN_EMAILS means no one is an admin (fails closed) rather
-    than everyone being one."""
-    if (user.email or "").lower() not in _admin_emails():
+def _load_user_row(user_id: str) -> dict | None:
+    resp = supabase.table("users").select("*").eq("id", user_id).execute()
+    return resp.data[0] if resp.data else None
+
+
+async def get_current_user(request: Request) -> AuthUser:
+    """Reads the session cookie, verifies it, and re-loads the user row fresh from the DB
+    on every call — not just decoded-and-trusted from the JWT — so a ban applied mid-session
+    (or an admin-allowlist email removed from ADMIN_EMAILS) takes effect on this user's very
+    next request, not only after their session expires."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = _read_session_cookie(token) if token else None
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not signed in")
+
+    row = _load_user_row(user_id)
+    if not row:
+        raise HTTPException(status_code=401, detail="Account no longer exists")
+    if row["is_banned"]:
+        raise HTTPException(status_code=403, detail="This account has been banned")
+
+    return AuthUser(
+        id=row["id"], email=row["email"], name=row.get("name"),
+        picture_url=row.get("picture_url"), is_admin=row["is_admin"],
+    )
+
+
+async def get_current_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
+    if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user

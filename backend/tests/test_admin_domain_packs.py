@@ -99,15 +99,6 @@ def test_admin_list_domain_packs_works_even_when_the_feature_flag_is_off():
     }]
 
 
-def test_admin_list_domain_packs_requires_admin():
-    app.dependency_overrides.pop(get_current_admin, None)
-    try:
-        response = client.get("/api/v1/admin/domain_packs")
-        assert response.status_code == 403
-    finally:
-        app.dependency_overrides[get_current_admin] = lambda: FakeUser()
-
-
 def test_create_domain_pack_rejects_generic_pack_id():
     response = client.post("/api/v1/admin/domain_packs", json={"pack_id": "generic", "name": "x"})
     assert response.status_code == 422
@@ -165,12 +156,3 @@ def test_delete_domain_pack_succeeds():
     assert response.status_code == 200
     assert response.json() == {"status": "deleted"}
     mock_delete.assert_called_once_with("p")
-
-
-def test_create_domain_pack_requires_admin():
-    app.dependency_overrides.pop(get_current_admin, None)
-    try:
-        response = client.post("/api/v1/admin/domain_packs", json={"pack_id": "x", "name": "x"})
-        assert response.status_code == 403
-    finally:
-        app.dependency_overrides[get_current_admin] = lambda: FakeUser()

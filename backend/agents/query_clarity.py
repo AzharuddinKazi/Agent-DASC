@@ -14,6 +14,7 @@ import json
 import logging
 import re
 
+from agents.prompt_store import get_prompt
 from db import supabase
 from domain_pack import get_active_pack_config
 from llm_router import LLMRouter
@@ -145,7 +146,7 @@ def generate_clarifying_questions(query: str, task_type: str = "qa", domain_pack
     task_type_label = "Investigative report (multiple hypothesis-driven sub-analyses)" if task_type == "report" \
         else "Direct Q&A (single focused answer)"
 
-    prompt = QUERY_CLARITY_PROMPT.format(
+    prompt = get_prompt("query_clarity", QUERY_CLARITY_PROMPT).format(
         question=query,
         task_type_label=task_type_label,
         domain_section=_domain_section(domain_pack_id),

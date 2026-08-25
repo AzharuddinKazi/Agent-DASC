@@ -3,7 +3,7 @@ import { setFeatureFlag } from "../api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { ShieldCheck, Package } from "lucide-react"
+import { ShieldCheck, Package, Database } from "lucide-react"
 
 // Client-side display copy for each known backend flag — new flags added to
 // feature_flags.KNOWN_FEATURES without an entry here still render (with the raw id as
@@ -17,6 +17,16 @@ const FEATURE_META = {
       "the generic, domain-agnostic pipeline — the Domain Packs page is hidden from the " +
       "sidebar, and its API rejects requests with 403 while off.",
     icon: Package,
+  },
+  demo_mode: {
+    label: "Demo Mode",
+    description:
+      "Two things at once, both off by default: (1) shows the \"continue with just your " +
+      "name\" login option — with this off, only Google sign-in works, name-only login " +
+      "403s even if someone already has the link; (2) adds an \"Available Data\" page to " +
+      "every signed-in user's sidebar, listing which dataset files and knowledge-base " +
+      "documents are already loaded. Toggle on only while actively demoing, off after.",
+    icon: Database,
   },
 }
 

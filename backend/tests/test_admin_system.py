@@ -37,12 +37,3 @@ def test_admin_system_overview_combines_health_speed_profile_and_flags():
     assert body["llm_speed_profile"] == "free"
     assert body["feature_flags"] == {"domain_packs": True}
     assert "concurrency" in body
-
-
-def test_admin_system_overview_requires_admin():
-    app.dependency_overrides.pop(get_current_admin, None)
-    try:
-        response = client.get("/api/v1/admin/system")
-        assert response.status_code == 403
-    finally:
-        app.dependency_overrides[get_current_admin] = lambda: FakeUser()

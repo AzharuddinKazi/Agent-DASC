@@ -1,6 +1,7 @@
 import logging
 from agents.state import TaskState
 from agents.logger import log_event
+from agents.prompt_store import get_prompt
 from llm_router import LLMRouter
 from db import supabase
 from domain_pack import get_active_pack_config
@@ -119,7 +120,7 @@ def question_generator(state: TaskState) -> dict:
         for fname, desc in summaries.items()
     )
 
-    prompt = QUESTION_GENERATOR_PROMPT.format(
+    prompt = get_prompt("question_generator", QUESTION_GENERATOR_PROMPT).format(
         question=question,
         summaries=summaries_text,
         dimensions_section=_dimensions_section(state.get("domain_pack_id")),

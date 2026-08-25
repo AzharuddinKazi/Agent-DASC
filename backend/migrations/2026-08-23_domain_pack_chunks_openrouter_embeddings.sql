@@ -1,0 +1,24 @@
+-- Reverts domain_pack_chunks.embedding from vector(768) (local Ollama nomic-embed-text)
+-- back to vector(2048) (OpenRouter's nvidia/nemotron-3-embed-1b:free), as part of moving
+-- the whole LLM/embedding stack off the local Ollama server back onto OpenRouter — see
+-- backend/llm_router.py and knowledge.py (OPENROUTER_BASE_URL back to
+-- https://openrouter.ai/api/v1, OPENROUTER_EMBED_MODEL override removed so the code
+-- default applies again). Mirrors migrations/2026-08-22_domain_pack_chunks_local_embeddings.sql,
+-- just in the other direction.
+--
+-- match_domain_pack_chunks/match_domain_pack_chunks_fts take an untyped `vector`
+-- parameter (no fixed dimension in the function signature), so neither needs a change —
+-- only the column's stored dimension.
+--
+-- Safe as a plain ALTER only because domain_pack_chunks was empty (0 rows) at migration
+-- time (verified via `select count(*)`) — same caveat as the migration this reverts: an
+-- ALTER COLUMN ... TYPE on a vector column with existing rows of the old dimension would
+-- fail (pgvector enforces the declared dimension), and would otherwise need every existing
+-- chunk re-embedded with the new model first (TRUNCATE + re-ingest via
+-- knowledge.py's ingest_document, not a real conversion — different models' embedding
+-- spaces aren't interchangeable at any precision).
+--
+-- Idempotent in the sense that re-running it when the column is already vector(2048) is a
+-- no-op ALTER, not an error.
+
+ALTER TABLE domain_pack_chunks ALTER COLUMN embedding TYPE vector(2048);

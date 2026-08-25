@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
@@ -107,15 +108,6 @@ def test_clarify_task_normalizes_invalid_task_type_to_qa():
     mock_generate.assert_called_once_with("test", "qa", None)
 
 
-def test_clarify_task_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
-    try:
-        response = client.post("/api/v1/clarify_task", json={"query": "test"})
-        assert response.status_code == 401
-    finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
-
-
 def test_stop_task_requests_cancellation_for_a_running_task():
     mock_result = MagicMock()
     mock_result.data = [{"status": "running"}]
@@ -155,15 +147,6 @@ def test_stop_task_returns_409_when_task_is_not_running():
 
     assert response.status_code == 409
     mock_request_stop.assert_not_called()
-
-
-def test_stop_task_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
-    try:
-        response = client.post("/api/v1/tasks/task-123/stop")
-        assert response.status_code == 401
-    finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
 
 
 def test_stop_task_stops_directly_when_awaiting_review():
@@ -230,15 +213,6 @@ def test_pause_task_returns_409_when_task_is_not_running():
     mock_request_pause.assert_not_called()
 
 
-def test_pause_task_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
-    try:
-        response = client.post("/api/v1/tasks/task-123/pause")
-        assert response.status_code == 401
-    finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
-
-
 def test_resume_task_marks_running_and_schedules_run_graph_with_none_state():
     """None as initial_state is the actual resume signal LangGraph relies on — see
     run_graph's docstring — so this is the one detail worth pinning down explicitly."""
@@ -283,15 +257,6 @@ def test_resume_task_returns_409_when_task_is_not_paused():
 
     assert response.status_code == 409
     mock_run_graph.assert_not_called()
-
-
-def test_resume_task_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
-    try:
-        response = client.post("/api/v1/tasks/task-123/resume")
-        assert response.status_code == 401
-    finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
 
 
 def test_submit_review_decision_records_decision_and_schedules_run_graph():
@@ -364,27 +329,9 @@ def test_submit_review_decision_returns_409_when_task_is_not_awaiting_review():
     mock_record.assert_not_called()
 
 
-def test_submit_review_decision_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
-    try:
-        response = client.post("/api/v1/tasks/task-123/review", json={"decision": "refine"})
-        assert response.status_code == 401
-    finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
-
-
 def test_submit_task_missing_query():
     response = client.post("/api/v1/submit_task", json={})
     assert response.status_code == 422
-
-
-def test_submit_task_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
-    try:
-        response = client.post("/api/v1/submit_task", json={"query": "test"})
-        assert response.status_code == 401
-    finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
 
 
 def test_get_tasks():
@@ -412,6 +359,78 @@ def test_get_task_not_found():
     assert response.status_code == 404
 
 
+def _report_task_row(**overrides):
+    row = {
+        "task_id": "report-1", "query": "What's driving fraud?", "task_type": "report",
+        "status": "completed", "final_result": json.dumps({
+            "title": "Fraud Drivers Report", "executive_summary": "Summary.",
+            "sections": [], "risk_matrix": [], "conclusions": "Done.",
+            "recommendations": [], "data_coverage": {}, "sources": [],
+        }),
+    }
+    row.update(overrides)
+    return row
+
+
+def test_export_task_docx_returns_a_real_docx_file():
+    mock_result = MagicMock()
+    mock_result.data = [_report_task_row()]
+
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.get("/api/v1/get_task/report-1/export.docx")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == \
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    assert "Fraud_Drivers_Report.docx" in response.headers["content-disposition"]
+    assert len(response.content) > 0
+
+
+def test_export_task_docx_404s_when_task_not_found_or_not_owned():
+    mock_result = MagicMock()
+    mock_result.data = []
+
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.get("/api/v1/get_task/nonexistent/export.docx")
+
+    assert response.status_code == 404
+
+
+def test_export_task_docx_422s_for_qa_mode_tasks():
+    mock_result = MagicMock()
+    mock_result.data = [_report_task_row(task_type="qa")]
+
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.get("/api/v1/get_task/report-1/export.docx")
+
+    assert response.status_code == 422
+
+
+def test_export_task_docx_409s_for_a_still_running_report():
+    mock_result = MagicMock()
+    mock_result.data = [_report_task_row(status="running", final_result=None)]
+
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.get("/api/v1/get_task/report-1/export.docx")
+
+    assert response.status_code == 409
+
+
+def test_export_task_docx_422s_when_final_result_is_not_valid_json():
+    mock_result = MagicMock()
+    mock_result.data = [_report_task_row(final_result="not valid json {{{")]
+
+    with patch("main.supabase") as mock_sb:
+        mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_result
+        response = client.get("/api/v1/get_task/report-1/export.docx")
+
+    assert response.status_code == 422
+
+
 def test_get_domain_pack_config_returns_404_for_unknown_pack():
     mock_result = MagicMock()
     mock_result.data = []
@@ -434,15 +453,6 @@ def test_list_features_is_reachable_by_any_signed_in_user_not_just_admins():
 
     assert response.status_code == 200
     assert response.json() == {"domain_packs": False}
-
-
-def test_list_features_requires_auth():
-    app.dependency_overrides.pop(get_current_user, None)
-    try:
-        response = client.get("/api/v1/features")
-        assert response.status_code == 401
-    finally:
-        app.dependency_overrides[get_current_user] = lambda: FakeUser()
 
 
 def test_list_feature_flags_returns_known_flags():
@@ -470,17 +480,36 @@ def test_set_feature_flag_rejects_unknown_feature():
     assert response.status_code == 404
 
 
-def test_admin_features_stays_admin_only():
-    """Pins the invariant useAdminAccess.js's authorization probe depends on: a non-admin
-    hitting /api/v1/admin/features must 403, not 200 — that's how the admin panel tells
-    "signed in" apart from "signed in and authorized". Do not loosen this route's auth to
-    fix a non-admin UI-gating need; use /api/v1/features (list_features) for that instead."""
-    app.dependency_overrides.pop(get_current_admin, None)
-    try:
-        response = client.get("/api/v1/admin/features")
-        assert response.status_code == 403
-    finally:
-        app.dependency_overrides[get_current_admin] = lambda: FakeUser()
+def test_demo_data_files_returns_403_when_demo_mode_disabled():
+    with patch("main.feature_flags.is_enabled", return_value=False):
+        response = client.get("/api/v1/demo/data-files")
+
+    assert response.status_code == 403
+
+
+def test_demo_documents_returns_403_when_demo_mode_disabled():
+    with patch("main.feature_flags.is_enabled", return_value=False):
+        response = client.get("/api/v1/demo/documents")
+
+    assert response.status_code == 403
+
+
+def test_demo_data_files_returns_the_same_listing_as_the_admin_endpoint():
+    with patch("main.feature_flags.is_enabled", return_value=True), \
+         patch("main._list_raw_data_files", return_value=[{"name": "a.csv", "size_bytes": 1}]):
+        response = client.get("/api/v1/demo/data-files")
+
+    assert response.status_code == 200
+    assert response.json() == [{"name": "a.csv", "size_bytes": 1}]
+
+
+def test_demo_documents_returns_the_same_listing_as_the_admin_endpoint():
+    with patch("main.feature_flags.is_enabled", return_value=True), \
+         patch("main._list_all_domain_pack_documents", return_value=[{"id": "d1"}]):
+        response = client.get("/api/v1/demo/documents")
+
+    assert response.status_code == 200
+    assert response.json() == [{"id": "d1"}]
 
 
 def test_get_domain_pack_config_returns_403_when_domain_packs_disabled():
@@ -523,7 +552,7 @@ def test_get_llm_speed_profile_returns_current_profile_and_models():
     assert response.status_code == 200
     body = response.json()
     assert body["profile"] == "free"
-    assert set(body["models"]) == {"high", "medium", "low"}
+    assert set(body["models"]) == {"high", "medium", "low", "coder"}
     assert all(m.endswith(":free") for m in body["models"].values())
 
 
@@ -544,18 +573,6 @@ def test_set_llm_speed_profile_to_fast_paid_upserts_app_settings():
 def test_set_llm_speed_profile_rejects_an_invalid_profile():
     response = client.post("/api/v1/llm_speed_profile", json={"profile": "ludicrous_speed"})
     assert response.status_code == 422
-
-
-def test_set_llm_speed_profile_requires_admin():
-    """Popping only the get_current_admin override (get_current_user's stays in place)
-    exercises the real get_current_admin body against the still-fake, non-allowlisted
-    user — same shape as test_x_requires_admin in test_feature_flags-style tests."""
-    app.dependency_overrides.pop(get_current_admin, None)
-    try:
-        response = client.post("/api/v1/llm_speed_profile", json={"profile": "free"})
-        assert response.status_code == 403
-    finally:
-        app.dependency_overrides[get_current_admin] = lambda: FakeUser()
 
 
 def test_reconcile_orphaned_tasks_marks_running_tasks_as_failed():

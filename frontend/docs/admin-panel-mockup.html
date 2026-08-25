@@ -1,0 +1,793 @@
+<!doctype html>
+<!--
+  DS-STAR Admin Panel — visual/behavioral reference, not production code.
+
+  Standalone export of the mockup drafted and iterated in a Claude Code session
+  (see TASKS.md "Planned — Google OAuth login + Admin Control Panel"). Plain HTML/CSS/JS,
+  no build step, no framework — open directly in a browser. It reuses the app's real
+  design tokens (frontend/src/index.css) and is grounded in the real codebase: the 12
+  agents, their tiers and real prompt text (agents/*.py), the real Ollama model tags
+  (llm_router.py's AGENT_TIERS / _AGENT_OVERRIDES), and the real data/ files.
+
+  What's real vs. sample: agent names/tiers/prompts/models are copied from the actual
+  backend source. KPI numbers, the activity feed, the recent-tasks table, the user list,
+  and the domain-pack documents are illustrative sample data for the mockup — not live
+  data (this file makes no network calls).
+
+  Intent: a visual/interaction reference for whoever builds the real thing (React, wired
+  to the actual API) — not a target to copy-paste into the app as-is.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<title>DS-STAR Admin Panel — Mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Source+Code+Pro:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#FAF8F5; --fg:#1D1A16;
+  --card:#ffffff;
+  --primary:#B01E23; --primary-fg:#ffffff;
+  --muted-fg:#6B6459;
+  --border:#E7E1D8;
+  --brand:#B01E23; --brand-ink:#7A1418; --brand-tint:#F7E7E5; --brand-tint-2:#F0D4D2;
+  --success:#1A7A4C; --success-bg:#EAF5EE;
+  --warning:#B4650A; --warning-bg:#FBF0E1;
+  --danger:#B0271E; --danger-bg:#FBEAE8;
+  --info:#2563eb; --info-bg:#eff6ff;
+  --n900:#2B261F; --n700:#504839; --n600:#6B6459; --n500:#877E70; --n400:#A69E8F; --n300:#C7BCA9; --n200:#E7E1D8; --n100:#F2ECE3;
+  --radius:10px;
+  --font-sans:'Manrope',system-ui,sans-serif;
+  --font-mono:'Source Code Pro',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+a{color:var(--primary);text-decoration:none} a:hover{color:var(--brand-ink)}
+svg.ic{width:16px;height:16px;flex-shrink:0}
+svg.ic *{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+button{font:inherit;color:inherit;background:none;border:none;padding:0;margin:0;text-align:left}
+
+.shell{display:flex;width:100%;height:100vh;min-height:700px;overflow:hidden}
+.sidebar{width:236px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column}
+.brand{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.brand-mark{width:30px;height:30px;border-radius:8px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px}
+.brand-txt{line-height:1.15;min-width:0}
+.brand-name{font-size:13.5px;font-weight:700;letter-spacing:-0.01em}
+.brand-tag{font-size:10.5px;color:var(--muted-fg)}
+.admin-chip{margin-left:auto;font-size:9.5px;font-weight:800;letter-spacing:.05em;background:var(--n900);color:#fff;padding:3px 7px;border-radius:20px}
+
+.nav{flex:1;overflow-y:auto;padding:16px 12px}
+.nav-group{margin-bottom:18px}
+.nav-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--n400);padding:0 10px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--n700);margin-bottom:2px;cursor:pointer;width:100%}
+.nav-item.active{background:var(--brand-tint);color:var(--brand-ink);font-weight:700}
+.nav-item.disabled{opacity:.42;cursor:default}
+.nav-item .count{margin-left:auto;font-size:10px;font-weight:700;color:var(--n400);background:var(--n100);padding:1px 6px;border-radius:10px}
+.nav-item.active .count{background:var(--brand-tint-2);color:var(--brand-ink)}
+
+.sidebar-foot{border-top:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;gap:9px;flex-shrink:0}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--n900);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.who{flex:1;min-width:0}
+.email{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.role{font-size:10.5px;color:var(--muted-fg)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:56px;flex-shrink:0;border-bottom:1px solid var(--border);background:#fff;display:flex;align-items:center;padding:0 24px;gap:16px}
+.crumb{font-size:13px;color:var(--muted-fg)}
+.crumb b{color:var(--fg);font-weight:700}
+.searchbox{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--n100);border:1px solid var(--border);border-radius:8px;padding:6px 10px;width:230px;color:var(--n500);font-size:12.5px}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--n600);position:relative}
+.dot-badge{position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--danger);border:1.5px solid #fff}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--success);background:var(--success-bg);padding:5px 10px;border-radius:20px;flex-shrink:0}
+.status-pill .d{width:6px;height:6px;border-radius:50%;background:var(--success)}
+
+.content{flex:1;overflow-y:auto;padding:22px 28px}
+.page-head{margin-bottom:16px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.page-title{font-size:22px;font-weight:800;letter-spacing:-0.02em;margin:0 0 3px}
+.page-sub{font-size:12.5px;color:var(--muted-fg);margin:0;max-width:600px}
+.page-actions{display:flex;gap:8px;flex-shrink:0}
+
+.card{background:#fff;border-radius:var(--radius);box-shadow:0 0 0 1px rgba(29,26,22,.08)}
+
+.kpi-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.kpi{padding:12px 13px}
+.kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.kpi-icon{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.kpi-icon svg{width:13px;height:13px}
+.kpi-value{font-size:21px;font-weight:800;letter-spacing:-0.02em;line-height:1}
+.kpi-label{font-size:10.5px;color:var(--muted-fg);margin-top:3px;line-height:1.3}
+.kpi-trend{font-size:9.5px;font-weight:700;display:flex;align-items:center;gap:2px}
+.trend-up{color:var(--success)}
+.trend-down{color:var(--danger)}
+.trend-flat{color:var(--n500)}
+
+.status-strip{display:flex;align-items:stretch;margin-bottom:12px;padding:0 4px}
+.status-seg{flex:1;display:flex;align-items:center;gap:9px;padding:11px 16px}
+.status-seg + .status-seg{border-left:1px solid var(--n100)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 0 3px var(--success-bg)}
+.status-name{font-size:11.5px;font-weight:700;line-height:1.25}
+.status-meta{font-size:10.5px;color:var(--muted-fg);line-height:1.25}
+
+.three-col{display:grid;grid-template-columns:1.2fr 1.1fr 0.72fr;gap:12px;align-items:start}
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px}
+.section-title{font-size:12.5px;font-weight:700;margin:0}
+.section-count{font-size:10.5px;color:var(--n400);font-weight:700}
+
+.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid transparent;cursor:pointer}
+.btn-outline{background:#fff;border-color:var(--border);color:var(--fg)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-ghost{color:var(--muted-fg)}
+
+.badge{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:20px;font-size:10.5px;font-weight:700}
+.b-success{background:var(--success-bg);color:var(--success)}
+.b-warning{background:var(--warning-bg);color:var(--warning)}
+.b-danger{background:var(--danger-bg);color:var(--danger)}
+.b-info{background:var(--info-bg);color:var(--info)}
+.b-neutral{background:var(--n100);color:var(--n600)}
+.b-brand{background:var(--brand-tint);color:var(--brand-ink)}
+
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);padding:0 16px 7px;border-bottom:1px solid var(--border)}
+td{padding:8px 16px;border-bottom:1px solid var(--n100);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.mono{font-family:var(--font-mono);font-size:10.5px}
+.truncate{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+
+.activity-list{padding:4px 6px 10px}
+.activity-row{display:flex;gap:9px;padding:6px 10px;border-radius:8px}
+.activity-icon{width:22px;height:22px;border-radius:6px;background:var(--n100);color:var(--n600);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.activity-icon svg{width:12px;height:12px}
+.activity-body{min-width:0}
+.activity-text{font-size:11.5px;line-height:1.35}
+.activity-text b{font-weight:700}
+.activity-meta{font-size:10px;color:var(--muted-fg);margin-top:0}
+
+.quick-actions{padding:4px 10px 12px;display:flex;flex-direction:column;gap:5px}
+.qa-row{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;border:1px solid var(--border);cursor:pointer}
+.qa-icon{width:24px;height:24px;border-radius:6px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.qa-icon svg{width:12px;height:12px}
+.qa-text{flex:1;min-width:0}
+.qa-title{font-size:11.5px;font-weight:700}
+.qa-sub{font-size:10px;color:var(--muted-fg)}
+
+/* Prompts page */
+.legend-row{display:flex;align-items:center;gap:16px;margin-bottom:12px;padding:0 4px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted-fg)}
+.legend-dot{width:7px;height:7px;border-radius:50%}
+.prompt-layout{display:grid;grid-template-columns:264px 1fr;gap:12px;height:calc(100vh - 56px - 56px - 44px - 88px)}
+.agent-list{overflow-y:auto;padding:6px}
+.agent-row{display:flex;align-items:flex-start;gap:9px;padding:8px 9px;border-radius:8px;margin-bottom:1px;cursor:pointer;width:100%}
+.agent-row.active{background:var(--n900)}
+.agent-row.active .agent-name{color:#fff}
+.agent-row.active .agent-list-desc{color:var(--n300)}
+.agent-tier-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.agent-text{flex:1;min-width:0}
+.agent-name-row{display:flex;align-items:center;gap:6px}
+.agent-name{font-size:12.5px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-list-desc{font-size:10.5px;color:var(--muted-fg);margin-top:1px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.mod-dot{width:6px;height:6px;border-radius:50%;background:var(--warning);flex-shrink:0}
+.editor-card{display:flex;flex-direction:column;min-width:0}
+.editor-head{padding:14px 18px;border-bottom:1px solid var(--n100);display:flex;align-items:center;gap:9px;flex-shrink:0}
+.editor-title{font-size:14.5px;font-weight:700}
+.editor-meta{margin-left:auto;font-size:11px;color:var(--muted-fg)}
+.editor-body{flex:1;overflow-y:auto;padding:16px 18px}
+.prompt-box{background:var(--n900);color:#E9E4DB;border-radius:8px;padding:15px 17px;font-family:var(--font-mono);font-size:12px;line-height:1.65;white-space:pre-wrap}
+.editor-foot{padding:12px 18px;border-top:1px solid var(--n100);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hint{font-size:11px;color:var(--muted-fg);margin-right:auto}
+
+/* Models page */
+.summary-row{display:flex;gap:12px;margin-bottom:12px}
+.summary-chip{flex:1;display:flex;align-items:center;gap:11px;padding:12px 15px}
+.summary-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.summary-icon svg{width:14px;height:14px}
+.summary-label{font-size:10.5px;color:var(--muted-fg)}
+.summary-value{font-size:13.5px;font-weight:700;margin-top:1px}
+.model-chip{display:inline-flex;align-items:center;gap:6px;background:var(--n900);color:#E9E4DB;padding:4px 9px;border-radius:7px;font-family:var(--font-mono);font-size:11px}
+.chev{width:10px;height:10px;opacity:.55}
+.agent-cell{font-weight:700;font-size:12.5px}
+.agent-desc{font-size:10.5px;color:var(--muted-fg);margin-top:1px;font-weight:400}
+.override-tag{font-size:10px;color:var(--brand-ink);font-weight:700}
+
+/* Data page */
+.tabs{display:flex;gap:4px;background:var(--n100);border-radius:9px;padding:3px;width:fit-content;margin-bottom:12px}
+.tab{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted-fg);cursor:pointer}
+.tab.active{background:#fff;color:var(--fg);box-shadow:0 1px 2px rgba(29,26,22,.08)}
+.dropzone{border:1.5px dashed var(--n300);border-radius:var(--radius);background:#fff;padding:20px 22px;display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.dz-icon{width:38px;height:38px;border-radius:10px;background:var(--brand-tint);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dz-icon svg{width:17px;height:17px}
+.dz-title{font-size:13px;font-weight:700}
+.dz-sub{font-size:11.5px;color:var(--muted-fg);margin-top:2px}
+.file-cell{display:flex;align-items:center;gap:9px}
+.file-icon{width:28px;height:28px;border-radius:7px;background:var(--n100);color:var(--n600);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.file-icon svg{width:13px;height:13px}
+.file-name{font-weight:700;font-size:12px}
+.file-path{font-family:var(--font-mono);font-size:10px;color:var(--muted-fg);margin-top:1px}
+.action-btn{width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--n500);cursor:pointer}
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1.5 1.5L8 5"/><path d="M4 12l1.5 1.5L8 11"/><path d="M4 18l1.5 1.5L8 17"/></symbol>
+<symbol id="i-package" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></symbol>
+<symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></symbol>
+<symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M12 15h5"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><line x1="4" y1="6" x2="9" y2="6"/><line x1="15" y1="6" x2="20" y2="6"/><circle cx="12" cy="6" r="2.2"/><line x1="4" y1="12" x2="5.8" y2="12"/><line x1="10.2" y1="12" x2="20" y2="12"/><circle cx="8" cy="12" r="2.2"/><line x1="4" y1="18" x2="14.8" y2="18"/><line x1="19.2" y1="18" x2="20" y2="18"/><circle cx="17" cy="18" r="2.2"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.5 2.7-6 5.5-6s5.5 2.5 5.5 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14c2.5 .3 4.5 2.4 4.5 6"/></symbol>
+<symbol id="i-toggle" viewBox="0 0 24 24"><rect x="1" y="6" width="22" height="12" rx="6"/><circle cx="8" cy="12" r="4"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l2-7 4 14 2-7h6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></symbol>
+<symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3z"/><line x1="12" y1="9" x2="12" y2="14"/></symbol>
+<symbol id="i-rotate" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/></symbol>
+<symbol id="i-file-csv" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 15v4M9 15h1.5a1.5 1.5 0 0 1 0 3H9"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+</svg>
+
+<div id="app"></div>
+
+<script>
+// ---------------------------------------------------------------------------------------
+// Data — copied from the real backend (backend/agents/*.py, backend/llm_router.py). See
+// the top-of-file comment for what's real vs. illustrative sample data.
+// ---------------------------------------------------------------------------------------
+
+const AGENT_DEFS = [
+  { id: 'planner', name: 'Planner', tier: 'high', desc: 'Multi-step reasoning over query + file descriptions', runNote: 'Every round — proposes the next analysis step',
+    prompt: `You are an expert data analyst.
+In order to answer factoid questions based on the given data, you have to first plan effectively.
+{hypothesis_section}{domain_knowledge}
+# Question
+{question}
+
+# Given data:
+{summaries}
+
+# Your task
+Suggest your very first step to answer the question above.
+Your first step does not need to be sufficient to answer the question.
+Just propose a very simple initial step, which can act as a good starting point.
+Your response should only contain an initial step.` },
+  { id: 'coder', name: 'Coder', tier: 'high', desc: 'Generates Python scripts — correctness is critical', runNote: 'Every round — generates the Python for the current step', modified: false,
+    prompt: `# Given data:
+{summaries}
+{domain_knowledge}
+# Plan
+{plan}
+
+# Rules
+- All data files are located at /workspace/data/ — always use full paths
+- Example: pd.read_csv('/workspace/data/filename.csv')
+- Never use relative paths like 'filename.csv' or './filename.csv'
+- For CSV files: default separator is comma. Only try others if comma fails
+- Never use shell commands (!head, !cat, etc.) — pure Python only` },
+  { id: 'verifier', name: 'Verifier', tier: 'high', desc: 'Judges plan sufficiency — false positives are dangerous', runNote: 'Every round — judges plan sufficiency',
+    prompt: `You are an expert data analyst.
+Your task is to check whether the current plan and its code implementation is enough to answer the question.
+
+# Question
+{question}
+
+# Given data:
+{summaries}
+{domain_knowledge}
+# Plan
+{plan}
+
+# Current step
+{current_step}
+
+# Code
+[python]
+{code}
+[/python]` },
+  { id: 'debugger', name: 'Debugger', tier: 'high', desc: 'Reads tracebacks and patches code', runNote: 'On retry — reads the traceback and patches the code',
+    prompt: `# Given data files (available at /workspace/data/):
+{filenames}
+
+# Code with an error:
+[python]
+{code}
+[/python]
+
+# Error:
+{bug}
+
+# Your task
+Fix the error in the code above.` },
+  { id: 'router', name: 'Router', tier: 'medium', desc: 'Binary decision: add step or backtrack', runNote: 'Every round — decides add_step or backtrack',
+    prompt: `You are an expert data analyst.
+Since the current plan is insufficient to answer the question, your task is to decide how to refine the plan.
+
+# Question
+{question}
+
+# Given data:
+{summaries}
+
+# Current plans
+{plan}
+
+# Current step
+{current_step}
+
+# Obtained results from the current plans:
+{execution_result}` },
+  { id: 'finalizer', name: 'Finalizer', tier: 'medium', desc: 'Formats a known result into the output structure', runNote: 'Once per task — formats the final structured answer', modified: true,
+    prompt: `You are an expert data analyst.
+You will answer a factoid question by loading and referencing the files listed below.
+You also have a reference code and its execution result.
+Your task is to make solution code to print out the answer following the given guidelines.
+
+# Given data:
+{summaries}
+
+# Reference code
+[python]
+{code}
+[/python]
+
+# Execution result of reference code
+{result}
+
+# Question
+{question}
+
+# Output format
+Your code MUST print a single JSON object with this exact structure:
+{ "summary": "...", "key_findings": [...], "columns": [...],
+  "rows": [...], "chart": {...}, "raw": "..." }
+
+# Your task
+Modify the solution code to print out the answer following the given guidelines.
+Do not use try: and except: to prevent error.` },
+  { id: 'query_clarity', name: 'Query Clarity', tier: 'medium', desc: 'Classifies ambiguity + mode before every task', runNote: 'Before submit — classifies ambiguity + mode',
+    prompt: `You are a senior data analyst about to start an investigation. Before
+writing any code, decide whether the research query below is ambiguous in a way that would
+materially change what you'd actually go build — not just phrasing preference.
+
+# Research query
+{question}
+
+# Analysis mode
+{task_type_label}
+{domain_section}
+# Available data (file names and columns, if already profiled)
+{summaries}
+
+# Your task
+Decide: is clarification genuinely needed, or should this proceed as-is?` },
+  { id: 'analyzer', name: 'Analyzer', tier: 'low', desc: 'Profiles each uploaded file — runs frequently', runNote: 'Per file — profiles each uploaded file once',
+    prompt: `You are an expert data analyst.
+
+Generate a Python script that loads and describes the content of {filename}.
+
+# File location
+The file is located at: /workspace/data/{filename}
+Always use the full path /workspace/data/{filename} when opening the file.
+If nrows is not 'all', use pd.read_csv('/workspace/data/{filename}', nrows={nrows}) to limit rows.
+
+# Requirements
+- Print all column names and their data types for structured data
+- Print the shape (rows, columns) of the data
+- Use nrows=5000 when loading any CSV to avoid memory issues
+- Print the first 5 rows` },
+  { id: 'question_generator', name: 'Question Generator', tier: 'high', desc: 'Report mode — builds the sub-question set', runNote: 'Report mode only — builds the sub-question set',
+    prompt: `You are a senior research analyst planning an investigative report.
+Your task is to decompose a broad research query into a SEQUENCE of testable hypotheses that
+together tell a cohesive analytical story — not an independent checklist of topics.
+
+# Research Query
+{question}
+
+# Available Data
+{summaries}
+{dimensions_section}
+# How to do this
+1. Identify the 4-7 most important, SPECIFIC, testable hypotheses that — if confirmed or
+   refuted — would give a complete, decision-useful answer to the research query.
+2. ORDER them as a narrative arc: start broad, then narrow.` },
+  { id: 'writer', name: 'Writer', tier: 'high', desc: 'Report mode — synthesises the final report', runNote: 'Report mode only — synthesises the final report',
+    prompt: `You have completed {sub_q_count} targeted data analyses. Your job is to synthesise these into a
+formal, publication-quality report — NOT a list of data summaries. Write a genuinely
+comprehensive, thorough report: do not artificially limit length. A short report that merely
+touches each theme is a worse report than a long one that actually develops its arguments —
+depth and completeness matter more than brevity here.
+
+Cite each sub-analysis inline as [N] — the reference list is built server-side, you only
+need to emit the markers correctly.` },
+  { id: 'report_evaluator', name: 'Report Evaluator', tier: 'medium', desc: 'Report mode — judges draft sufficiency', runNote: 'Report mode only — judges draft sufficiency',
+    prompt: `You are an expert research quality reviewer.
+Your task is to evaluate whether a generated research report sufficiently answers the original research query.
+
+# Original Research Query
+{question}
+
+# Hypotheses Investigated (in narrative order)
+{hypotheses}
+
+# Generated Report
+{report}
+
+# Evaluation criteria
+1. Does the executive summary directly answer the research query?
+2. Are all hypotheses addressed with evidence, not just asserted?` },
+  { id: 'gap_question_generator', name: 'Gap Question Generator', tier: 'medium', desc: 'Report mode — fills gaps on a refine round', runNote: 'Refine round only — no prompt of its own',
+    prompt: `No LLM prompt — this agent is pure Python (graph.py::gap_question_generator).
+
+It reshapes report_evaluator's own structured "gaps" output (question + hypothesis pairs)
+back into new sub_questions for the next refine round. The tier assignment above exists in
+llm_router.py's AGENT_TIERS but is currently unused, since this node never calls
+router.complete(). Nothing to edit here today.` },
+];
+
+const TIER_META = {
+  high:   { label: 'High',   color: 'var(--danger)',  badgeCls: 'b-danger'  },
+  medium: { label: 'Medium', color: 'var(--info)',    badgeCls: 'b-info'    },
+  low:    { label: 'Low',    color: 'var(--n400)',    badgeCls: 'b-neutral' },
+};
+
+const MODEL_ROWS = [
+  { id: 'planner', name: 'Planner', desc: 'Multi-step reasoning over query + file descriptions', model: 'dsstar-high:16k', runs: 'Every round', override: false },
+  { id: 'coder', name: 'Coder', desc: 'Generates Python scripts — correctness is critical', model: 'dsstar-coder:16k', runs: 'Every round', override: true },
+  { id: 'verifier', name: 'Verifier', desc: 'Judges plan sufficiency — false positives are dangerous', model: 'dsstar-high:16k', runs: 'Every round', override: false },
+  { id: 'debugger', name: 'Debugger', desc: 'Reads tracebacks and patches code', model: 'dsstar-coder:16k', runs: 'On retry', override: true },
+  { id: 'router', name: 'Router', desc: 'Binary decision: add step or backtrack', model: 'dsstar-medium:8k', runs: 'Every round', override: false },
+  { id: 'finalizer', name: 'Finalizer', desc: 'Formats a known result into the output structure', model: 'dsstar-coder:16k', runs: 'Once per task', override: true },
+  { id: 'query_clarity', name: 'Query Clarity', desc: 'Classifies ambiguity + mode before every task', model: 'dsstar-medium:8k', runs: 'Before submit', override: false },
+  { id: 'analyzer', name: 'Analyzer', desc: 'Profiles each uploaded file — runs frequently', model: 'dsstar-low:8k', runs: 'Per file', override: false },
+  { id: 'question_generator', name: 'Question Generator', desc: 'Report mode — builds the sub-question set', model: 'dsstar-high:16k', runs: 'Report only', override: false },
+  { id: 'writer', name: 'Writer', desc: 'Report mode — synthesises the final report', model: 'dsstar-high:16k', runs: 'Report only', override: false },
+  { id: 'report_evaluator', name: 'Report Evaluator', desc: 'Report mode — judges draft sufficiency', model: 'dsstar-medium:8k', runs: 'Report only', override: false },
+  { id: 'gap_question_generator', name: 'Gap Question Generator', desc: 'Report mode — fills gaps on a refine round', model: 'dsstar-medium:8k', runs: 'Refine only', override: false },
+];
+
+const NAV_OVERVIEW = [ { id: 'dashboard', icon: 'i-grid', text: 'Dashboard' } ];
+const NAV_OPERATIONS = [
+  { id: 'tasks', icon: 'i-list', text: 'Tasks', count: '3' },
+  { id: 'packs', icon: 'i-package', text: 'Domain Packs' },
+  { id: 'data', icon: 'i-database', text: 'Data Manager' },
+];
+const NAV_AGENTS = [
+  { id: 'prompts', icon: 'i-terminal', text: 'Prompts' },
+  { id: 'models', icon: 'i-sliders', text: 'Model & Tiers' },
+];
+const NAV_ACCESS = [
+  { id: 'users', icon: 'i-users', text: 'Users', count: '18' },
+  { id: 'flags', icon: 'i-toggle', text: 'Feature Flags' },
+];
+const NAV_SYSTEM = [
+  { id: 'audit', icon: 'i-clock', text: 'Audit Log' },
+  { id: 'health', icon: 'i-activity', text: 'System Health' },
+];
+const PAGES = new Set(['dashboard', 'prompts', 'models', 'data']);
+
+const RAW_FILES = [
+  { name: 'transactions_data.csv', size: '34.8 MB', icon: 'i-file-csv', status: 'Profiled', statusCls: 'b-success' },
+  { name: 'cards_data.json', size: '837 KB', icon: 'i-file', status: 'Profiled', statusCls: 'b-success' },
+  { name: 'users_data.xlsx', size: '532 KB', icon: 'i-file', status: 'Profiled', statusCls: 'b-success' },
+  { name: 'lfi_data.xlsx', size: '6.3 KB', icon: 'i-file', status: 'Profiled', statusCls: 'b-success' },
+  { name: 'DATA_NOTES.md', size: '958 B', icon: 'i-file', status: 'Reference only', statusCls: 'b-neutral' },
+];
+
+const PACK_DOCS = [
+  { name: 'fatf-40-recommendations.pdf', pack: 'fraud-aml', size: '1.2 MB', chunks: 214, status: 'Indexed', statusCls: 'b-success' },
+  { name: 'cbuae-str-filing-guidelines.docx', pack: 'fraud-aml', size: '340 KB', chunks: 68, status: 'Indexed', statusCls: 'b-success' },
+  { name: 'sanctions-screening-sop.pdf', pack: 'fraud-aml', size: '890 KB', chunks: 152, status: 'Processing', statusCls: 'b-warning' },
+];
+
+// ---------------------------------------------------------------------------------------
+// State + tiny render loop — a naive "re-render everything to a string, diff-free" pattern,
+// deliberately simple since this is a reference mockup, not the real app.
+// ---------------------------------------------------------------------------------------
+
+const state = { page: 'dashboard', selectedAgent: 'finalizer', dataTab: 'raw' };
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function navItem(it) {
+  const active = it.id === state.page;
+  const disabled = !PAGES.has(it.id);
+  const cls = 'nav-item' + (active ? ' active' : '') + (disabled ? ' disabled' : '');
+  return `<button class="${cls}" data-nav="${it.id}">
+    <svg class="ic"><use href="#${it.icon}"/></svg>${esc(it.text)}
+    ${it.count ? `<span class="count">${esc(it.count)}</span>` : ''}
+  </button>`;
+}
+
+function renderSidebar() {
+  return `
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">AP</div>
+      <div class="brand-txt">
+        <div class="brand-name">Analytics Platform</div>
+        <div class="brand-tag">DS-STAR</div>
+      </div>
+      <div class="admin-chip">ADMIN</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-group"><div class="nav-label">Overview</div>${NAV_OVERVIEW.map(navItem).join('')}</div>
+      <div class="nav-group"><div class="nav-label">Operations</div>${NAV_OPERATIONS.map(navItem).join('')}</div>
+      <div class="nav-group"><div class="nav-label">Agents</div>${NAV_AGENTS.map(navItem).join('')}</div>
+      <div class="nav-group"><div class="nav-label">Access</div>${NAV_ACCESS.map(navItem).join('')}</div>
+      <div class="nav-group"><div class="nav-label">System</div>${NAV_SYSTEM.map(navItem).join('')}</div>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="avatar">AK</div>
+      <div class="who">
+        <div class="email">azharuddin@gmail.com</div>
+        <div class="role">Admin</div>
+      </div>
+      <svg class="ic" style="color:var(--n500)"><use href="#i-logout"/></svg>
+    </div>
+  </aside>`;
+}
+
+function crumbFor(page) {
+  return { dashboard: 'Dashboard', prompts: 'Agent Prompts', models: 'Model & Tier Configuration', data: 'Data Manager' }[page] || 'Dashboard';
+}
+
+function renderTopbar() {
+  return `
+    <header class="topbar">
+      <div class="crumb"><b>${crumbFor(state.page)}</b></div>
+      <div class="searchbox"><svg class="ic"><use href="#i-search"/></svg>Search…</div>
+      <div class="icon-btn"><svg class="ic"><use href="#i-bell"/></svg><div class="dot-badge"></div></div>
+      <div class="status-pill"><div class="d"></div>All systems normal</div>
+    </header>`;
+}
+
+function renderDashboard() {
+  return `
+      <div class="page-head">
+        <div>
+          <p class="page-title">Dashboard</p>
+          <p class="page-sub">Live overview of DS-STAR — system health, active work, and recent admin activity.</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-outline" data-nav="prompts"><svg class="ic"><use href="#i-terminal"/></svg>Edit prompts</button>
+          <div class="btn btn-outline"><svg class="ic"><use href="#i-clock"/></svg>Last 24 hours</div>
+          <div class="btn btn-primary"><svg class="ic"><use href="#i-plus"/></svg>Invite user</div>
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="card kpi"><div class="kpi-top"><div class="kpi-icon" style="background:var(--brand-tint);color:var(--brand-ink)"><svg class="ic"><use href="#i-list"/></svg></div><div class="kpi-trend trend-up">↑2</div></div><div class="kpi-value">3</div><div class="kpi-label">Active tasks</div></div>
+        <div class="card kpi"><div class="kpi-top"><div class="kpi-icon" style="background:var(--n100);color:var(--n600)"><svg class="ic"><use href="#i-list"/></svg></div><div class="kpi-trend trend-flat">24h</div></div><div class="kpi-value">27</div><div class="kpi-label">Total tasks</div></div>
+        <div class="card kpi"><div class="kpi-top"><div class="kpi-icon" style="background:var(--danger-bg);color:var(--danger)"><svg class="ic"><use href="#i-alert"/></svg></div><div class="kpi-trend trend-flat">stable</div></div><div class="kpi-value">1</div><div class="kpi-label">Failed (24h)</div></div>
+        <div class="card kpi"><div class="kpi-top"><div class="kpi-icon" style="background:var(--info-bg);color:var(--info)"><svg class="ic"><use href="#i-users"/></svg></div><div class="kpi-trend trend-up">↑3</div></div><div class="kpi-value">18</div><div class="kpi-label">Registered users</div></div>
+        <div class="card kpi"><div class="kpi-top"><div class="kpi-icon" style="background:var(--success-bg);color:var(--success)"><svg class="ic"><use href="#i-package"/></svg></div><div class="kpi-trend trend-flat">—</div></div><div class="kpi-value">3</div><div class="kpi-label">Domain packs</div></div>
+        <div class="card kpi"><div class="kpi-top"><div class="kpi-icon" style="background:var(--warning-bg);color:var(--warning)"><svg class="ic"><use href="#i-clock"/></svg></div><div class="kpi-trend trend-flat">2.3 rnds</div></div><div class="kpi-value">54s</div><div class="kpi-label">Avg. completion</div></div>
+      </div>
+
+      <div class="card status-strip">
+        <div class="status-seg"><div class="status-dot"></div><div><div class="status-name">Database</div><div class="status-meta">Postgres · 3ms</div></div></div>
+        <div class="status-seg"><div class="status-dot"></div><div><div class="status-name">Sandbox</div><div class="status-meta">Docker · 14ms</div></div></div>
+        <div class="status-seg"><div class="status-dot"></div><div><div class="status-name">Model</div><div class="status-meta">Ollama · localhost:11434 · 5ms</div></div></div>
+        <div class="status-seg"><div class="status-dot" style="background:var(--info);box-shadow:0 0 0 3px var(--info-bg)"></div><div><div class="status-name">Concurrency</div><div class="status-meta">1 active / 1 max</div></div></div>
+        <div class="status-seg"><div class="status-dot" style="background:var(--n500);box-shadow:0 0 0 3px var(--n100)"></div><div><div class="status-name">Speed profile</div><div class="status-meta">Free · local, no billing</div></div></div>
+      </div>
+
+      <div class="three-col">
+        <div class="card">
+          <div class="section-head"><p class="section-title">Recent activity</p><a href="#" style="font-size:11.5px;font-weight:600">View audit log</a></div>
+          <div class="activity-list">
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-edit"/></svg></div><div class="activity-body"><div class="activity-text"><b>azharuddin@gmail.com</b> edited the Finalizer prompt</div><div class="activity-meta">6 minutes ago</div></div></div>
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-check-circle"/></svg></div><div class="activity-body"><div class="activity-text">Task <span class="mono">396e9e91</span> completed in 3 rounds</div><div class="activity-meta">18 minutes ago</div></div></div>
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-sliders"/></svg></div><div class="activity-body"><div class="activity-text"><b>azharuddin@gmail.com</b> switched Coder model to <span class="mono">dsstar-coder:16k</span></div><div class="activity-meta">1 hour ago</div></div></div>
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-upload"/></svg></div><div class="activity-body"><div class="activity-text">3 documents uploaded to <b>fraud-aml</b> domain pack</div><div class="activity-meta">2 hours ago</div></div></div>
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-alert"/></svg></div><div class="activity-body"><div class="activity-text">Finalizer script failed once, recovered on retry</div><div class="activity-meta">3 hours ago</div></div></div>
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-toggle"/></svg></div><div class="activity-body"><div class="activity-text"><b>azharuddin@gmail.com</b> enabled feature flag <span class="mono">domain_packs</span></div><div class="activity-meta">Yesterday</div></div></div>
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-file"/></svg></div><div class="activity-body"><div class="activity-text"><b>azharuddin@gmail.com</b> uploaded <span class="mono">transactions_data.csv</span></div><div class="activity-meta">Yesterday</div></div></div>
+            <div class="activity-row"><div class="activity-icon"><svg class="ic"><use href="#i-users"/></svg></div><div class="activity-body"><div class="activity-text">New user <b>fatima.k@gmail.com</b> signed in for the first time</div><div class="activity-meta">2 days ago</div></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-head"><p class="section-title">Recent tasks</p><span class="section-count">6</span></div>
+          <table>
+            <thead><tr><th>Query</th><th>Status</th><th>Rnd</th></tr></thead>
+            <tbody>
+              <tr><td><span class="truncate">Which LFI has the highest number of transactions?</span></td><td><span class="badge b-success">Complete</span></td><td class="mono">3/3</td></tr>
+              <tr><td><span class="truncate">Which emirate has the most approved transactions?</span></td><td><span class="badge b-success">Complete</span></td><td class="mono">1/3</td></tr>
+              <tr><td><span class="truncate">Show me structuring transactions clustered…</span></td><td><span class="badge b-info">Running</span></td><td class="mono">2/3</td></tr>
+              <tr><td><span class="truncate">Which customer segments are most associated…</span></td><td><span class="badge b-neutral">Queued</span></td><td class="mono">—</td></tr>
+              <tr><td><span class="truncate">Compare STR filing rates across AML typologies</span></td><td><span class="badge b-neutral">Queued</span></td><td class="mono">—</td></tr>
+              <tr><td><span class="truncate">Which exchange houses show highest concentration…</span></td><td><span class="badge b-danger">Failed</span></td><td class="mono">3/3</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="section-head"><p class="section-title">Quick actions</p></div>
+          <div class="quick-actions">
+            <button class="qa-row" data-nav="prompts"><div class="qa-icon"><svg class="ic"><use href="#i-terminal"/></svg></div><div class="qa-text"><div class="qa-title">Edit prompts</div><div class="qa-sub">12 agents</div></div></button>
+            <button class="qa-row" data-nav="models"><div class="qa-icon"><svg class="ic"><use href="#i-sliders"/></svg></div><div class="qa-text"><div class="qa-title">Models &amp; tiers</div><div class="qa-sub">4 Ollama tags</div></div></button>
+            <button class="qa-row" data-nav="data"><div class="qa-icon"><svg class="ic"><use href="#i-database"/></svg></div><div class="qa-text"><div class="qa-title">Manage data</div><div class="qa-sub">5 files</div></div></button>
+            <div class="qa-row"><div class="qa-icon"><svg class="ic"><use href="#i-users"/></svg></div><div class="qa-text"><div class="qa-title">Invite user</div><div class="qa-sub">Google sign-in</div></div></div>
+          </div>
+        </div>
+      </div>`;
+}
+
+function renderPrompts() {
+  const sel = AGENT_DEFS.find(a => a.id === state.selectedAgent) || AGENT_DEFS[0];
+  const selTm = TIER_META[sel.tier];
+  const agentRows = AGENT_DEFS.map(a => {
+    const tm = TIER_META[a.tier];
+    const active = a.id === state.selectedAgent;
+    return `<button class="agent-row${active ? ' active' : ''}" data-agent="${a.id}">
+      <span class="agent-tier-dot" style="background:${tm.color}"></span>
+      <span class="agent-text">
+        <span class="agent-name-row">
+          <span class="agent-name">${esc(a.name)}</span>
+          ${a.modified ? '<span class="mod-dot" title="Modified"></span>' : ''}
+          <span class="badge ${tm.badgeCls}">${tm.label}</span>
+        </span>
+        <span class="agent-list-desc">${esc(a.desc)}</span>
+      </span>
+    </button>`;
+  }).join('');
+
+  return `
+      <div class="page-head">
+        <div>
+          <p class="page-title">Agent Prompts</p>
+          <p class="page-sub">Edit the system prompt each agent runs with. Changes apply to the next task — no restart needed.</p>
+        </div>
+        <div class="page-actions"><button class="btn btn-outline" data-nav="models"><svg class="ic"><use href="#i-sliders"/></svg>Model &amp; tiers</button></div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span>6 High tier</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--info)"></span>5 Medium tier</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--n400)"></span>1 Low tier</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--warning)"></span>1 modified from default</div>
+      </div>
+      <div class="prompt-layout">
+        <div class="card agent-list">${agentRows}</div>
+        <div class="card editor-card">
+          <div class="editor-head">
+            <div class="editor-title">${esc(sel.name)}</div>
+            <span class="badge ${selTm.badgeCls}">${selTm.label} tier</span>
+            ${sel.modified ? '<span class="badge b-warning">Modified · 6m ago</span>' : ''}
+            <div class="editor-meta">${esc(sel.runNote)}</div>
+          </div>
+          <div class="editor-body"><div class="prompt-box">${esc(sel.prompt)}</div></div>
+          <div class="editor-foot">
+            <div class="hint">${sel.modified ? 'Edited by azharuddin@gmail.com · 6 minutes ago' : 'Using the built-in default — never edited'}</div>
+            <div class="btn btn-ghost"><svg class="ic"><use href="#i-rotate"/></svg>Reset to default</div>
+            <div class="btn btn-primary">Save changes</div>
+          </div>
+        </div>
+      </div>`;
+}
+
+function renderModels() {
+  const rows = MODEL_ROWS.map(r => {
+    const def = AGENT_DEFS.find(a => a.id === r.id);
+    const tm = TIER_META[def.tier];
+    return `<tr>
+      <td><div class="agent-cell">${esc(r.name)}</div><div class="agent-desc">${esc(r.desc)}</div></td>
+      <td><span class="badge ${tm.badgeCls}">${tm.label}</span></td>
+      <td><span class="model-chip">${esc(r.model)}<svg class="ic chev"><use href="#i-chevron-down"/></svg></span> ${r.override ? '<span class="override-tag">override</span>' : ''}</td>
+      <td>${esc(r.runs)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+      <div class="page-head">
+        <div>
+          <p class="page-title">Model &amp; Tier Configuration</p>
+          <p class="page-sub">Which model powers each agent, and at what quality tier. Backed by a local Ollama server.</p>
+        </div>
+        <div class="page-actions"><button class="btn btn-outline" data-nav="prompts"><svg class="ic"><use href="#i-terminal"/></svg>Edit prompts</button></div>
+      </div>
+      <div class="summary-row">
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--success-bg);color:var(--success)"><svg class="ic"><use href="#i-check-circle"/></svg></div><div><div class="summary-label">Ollama connection</div><div class="summary-value">Connected · localhost:11434</div></div></div>
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--info-bg);color:var(--info)"><svg class="ic"><use href="#i-layers"/></svg></div><div><div class="summary-label">Speed profile</div><div class="summary-value">Free (local, no billing)</div></div></div>
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--brand-tint);color:var(--brand-ink)"><svg class="ic"><use href="#i-cpu"/></svg></div><div><div class="summary-label">Loaded tags</div><div class="summary-value">4 · dsstar-high/medium/low/coder</div></div></div>
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--n100);color:var(--n600)"><svg class="ic"><use href="#i-sliders"/></svg></div><div><div class="summary-label">Tier split</div><div class="summary-value">6 High · 5 Medium · 1 Low</div></div></div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Agent</th><th>Tier</th><th>Model</th><th>Runs</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+}
+
+function renderData() {
+  const rawRows = RAW_FILES.map(f => `<tr>
+    <td><div class="file-cell"><div class="file-icon"><svg class="ic"><use href="#${f.icon}"/></svg></div><div><div class="file-name">${esc(f.name)}</div><div class="file-path">/workspace/data/${esc(f.name)}</div></div></div></td>
+    <td class="mono">${esc(f.size)}</td>
+    <td>Today, 11:38</td>
+    <td><span class="badge ${f.statusCls}">${esc(f.status)}</span></td>
+    <td><span class="action-btn"><svg class="ic"><use href="#i-eye"/></svg></span><span class="action-btn"><svg class="ic"><use href="#i-trash"/></svg></span></td>
+  </tr>`).join('');
+
+  const docRows = PACK_DOCS.map(d => `<tr>
+    <td><div class="file-cell"><div class="file-icon"><svg class="ic"><use href="#i-file"/></svg></div><div><div class="file-name">${esc(d.name)}</div></div></div></td>
+    <td class="mono">${esc(d.pack)}</td>
+    <td class="mono">${esc(d.size)}</td>
+    <td class="mono">${d.chunks}</td>
+    <td><span class="badge ${d.statusCls}">${esc(d.status)}</span></td>
+    <td><span class="action-btn"><svg class="ic"><use href="#i-eye"/></svg></span><span class="action-btn"><svg class="ic"><use href="#i-trash"/></svg></span></td>
+  </tr>`).join('');
+
+  return `
+      <div class="page-head">
+        <div>
+          <p class="page-title">Data Manager</p>
+          <p class="page-sub">Files available to the sandbox and the domain-pack knowledge base.</p>
+        </div>
+        <div class="btn btn-primary"><svg class="ic"><use href="#i-upload"/></svg>Upload file</div>
+      </div>
+      <div class="summary-row">
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--success-bg);color:var(--success)"><svg class="ic"><use href="#i-database"/></svg></div><div><div class="summary-label">Raw data files</div><div class="summary-value">5 files · 36 MB</div></div></div>
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--brand-tint);color:var(--brand-ink)"><svg class="ic"><use href="#i-package"/></svg></div><div><div class="summary-label">Domain packs</div><div class="summary-value">3 active</div></div></div>
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--info-bg);color:var(--info)"><svg class="ic"><use href="#i-file"/></svg></div><div><div class="summary-label">Pack documents</div><div class="summary-value">3 in fraud-aml</div></div></div>
+        <div class="card summary-chip"><div class="summary-icon" style="background:var(--n100);color:var(--n600)"><svg class="ic"><use href="#i-clock"/></svg></div><div><div class="summary-label">Last upload</div><div class="summary-value">Today, 11:38</div></div></div>
+      </div>
+      <div class="tabs">
+        <button class="tab${state.dataTab === 'raw' ? ' active' : ''}" data-tab="raw">Raw Data Files</button>
+        <button class="tab${state.dataTab === 'docs' ? ' active' : ''}" data-tab="docs">Domain Pack Documents</button>
+      </div>
+      <div class="dropzone">
+        <div class="dz-icon"><svg class="ic"><use href="#i-upload"/></svg></div>
+        <div><div class="dz-title">Drag files here or browse</div><div class="dz-sub">CSV, XLSX, JSON, PDF, DOCX — mounted read-only into the sandbox at /workspace/data</div></div>
+        <div class="btn btn-outline" style="margin-left:auto">Browse files</div>
+      </div>
+      ${state.dataTab === 'raw' ? `
+      <div class="card"><table><thead><tr><th>File</th><th>Size</th><th>Modified</th><th>Status</th><th></th></tr></thead><tbody>${rawRows}</tbody></table></div>
+      ` : `
+      <div class="card"><table><thead><tr><th>Document</th><th>Pack</th><th>Size</th><th>Chunks</th><th>Status</th><th></th></tr></thead><tbody>${docRows}</tbody></table></div>
+      `}`;
+}
+
+function renderContent() {
+  if (state.page === 'prompts') return renderPrompts();
+  if (state.page === 'models') return renderModels();
+  if (state.page === 'data') return renderData();
+  return renderDashboard();
+}
+
+function render() {
+  document.getElementById('app').innerHTML = `
+    <div class="shell">
+      ${renderSidebar()}
+      <div class="main">
+        ${renderTopbar()}
+        <div class="content">${renderContent()}</div>
+      </div>
+    </div>`;
+}
+
+document.getElementById('app').addEventListener('click', (e) => {
+  const navBtn = e.target.closest('[data-nav]');
+  if (navBtn) {
+    const id = navBtn.dataset.nav;
+    if (PAGES.has(id)) { state.page = id; render(); }
+    return;
+  }
+  const agentBtn = e.target.closest('[data-agent]');
+  if (agentBtn) { state.selectedAgent = agentBtn.dataset.agent; render(); return; }
+  const tabBtn = e.target.closest('[data-tab]');
+  if (tabBtn) { state.dataTab = tabBtn.dataset.tab; render(); return; }
+});
+
+render();
+</script>
+</body>
+</html>

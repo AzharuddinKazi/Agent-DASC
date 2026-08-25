@@ -22,7 +22,8 @@ CODER_INIT = """# Given data:
 - For CSV files: default separator is comma. Only try others if comma fails
 - Never use shell commands (!head, !cat, etc.) — pure Python only
 - Always print results to stdout so they can be captured
-- ALWAYS use nrows=10000 when loading any CSV file — no exceptions
+- Read the full file — no row limit — unless it's larger than a few hundred MB, in
+  which case pass nrows=100000 to stay comfortably within the sandbox's memory
 - Never nest an f-string inside another f-string's expression with escaped quotes
   (e.g. f"...{{', '.join([f'{{row[\"X\"]}}' for _, row in df.iterrows()])}}...") — this
   is invalid Python syntax. Build the inner strings in a separate variable/list first
@@ -58,7 +59,8 @@ Your task is to implement the next plan with the given data.
 - For CSV files: default separator is comma. Only try others if comma fails
 - Never use shell commands — pure Python only
 - Always print results to stdout so they can be captured
-- ALWAYS use nrows=10000 when loading any CSV file — no exceptions
+- Read the full file — no row limit — unless it's larger than a few hundred MB, in
+  which case pass nrows=100000 to stay comfortably within the sandbox's memory
 - Never nest an f-string inside another f-string's expression with escaped quotes
   (e.g. f"...{{', '.join([f'{{row[\"X\"]}}' for _, row in df.iterrows()])}}...") — this
   is invalid Python syntax. Build the inner strings in a separate variable/list first

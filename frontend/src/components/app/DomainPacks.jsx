@@ -293,7 +293,7 @@ function PackDetailModal({ pack, onClose, onToggleActive, togglingId }) {
   )
 }
 
-export default function DomainPacks({ onNew, onSelect }) {
+export default function DomainPacks({ onNew, onSelect, onData }) {
   const [packs, setPacks]     = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState("")
@@ -337,7 +337,7 @@ export default function DomainPacks({ onNew, onSelect }) {
 
       {/* Permanent sidebar (desktop) */}
       <div className="hidden md:flex w-64 shrink-0 border-r border-border flex-col bg-sidebar">
-        <Sidebar onNew={onNew} currentTaskId={null} onSelect={onSelect} onDomainPacks={() => {}} activeView="domainPacks" />
+        <Sidebar onNew={onNew} currentTaskId={null} onSelect={onSelect} onDomainPacks={() => {}} onData={onData} activeView="domainPacks" />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -353,7 +353,7 @@ export default function DomainPacks({ onNew, onSelect }) {
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0 border-r border-border bg-sidebar" showCloseButton={false}>
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={onSelect} onDomainPacks={() => setDrawerOpen(false)} activeView="domainPacks" />
+                <Sidebar onNew={() => setDrawerOpen(false)} currentTaskId={null} onSelect={onSelect} onDomainPacks={() => setDrawerOpen(false)} onData={() => { onData(); setDrawerOpen(false) }} activeView="domainPacks" />
               </SheetContent>
             </Sheet>
             <h1 className="text-heading text-foreground leading-none">Domain Packs</h1>

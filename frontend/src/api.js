@@ -1,15 +1,10 @@
 import axios from "axios"
-import { supabase } from "./lib/supabaseClient"
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
-const API = axios.create({ baseURL: API_BASE })
-
-API.interceptors.request.use(async config => {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+// withCredentials: the `session` cookie real Google login sets (see auth.py) is
+// cross-origin (frontend :5174, backend :8000) — without this, the browser never sends or
+// accepts it, and every authenticated request would silently 401.
+const API = axios.create({ baseURL: API_BASE, withCredentials: true })
 
 export const submitTask  = (query, formatting_guidelines, task_type = "qa", require_human_review = false, domain_pack_id = null) =>
   API.post("/api/v1/submit_task", { query, formatting_guidelines, task_type, require_human_review, domain_pack_id })
@@ -25,6 +20,10 @@ export const clarifyTask = (query, task_type = "qa", domain_pack_id = null) =>
   API.post("/api/v1/clarify_task", { query, task_type, domain_pack_id }, { timeout: 15000 })
 export const getTasks    = () => API.get("/api/v1/get_tasks")
 export const getTask     = (id) => API.get(`/api/v1/get_task/${id}`)
+// Blob response — the file needs the session cookie (withCredentials, see API above), so
+// this can't just be a plain <a href> like domainPackDownloadUrl below; the caller turns
+// the blob into an object URL and triggers the download itself (see ReportView.jsx).
+export const exportReportDocx = (id) => API.get(`/api/v1/get_task/${id}/export.docx`, { responseType: "blob" })
 export const stopTask    = (id) => API.post(`/api/v1/tasks/${id}/stop`)
 export const pauseTask   = (id) => API.post(`/api/v1/tasks/${id}/pause`)
 export const resumeTask  = (id) => API.post(`/api/v1/tasks/${id}/resume`)
@@ -62,6 +61,28 @@ export const unbanUser     = (id) => API.post(`/api/v1/admin/users/${id}/unban`)
 export const getAdminList  = () => API.get("/api/v1/admin/admins")
 
 export const getAdminSystem = () => API.get("/api/v1/admin/system")
+
+export const loginWithGoogle = (credential) => API.post("/api/v1/auth/google", { credential })
+export const loginAsGuest    = (name) => API.post("/api/v1/auth/guest", { name })
+export const getLoginOptions = () => API.get("/api/v1/auth/login_options")
+export const logout          = () => API.post("/api/v1/auth/logout")
+export const getMe           = () => API.get("/api/v1/auth/me")
+
+export const getAdminPrompts   = () => API.get("/api/v1/admin/prompts")
+export const setAdminPrompt    = (agent, prompt_text) => API.put(`/api/v1/admin/prompts/${agent}`, { prompt_text })
+export const resetAdminPrompt  = (agent) => API.post(`/api/v1/admin/prompts/${agent}/reset`)
+
+export const getAdminModels        = () => API.get("/api/v1/admin/models")
+export const setAdminModelOverride = (agent, model_id) => API.put(`/api/v1/admin/models/${agent}`, { model_id })
+export const setLlmSpeedProfile    = (profile) => API.post("/api/v1/llm_speed_profile", { profile })
+
+export const getAdminDocuments = () => API.get("/api/v1/admin/documents")
+export const getAdminDataFiles = () => API.get("/api/v1/admin/data-files")
+
+// Demo-mode equivalents — same data, open to every signed-in user, but only while an
+// admin has demo_mode toggled on (see useFeatureFlags). 403s otherwise.
+export const getDemoDataFiles = () => API.get("/api/v1/demo/data-files")
+export const getDemoDocuments = () => API.get("/api/v1/demo/documents")
 
 export const getPackDocuments = (packId) => API.get(`/api/v1/domain_packs/${packId}/documents`)
 export const uploadPackDocument = (packId, file) => {

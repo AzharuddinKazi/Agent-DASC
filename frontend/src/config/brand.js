@@ -20,15 +20,20 @@ export const brand = {
     { icon: ShieldCheck,  label: "Data Quality"      },
   ],
 
-  // Example queries shown on the New Analysis screen. type is "qa" (quick analysis) or
-  // "report" (multi-step research report).
+  // Example queries shown on the New Analysis screen, filtered by the active mode tab.
+  // type is "qa" (quick analysis / Insight) or "report" (multi-step research report).
+  // Written against the shape of the sample UAE fraud/AML dataset
+  // (backend/generate_synthetic_data.py) — swap these out for a different domain.
   templates: [
-    { icon: BarChart2,     color: "blue",   type: "qa",     text: "Which entities have the highest value in [metric] this quarter?" },
-    { icon: TrendingUp,    color: "blue",   type: "qa",     text: "Show me trends by category over the past 12 months." },
-    { icon: AlertTriangle, color: "blue",   type: "qa",     text: "Which records are statistical outliers on [metric]?" },
-    { icon: FileText,      color: "purple", type: "report", text: "Generate a thematic analysis of [topic] growth over the past year." },
-    { icon: BookOpen,      color: "purple", type: "report", text: "Produce a sector-wide trend report suitable for a stakeholder briefing." },
-    { icon: Search,        color: "amber",  type: "qa",     text: "Which entities have declining [metric] compared to the prior period?" },
+    { icon: BarChart2,     color: "blue",   type: "qa",     text: "Which LFIs have the highest share of suspicious transactions relative to their total volume?" },
+    { icon: Flag,          color: "blue",   type: "qa",     text: "Show me structuring transactions clustered just under the AED 55,000 reporting threshold." },
+    { icon: AlertTriangle, color: "blue",   type: "qa",     text: "Which customer segments (nationality, income band) are most associated with remittance structuring?" },
+    { icon: Search,        color: "amber",  type: "qa",     text: "Which PEP-flagged customers have unusually large or irregular wire transfers?" },
+    { icon: Table2,        color: "blue",   type: "qa",     text: "Compare STR filing rates across AML typologies — which categories are under-reported?" },
+    { icon: ShieldCheck,   color: "amber",  type: "qa",     text: "Which exchange houses show the highest concentration of crypto off-ramp cash withdrawals?" },
+    { icon: FileText,      color: "purple", type: "report", text: "Produce a supervisory report on trade-based money laundering exposure across free-zone corporate accounts." },
+    { icon: BookOpen,      color: "purple", type: "report", text: "Generate a thematic analysis of fraud and AML typology trends across institutions and emirates in 2025." },
+    { icon: TrendingUp,    color: "purple", type: "report", text: "Assess KYC and onboarding-channel risk gaps across the customer base and recommend remediation priorities." },
   ],
 
   // Labels for the two pipeline modes (quick analysis vs. multi-step report).

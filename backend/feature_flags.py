@@ -18,6 +18,10 @@ from db import supabase
 # to touch).
 KNOWN_FEATURES = {
     "domain_packs": True,
+    # Off by default — exposes a read-only "what data is already loaded" view to every
+    # signed-in user (not just admins), for demoing the app to people who'd otherwise have
+    # to be told by hand what's in it. See main.py's demo_data / demo_documents.
+    "demo_mode": False,
 }
 
 

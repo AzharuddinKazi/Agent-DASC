@@ -6,10 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Users as UsersIcon, ShieldAlert } from "lucide-react"
 
-function isBanned(user) {
-  return !!user.banned_until && new Date(user.banned_until) > new Date()
-}
-
 export default function AdminUsersPanel() {
   const [users, setUsers]     = useState([])
   const [admins, setAdmins]   = useState(null)
@@ -35,7 +31,7 @@ export default function AdminUsersPanel() {
   const handleToggleBan = async user => {
     setBusyId(user.id)
     try {
-      await (isBanned(user) ? unbanUser(user.id) : banUser(user.id))
+      await (user.is_banned ? unbanUser(user.id) : banUser(user.id))
       await load()
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || "Action failed")
@@ -72,42 +68,54 @@ export default function AdminUsersPanel() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Name / Email</TableHead>
+                  <TableHead>Sign-in</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead>Last sign-in</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map(user => {
-                  const banned = isBanned(user)
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell className="text-caption text-muted-foreground">
-                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
-                      </TableCell>
-                      <TableCell className="text-caption text-muted-foreground">
-                        {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : "Never"}
-                      </TableCell>
-                      <TableCell>
-                        {banned
-                          ? <Badge variant="outline" className="bg-danger/10 text-danger border-danger/30">Banned</Badge>
-                          : <Badge variant="outline" className="bg-success/10 text-success border-success/30">Active</Badge>}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm" variant={banned ? "outline" : "destructive"}
-                          disabled={busyId === user.id}
-                          onClick={() => handleToggleBan(user)}
-                        >
-                          {banned ? "Unban" : "Ban"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                {users.map(user => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="font-medium text-foreground">{user.name || "—"}</div>
+                      {user.email && (
+                        <div className="text-caption text-muted-foreground">{user.email}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {user.auth_provider === "guest"
+                        ? <Badge variant="outline">Guest</Badge>
+                        : <Badge variant="outline">Google</Badge>}
+                    </TableCell>
+                    <TableCell className="text-caption text-muted-foreground">
+                      {user.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
+                    </TableCell>
+                    <TableCell className="text-caption text-muted-foreground">
+                      {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : "Never"}
+                    </TableCell>
+                    <TableCell>
+                      {user.is_admin && <Badge variant="outline">Admin</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      {user.is_banned
+                        ? <Badge variant="outline" className="bg-danger/10 text-danger border-danger/30">Banned</Badge>
+                        : <Badge variant="outline" className="bg-success/10 text-success border-success/30">Active</Badge>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm" variant={user.is_banned ? "outline" : "destructive"}
+                        disabled={busyId === user.id}
+                        onClick={() => handleToggleBan(user)}
+                      >
+                        {user.is_banned ? "Unban" : "Ban"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}

@@ -4,7 +4,9 @@ import subprocess
 import tempfile
 from agents.state import TaskState
 from agents.code_fences import strip_code_fences
+from agents.executor import SANDBOX_MEMORY_LIMIT
 from agents.logger import log_event
+from agents.prompt_store import get_prompt
 from db import supabase
 from llm_router import LLMRouter
 
@@ -23,7 +25,6 @@ If nrows is not 'all', use pd.read_csv('/workspace/data/{filename}', nrows={nrow
 # Requirements
 - Print all column names and their data types for structured data
 - Print the shape (rows, columns) of the data
-- Use nrows=5000 when loading any CSV to avoid memory issues
 - Print the first 5 rows
 - Print basic statistics (null counts, unique values for key columns)
 - For CSV files, try comma as separator first, then semicolon, then tab
@@ -42,8 +43,13 @@ If nrows is not 'all', use pd.read_csv('/workspace/data/{filename}', nrows={nrow
 
 def analyze_file(filename: str, filepath: str, task_id: str) -> str:
     file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
-    nrows = 10000 if file_size_mb > 50 else None
-    prompt = ANALYZER_PROMPT.format(filename=filename, nrows=nrows or "all")
+    # Threshold scales with SANDBOX_MEMORY_LIMIT's headroom (executor.py) — was 50MB
+    # when the sandbox was capped at 2GB, raised alongside it. Still capped rather than
+    # removed outright: this step's only job is a quick profile/preview, not the final
+    # aggregate answer, so a very large file gains nothing from a full read here even
+    # with memory to spare.
+    nrows = 10000 if file_size_mb > 300 else None
+    prompt = get_prompt("analyzer", ANALYZER_PROMPT).format(filename=filename, nrows=nrows or "all")
 
     result = router.complete(agent="analyzer", prompt=prompt, task_id=task_id)
     script = strip_code_fences(result["text"].strip())
@@ -51,13 +57,17 @@ def analyze_file(filename: str, filepath: str, task_id: str) -> str:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(script)
         script_path = f.name
+    # See agents/executor.py's execute_script for why this is needed: NamedTemporaryFile
+    # always creates the file mode 0600, which the sandbox's non-root UID 1000 can't read
+    # through the :ro mount below when this process runs containerized as root.
+    os.chmod(script_path, 0o644)
 
     try:
         exec_result = subprocess.run(
             [
                 "docker", "run", "--rm",
                 "--network=none",
-                "--memory=2g",
+                f"--memory={SANDBOX_MEMORY_LIMIT}",
                 "-v", f"{os.getenv('DSSTAR')}/data:/workspace/data:ro",
                 "-v", f"{script_path}:/workspace/scripts/analyze.py:ro",
                 "dsstar-sandbox:latest",

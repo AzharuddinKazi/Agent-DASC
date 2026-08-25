@@ -1,6 +1,7 @@
 import logging
 from agents.state import TaskState
 from agents.logger import log_event
+from agents.prompt_store import get_prompt
 from llm_router import LLMRouter
 from db import supabase
 
@@ -78,7 +79,7 @@ def report_evaluator(state: TaskState) -> dict:
         for i, sq in enumerate(sub_questions)
     ) or "None recorded."
 
-    prompt = REPORT_EVALUATOR_PROMPT.format(
+    prompt = get_prompt("report_evaluator", REPORT_EVALUATOR_PROMPT).format(
         question=question,
         hypotheses=hypotheses_text,
         report=draft_report,

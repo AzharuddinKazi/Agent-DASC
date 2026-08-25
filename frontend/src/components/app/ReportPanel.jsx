@@ -1,16 +1,13 @@
-import { useState } from "react"
 import ReportSections from "./ReportSections.jsx"
 import ReportView from "./ReportView.jsx"
 import PipelineHeader from "./PipelineHeader.jsx"
 import PipelineTimeline from "./PipelineTimeline.jsx"
 import ResearchProgress from "./ResearchProgress.jsx"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, MessageSquare, CircleStop, PauseCircle, ClipboardCheck } from "lucide-react"
+import { AlertTriangle, CircleStop, PauseCircle, ClipboardCheck } from "lucide-react"
 
 export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = false, onReviewDecision, isReviewSubmitting = false }) {
-  const [steerText, setSteerText] = useState("")
   const isReport  = task?.task_type === "report"
 
   if (task?.status === "completed" && task?.final_result) {
@@ -66,12 +63,6 @@ export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = 
   }
 
   /* Loading / paused state */
-  const handleSteerSubmit = (e) => {
-    e.preventDefault()
-    // Not yet wired to the backend — the pipeline has no mid-run steering endpoint.
-    // Kept as a visible, honestly-disabled affordance until that lands.
-  }
-
   // The task row has no live "current_round" column — cumulative_plan grows by one
   // entry per completed planner round, so its length is the best live proxy.
   const currentRound = task?.cumulative_plan?.length || 0
@@ -147,22 +138,6 @@ export default function ReportPanel({ task, query, onFollowUp, isFollowUpBusy = 
           <PipelineTimeline logs={task?.logs || []} currentScript={task?.current_script} />
         </>
       )}
-
-      <form onSubmit={handleSteerSubmit}>
-        <Card className="border-dashed">
-          <CardContent className="p-2.5 flex items-center gap-2">
-            <MessageSquare className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-1.5" />
-            <Input
-              value={steerText}
-              onChange={e => setSteerText(e.target.value)}
-              placeholder="Steer the analysis (optional) — not yet available mid-run"
-              disabled
-              className="border-none bg-transparent shadow-none focus-visible:ring-0 h-8 text-sm"
-            />
-            <Button type="submit" disabled size="sm" variant="outline" className="shrink-0">Send</Button>
-          </CardContent>
-        </Card>
-      </form>
     </div>
   )
 }

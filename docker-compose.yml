@@ -3,10 +3,61 @@
 #   docker build -t dsstar-sandbox:latest ./sandbox
 
 services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dsstar_local_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # Published for two reasons: a host-side `uv run uvicorn` dev session (LangGraph's
+    # checkpointer needs a direct Postgres connection, not PostgREST — see backend/.env's
+    # SUPABASE_DB_URL), and so `psql`/pg_dump-style tooling can reach it without exec-ing
+    # into the container.
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgrest:
+    image: postgrest/postgrest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgresql://postgres:${POSTGRES_PASSWORD:-dsstar_local_dev}@postgres:5432/postgres
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: dsstar_app
+      # supabase-py always sends an `Authorization: Bearer <key>` header — verified live
+      # that PostgREST 500s ("Server lacks JWT secret", PGRST300) on any request carrying
+      # that header if this is unset, so leaving it unset (the original plan here) doesn't
+      # work. Instead: a real secret, and backend/.env's SUPABASE_ANON_KEY/SERVICE_KEY are
+      # JWTs signed with it carrying `{"role": "dsstar_app"}` — see TASKS.md "The
+      # auth-removal mechanism" for how that JWT was generated and why one fixed role for
+      # every request is still correct for a single-local-user deployment.
+      PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:-dsstar_local_dev_jwt_secret_do_not_use_in_prod}
+    ports: ["3001:3000"]
+
+  # Path-rewriting shim so supabase-py's hardcoded `/rest/v1/...` requests reach plain
+  # PostgREST's root-level routes. See postgrest-gateway/nginx.conf.
+  postgrest-gateway:
+    image: nginx:alpine
+    depends_on: [postgrest]
+    volumes:
+      - ./postgrest-gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # Published so a host-side `uv run uvicorn` dev session (see backend/README) can reach
+    # it too, same as postgres/postgrest's own published ports.
+    ports: ["3002:3000"]
+
   backend:
     build: ./backend
     ports: ["8000:8000"]
     env_file: ./backend/.env
+    depends_on:
+      postgrest-gateway:
+        condition: service_started
     environment:
       DSSTAR: ${PWD}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5174}
@@ -27,11 +78,18 @@ services:
       - ${PWD}/.dsstar-tmp:${PWD}/.dsstar-tmp
 
   frontend:
+    # No build `args` here on purpose — Vite reads frontend/.env directly (Dockerfile
+    # COPYs it into the build context before `npm run build`), and that's the *only*
+    # source honored: previously this block also passed VITE_API_BASE/VITE_GOOGLE_CLIENT_ID
+    # as build args from this file's own (usually-unset) shell/.env substitution, and
+    # Vite's loadEnv gives real env vars priority over .env file values — so the
+    # empty-string ARG defaults silently overrode a correctly-set frontend/.env every
+    # time, always as an empty VITE_GOOGLE_CLIENT_ID. Set values in frontend/.env instead
+    # (see frontend/.env.example) — same rule backend/.env already follows.
     build:
       context: ./frontend
-      args:
-        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
-        VITE_SUPABASE_URL: ${SUPABASE_URL}
-        VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     ports: ["5174:80"]
     depends_on: [backend]
+
+volumes:
+  pgdata:

@@ -31,3 +31,20 @@ def test_handles_single_line_fenced_block():
 def test_handles_fence_with_no_content():
     text = "```python\n```"
     assert strip_code_fences(text) == ""
+
+
+def test_strips_bracket_python_tags():
+    """Observed from qwen/qwen3-coder-next 2026-08-23 — see TASKS.md. A leaked
+    trailing [/python] becomes a real SyntaxError in the executed script otherwise."""
+    text = "[python]\nprint(1)\nprint(2)\n[/python]"
+    assert strip_code_fences(text) == "print(1)\nprint(2)"
+
+
+def test_strips_bracket_python_tags_case_insensitively():
+    text = "[PYTHON]\nprint(1)\n[/PYTHON]"
+    assert strip_code_fences(text) == "print(1)"
+
+
+def test_does_not_drop_last_line_when_closing_bracket_tag_is_missing():
+    text = "[python]\nprint(1)\nprint(2)"
+    assert strip_code_fences(text) == "print(1)\nprint(2)"
